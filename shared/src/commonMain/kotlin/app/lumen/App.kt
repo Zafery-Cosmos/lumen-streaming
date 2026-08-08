@@ -77,6 +77,8 @@ fun App() {
     }
 
     LumenTheme {
+      // Box racine : le bandeau de mise a jour flotte au-dessus de tout.
+      Box(Modifier.fillMaxSize()) {
         val step by flow.step.collectAsState()
         val root = when {
             restoring -> RootState.Splash
@@ -167,6 +169,15 @@ fun App() {
                 }
             }
         }
+
+        // Bandeau de mise a jour : visible partout, meme avant connexion.
+        androidx.compose.foundation.layout.Box(
+            Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            app.lumen.ui.update.UpdateBanner(client)
+        }
+      }
     }
 }
 
