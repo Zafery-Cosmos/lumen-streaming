@@ -61,7 +61,7 @@ import coil3.compose.AsyncImage
 
 /** Ce que la fiche a réussi à charger. */
 private sealed interface DetailData {
-    data class Jellyfin(val item: BaseItem, val seasons: List<BaseItem>) : DetailData
+    data class Jellyfin(val item: BaseItem) : DetailData
     data class Tmdb(val detail: TmdbDetail) : DetailData
     data object Failed : DetailData
 }
@@ -85,11 +85,7 @@ fun DetailScreen(
             when {
                 mediaId.startsWith("jf:") -> {
                     val id = mediaId.removePrefix("jf:")
-                    val item = client.item(session.baseUrl, session.userId, id)
-                    val seasons = if (item.type == "Series") {
-                        client.seasons(session.baseUrl, session.userId, id).items
-                    } else emptyList()
-                    DetailData.Jellyfin(item, seasons)
+                    DetailData.Jellyfin(client.item(session.baseUrl, session.userId, id))
                 }
                 mediaId.startsWith("tmdb:") -> {
                     val (_, type, id) = mediaId.split(":")
@@ -106,7 +102,7 @@ fun DetailScreen(
                 color = LumenColors.Accent,
                 modifier = Modifier.align(Alignment.Center).size(36.dp),
             )
-            is DetailData.Jellyfin -> JellyfinDetail(client, tmdb, session, d.item, d.seasons, onPlay)
+            is DetailData.Jellyfin -> JellyfinDetail(client, tmdb, session, d.item, onPlay)
             is DetailData.Tmdb -> TmdbDetailBody(d.detail)
             is DetailData.Failed -> Text(
                 "Impossible de charger cette fiche.",
@@ -138,61 +134,107 @@ fun DetailScreen(
 
 // --- Fiche Jellyfin (lisible) ---------------------------------------------
 
+/** Un épisode Jellyfin replacé à sa vraie position (via TMDB si mal rangé). */
+private data class OrganizedEpisode(
+    val ep: BaseItem,
+    val season: Int,
+    val number: Int,
+    val extra: app.lumen.domain.EpisodeExtra?,
+)
+
 @Composable
 private fun JellyfinDetail(
     client: JellyfinClient,
     tmdb: TmdbClient,
     session: StoredSession,
     item: BaseItem,
-    seasons: List<BaseItem>,
     onPlay: (String) -> Unit,
 ) {
-    var selectedSeason by remember(seasons) { mutableStateOf(seasons.firstOrNull()) }
-    // Enrichisseur TMDB partagé entre saisons (cache par série).
-    val enricher = remember(item.id) { app.lumen.domain.EpisodeEnricher(tmdb) }
-    val seriesTmdbId = item.providerIds["Tmdb"]?.toLongOrNull()
+    // Réorganisation virtuelle : TOUS les épisodes de la série sont chargés,
+    // replacés à leur vraie saison via TMDB (numéros absolus compris), puis
+    // regroupés — l'app n'affiche jamais le rangement bancal du serveur.
+    val organized by produceState<Map<Int, List<OrganizedEpisode>>?>(initialValue = null, item.id) {
+        if (item.type != "Series") {
+            value = emptyMap(); return@produceState
+        }
+        val eps = runCatching {
+            client.episodes(session.baseUrl, session.userId, item.id).items
+        }.getOrDefault(emptyList())
+        val tmdbId = item.providerIds["Tmdb"]?.toLongOrNull()
+        val enricher = app.lumen.domain.EpisodeEnricher(tmdb)
+        if (tmdbId != null) enricher.forSeries(tmdbId)
+
+        value = eps.map { ep ->
+            val resolved = if (tmdbId != null) enricher.resolve(ep.parentIndexNumber, ep.indexNumber) else null
+            OrganizedEpisode(
+                ep = ep,
+                season = resolved?.season ?: ep.parentIndexNumber ?: 0,
+                number = resolved?.episode ?: ep.indexNumber ?: 0,
+                extra = resolved?.extra,
+            )
+        }
+            .groupBy { it.season }
+            .mapValues { (_, list) -> list.sortedBy { it.number } }
+            .toSortedMap()
+    }
+
+    var selectedSeason by remember(organized) { mutableStateOf(organized?.keys?.firstOrNull { it > 0 } ?: organized?.keys?.firstOrNull()) }
 
     LazyColumn(Modifier.fillMaxSize()) {
         item(key = "header") { DetailHeader(client, session, item, onPlay) }
 
-        if (item.type == "Series" && seasons.isNotEmpty()) {
-            item(key = "season-picker") {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 48.dp),
-                    modifier = Modifier.padding(top = 8.dp),
-                ) {
-                    items(seasons, key = { it.id }) { season ->
-                        val selected = season.id == selectedSeason?.id
-                        Text(
-                            season.name,
-                            color = if (selected) Color.Black else LumenColors.OnBackground,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier
-                                .background(
-                                    if (selected) LumenColors.OnBackground else LumenColors.Surface,
-                                    RoundedCornerShape(20.dp),
-                                )
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                ) { selectedSeason = season }
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
+        val groups = organized
+        if (item.type == "Series") {
+            if (groups == null) {
+                item(key = "loading") {
+                    CircularProgressIndicator(
+                        color = LumenColors.Accent,
+                        modifier = Modifier.padding(48.dp).size(30.dp),
+                    )
+                }
+            } else if (groups.isNotEmpty()) {
+                item(key = "season-picker") {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 48.dp),
+                        modifier = Modifier.padding(top = 8.dp),
+                    ) {
+                        items(groups.keys.toList(), key = { it }) { seasonNum ->
+                            val selected = seasonNum == selectedSeason
+                            Text(
+                                if (seasonNum == 0) "Specials" else "Saison $seasonNum",
+                                color = if (selected) Color.Black else LumenColors.OnBackground,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .background(
+                                        if (selected) LumenColors.OnBackground else LumenColors.Surface,
+                                        RoundedCornerShape(20.dp),
+                                    )
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                    ) { selectedSeason = seasonNum }
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
                     }
                 }
-            }
-            item(key = "episodes") {
-                selectedSeason?.let { season ->
-                    EpisodeList(
-                        client, session,
-                        seriesId = item.id,
-                        season = season,
-                        enricher = enricher,
-                        seriesTmdbId = seriesTmdbId,
-                        onPlay = onPlay,
-                    )
+                item(key = "episodes") {
+                    // Fondu quand on change de saison — la liste ne « saute » pas.
+                    AnimatedContent(
+                        targetState = selectedSeason,
+                        transitionSpec = { fadeIn(tween(300)).togetherWith(fadeOut(tween(150))) },
+                    ) { seasonNum ->
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.padding(horizontal = 48.dp, vertical = 16.dp),
+                        ) {
+                            groups[seasonNum].orEmpty().forEach { org ->
+                                EpisodeRow(client, session, org, onPlay)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -274,63 +316,14 @@ private fun DetailHeader(client: JellyfinClient, session: StoredSession, item: B
 }
 
 @Composable
-private fun EpisodeList(
-    client: JellyfinClient,
-    session: StoredSession,
-    seriesId: String,
-    season: BaseItem,
-    enricher: app.lumen.domain.EpisodeEnricher,
-    seriesTmdbId: Long?,
-    onPlay: (String) -> Unit,
-) {
-    val episodes by produceState<List<Pair<BaseItem, app.lumen.domain.EpisodeExtra?>>?>(
-        initialValue = null, season.id,
-    ) {
-        val eps = runCatching {
-            client.episodes(session.baseUrl, session.userId, seriesId, season.id).items
-        }.getOrDefault(emptyList())
-        // Premier affichage immédiat, sans l'enrichissement.
-        value = eps.map { it to null }
-        // Puis TMDB comble les trous (nom générique ou vignette absente).
-        if (seriesTmdbId != null) {
-            enricher.forSeries(seriesTmdbId)
-            value = eps.map { ep ->
-                val generic = ep.name.isBlank() ||
-                    Regex("^[ÉE]pisode\\s*\\d+$", RegexOption.IGNORE_CASE).matches(ep.name.trim())
-                val needs = generic || !ep.imageTags.containsKey("Primary") || ep.overview.isNullOrBlank()
-                ep to if (needs) enricher.enrich(season.indexNumber, ep.indexNumber) else null
-            }
-        }
-    }
-
-    // Fondu quand on change de saison — la liste ne « saute » pas.
-    AnimatedContent(
-        targetState = episodes,
-        transitionSpec = { fadeIn(tween(300)).togetherWith(fadeOut(tween(150))) },
-    ) { list ->
-        Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.padding(horizontal = 48.dp, vertical = 16.dp),
-        ) {
-            when {
-                list == null -> CircularProgressIndicator(
-                    color = LumenColors.Accent,
-                    modifier = Modifier.size(28.dp),
-                )
-                else -> list.forEach { (ep, extra) -> EpisodeRow(client, session, ep, extra, onPlay) }
-            }
-        }
-    }
-}
-
-@Composable
 private fun EpisodeRow(
     client: JellyfinClient,
     session: StoredSession,
-    ep: BaseItem,
-    extra: app.lumen.domain.EpisodeExtra?,
+    org: OrganizedEpisode,
     onPlay: (String) -> Unit,
 ) {
+    val ep = org.ep
+    val extra = org.extra
     Row(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier
@@ -380,12 +373,12 @@ private fun EpisodeRow(
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-            // Priorité au vrai titre TMDB ; sinon on évite « 53. Épisode 53 ».
-            val n = ep.indexNumber
+            // Numéro RÉEL dans la saison (pas l'absolu), et vrai titre TMDB en priorité.
+            val n = org.number.takeIf { it > 0 }
             val label = when {
                 extra?.title != null -> if (n != null) "$n. ${extra.title}" else extra.title
                 n == null -> ep.name
-                Regex("^[ÉE]pisode\\s*0*$n$", RegexOption.IGNORE_CASE).matches(ep.name.trim()) -> "Épisode $n"
+                Regex("^[ÉE]pisode\\s*0*\\d+$", RegexOption.IGNORE_CASE).matches(ep.name.trim()) -> "Épisode $n"
                 else -> "$n. ${ep.name}"
             }
             Text(

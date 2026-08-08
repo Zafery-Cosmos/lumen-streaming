@@ -217,11 +217,14 @@ class JellyfinClient(
     suspend fun seasons(baseUrl: String, userId: String, seriesId: String): ItemsResult =
         authedGet(baseUrl, "/Shows/$seriesId/Seasons?userId=$userId")
 
-    /** Épisodes d'une saison (avec résumé et progression). */
-    suspend fun episodes(baseUrl: String, userId: String, seriesId: String, seasonId: String): ItemsResult =
+    /** Épisodes d'une série — toute la série si seasonId est null. */
+    suspend fun episodes(baseUrl: String, userId: String, seriesId: String, seasonId: String? = null): ItemsResult =
         authedGet(
             baseUrl,
-            "/Shows/$seriesId/Episodes?userId=$userId&seasonId=$seasonId&fields=Overview",
+            buildString {
+                append("/Shows/$seriesId/Episodes?userId=$userId&fields=Overview")
+                seasonId?.let { append("&seasonId=$it") }
+            },
         )
 
     /** Recherche dynamique — appelée à chaque frappe (débouncée côté UI). */

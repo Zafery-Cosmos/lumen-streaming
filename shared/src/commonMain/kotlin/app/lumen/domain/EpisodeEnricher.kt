@@ -36,11 +36,15 @@ class EpisodeEnricher(private val tmdb: TmdbClient) {
         }.getOrNull()
     }
 
+    /** Un épisode replacé à sa VRAIE position (saison/numéro), avec ses métadonnées. */
+    data class Resolved(val season: Int, val episode: Int, val extra: EpisodeExtra)
+
     /**
-     * Cherche l'épisode TMDB correspondant : d'abord tel quel (S/E déclarés par
-     * Jellyfin), sinon en interprétant le numéro comme un numéro absolu.
+     * Replace un épisode : d'abord tel quel (S/E déclarés par Jellyfin) si
+     * plausible, sinon en interprétant le numéro comme un numéro absolu —
+     * cas des fichiers type « FL.2014.E53 » entassés en « Saison 1 ».
      */
-    suspend fun enrich(seasonNumber: Int?, episodeNumber: Int?): EpisodeExtra? {
+    suspend fun resolve(seasonNumber: Int?, episodeNumber: Int?): Resolved? {
         val id = tvId ?: return null
         val counts = seasonCounts ?: return null
         val ep = episodeNumber ?: return null
@@ -49,7 +53,9 @@ class EpisodeEnricher(private val tmdb: TmdbClient) {
         if (seasonNumber != null && seasonNumber > 0) {
             val count = counts.firstOrNull { it.first == seasonNumber }?.second ?: 0
             if (ep <= count) {
-                episodeOf(id, seasonNumber, ep)?.let { return it.toExtra() }
+                episodeOf(id, seasonNumber, ep)?.let {
+                    return Resolved(seasonNumber, ep, it.toExtra())
+                }
             }
         }
 
@@ -57,7 +63,9 @@ class EpisodeEnricher(private val tmdb: TmdbClient) {
         var remaining = ep
         for ((season, count) in counts) {
             if (remaining <= count) {
-                return episodeOf(id, season, remaining)?.toExtra()
+                return episodeOf(id, season, remaining)?.let {
+                    Resolved(season, remaining, it.toExtra())
+                }
             }
             remaining -= count
         }
