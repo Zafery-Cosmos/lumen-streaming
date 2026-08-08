@@ -23,15 +23,25 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            label: Linux (deb + rpm)
+            id: linux-x64
+            label: Linux — Debian, Ubuntu, Fedora (deb + rpm)
             task: packageDeb packageRpm
             artifacts: desktopApp/build/compose/binaries/main/deb/*.deb desktopApp/build/compose/binaries/main/rpm/*.rpm
           - os: windows-latest
+            id: windows-x64
             label: Windows (msi)
             task: packageMsi
             artifacts: desktopApp/build/compose/binaries/main/msi/*.msi
+          # macos-latest est en Apple Silicon : un .dmg produit là ne tourne
+          # PAS sur un Mac Intel. Les deux architectures sont donc bâties.
           - os: macos-latest
-            label: macOS (dmg)
+            id: macos-arm64
+            label: macOS Apple Silicon (dmg)
+            task: packageDmg
+            artifacts: desktopApp/build/compose/binaries/main/dmg/*.dmg
+          - os: macos-13
+            id: macos-x64
+            label: macOS Intel (dmg)
             task: packageDmg
             artifacts: desktopApp/build/compose/binaries/main/dmg/*.dmg
 
@@ -62,7 +72,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: lumen-${{ runner.os }}
+          # Deux runners macOS : le nom doit distinguer les architectures.
+          name: lumen-${{ matrix.id }}
           path: ${{ matrix.artifacts }}
           if-no-files-found: error
 
