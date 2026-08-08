@@ -6,6 +6,7 @@
 
     <application
         android:label="Lumen"
+        android:icon="@mipmap/ic_launcher"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
         android:supportsRtl="true">
         <activity

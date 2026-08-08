@@ -8,6 +8,12 @@ plugins {
     alias(libs.plugins.android.kmp.library)
 }
 
+compose.resources {
+    // Res accessible depuis :desktopApp et :androidApp (icônes de fenêtre, etc.)
+    publicResClass = true
+    packageOfResClass = "app.lumen.resources"
+}
+
 kotlin {
     androidLibrary {
         namespace = "app.lumen.shared"
@@ -29,6 +35,7 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.multiplatform.settings)
+            implementation(libs.multiplatform.settings.noarg)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
