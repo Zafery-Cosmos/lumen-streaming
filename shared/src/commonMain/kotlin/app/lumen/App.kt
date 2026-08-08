@@ -73,6 +73,8 @@ fun App() {
     var restoring by remember { mutableStateOf(true) }
     LaunchedEffect(Unit) {
         flow.tryRestore()  // reconnexion silencieuse (plan §2)
+        // La restauration peut enregistrer le serveur : on relit la liste.
+        serverList = store.listServers()
         restoring = false
     }
 

@@ -106,3 +106,21 @@ fun BaseItem.toHero(client: JellyfinClient, session: StoredSession): HeroItem? {
         rating = officialRating,
     )
 }
+
+/**
+ * Un titre TMDB en entrée de hero : seuls ceux qui ont un backdrop passent,
+ * sinon l'affiche verticale serait étirée en bandeau.
+ */
+fun TmdbItem.toHero(): HeroItem? {
+    val backdrop = TmdbClient.backdropUrl(backdropPath) ?: return null
+    return HeroItem(
+        id = "tmdb:${mediaType ?: "movie"}:$id",
+        title = displayName,
+        backdropUrl = backdrop,
+        logoUrl = null,
+        overview = overview,
+        year = year,
+        runtimeMinutes = null,
+        rating = voteAverage?.let { "★ ${(it * 10).toInt() / 10.0}" },
+    )
+}

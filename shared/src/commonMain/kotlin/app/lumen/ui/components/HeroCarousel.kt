@@ -157,7 +157,11 @@ private fun HeroSlide(hero: HeroItem, onOpen: (String) -> Unit, onPlay: (String)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
-                    onClick = { onPlay(hero.id) },
+                    onClick = {
+                        // Un titre hors médiathèque n'est pas lisible directement :
+                        // on ouvre sa fiche, d'où partent les sources d'addons.
+                        if (hero.id.startsWith("tmdb:")) onOpen(hero.id) else onPlay(hero.id)
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                     shape = RoundedCornerShape(6.dp),
                 ) {
@@ -166,7 +170,8 @@ private fun HeroSlide(hero: HeroItem, onOpen: (String) -> Unit, onPlay: (String)
                     Text("Lire", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
                 Button(
-                    onClick = { onOpen("jf:${hero.id}") },
+                    // L identifiant porte deja son origine (jf: ou tmdb:).
+                    onClick = { onOpen(if (hero.id.startsWith("tmdb:")) hero.id else "jf:${hero.id}") },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = LumenColors.SurfaceHigh.copy(alpha = 0.7f),
                     ),

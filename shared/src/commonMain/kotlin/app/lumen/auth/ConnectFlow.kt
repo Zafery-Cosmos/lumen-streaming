@@ -51,6 +51,10 @@ class ConnectFlow(
         client.accessToken = saved.accessToken
         return if (client.tokenIsValid(saved.baseUrl)) {
             server = ResolvedServer(saved.baseUrl, client.publicInfo(saved.baseUrl))
+            // Une session restaurée doit AUSSI figurer dans la liste des
+            // serveurs : sinon la page Serveurs reste vide tant qu'on ne s'est
+            // pas reconnecté à la main.
+            store.rememberServer(saved)
             _step.value = ConnectStep.Done(saved)
             true
         } else {

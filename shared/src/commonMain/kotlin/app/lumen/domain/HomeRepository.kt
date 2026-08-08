@@ -142,11 +142,18 @@ class HomeRepository(
         val orderedKeys = order + railsByKey.keys.filterNot { order.contains(it) }
         val rails = orderedKeys.flatMap { railsByKey[it].orEmpty() }
 
-        // Carrousel hero : 40 titres au hasard dans tout le catalogue, filtrés
-        // par le profil et retenus seulement s'ils ont un visuel large.
-        val heroes = heroPool.await()
+        // Carrousel hero : la médiathèque ET le catalogue TMDB mélangés — on
+        // met en avant aussi ce qu'on ne possède pas encore (lisible via les
+        // addons). 40 titres, tirage renouvelé à chaque lancement.
+        val libraryHeroes = heroPool.await()
             .filter { profile.allows(it) }
             .mapNotNull { it.toHero(client, session) }
+        val catalogHeroes = if (isChild) emptyList() else {
+            (trending.await() + genreRails.awaitAll().flatMap { it.third })
+                .distinctBy { it.id }
+                .mapNotNull { it.toHero() }
+        }
+        val heroes = (libraryHeroes.shuffled().take(25) + catalogHeroes.shuffled().take(25))
             .shuffled()
             .take(40)
             .ifEmpty { recentItems.mapNotNull { it.toHero(client, session) } }
