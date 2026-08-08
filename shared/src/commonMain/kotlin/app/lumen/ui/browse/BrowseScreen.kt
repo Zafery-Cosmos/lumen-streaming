@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,19 +62,28 @@ fun BrowseScreen(
             )
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 150.dp),
-                // Le haut compense la barre de navigation transparente qui flotte.
-                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 88.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, bottom = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                // Le hero défilant de la catégorie, comme sur l'accueil.
+                // Le hero défilant de la catégorie — PLEINE LARGEUR comme sur
+                // l'accueil : on annule le padding horizontal de la grille.
                 val heroes = list.mapNotNull { it.toHero(client, session) }.take(6)
                 if (heroes.isNotEmpty()) {
                     item(key = "hero", span = { GridItemSpan(maxLineSpan) }) {
                         HeroCarousel(
                             heroes, onOpen, onPlay,
-                            modifier = Modifier.padding(bottom = 12.dp),
-                            rounded = true,
+                            modifier = Modifier
+                                .layout { measurable, constraints ->
+                                    val extra = 96.dp.roundToPx() // 48 dp de chaque côté
+                                    val placeable = measurable.measure(
+                                        constraints.copy(maxWidth = constraints.maxWidth + extra),
+                                    )
+                                    layout(placeable.width - extra, placeable.height) {
+                                        placeable.place(-extra / 2, 0)
+                                    }
+                                }
+                                .padding(bottom = 12.dp),
                         )
                     }
                 }
@@ -83,7 +93,7 @@ fun BrowseScreen(
                         color = LumenColors.OnBackground,
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp),
+                        modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
                     )
                 }
                 items(list, key = { it.id }) { item ->

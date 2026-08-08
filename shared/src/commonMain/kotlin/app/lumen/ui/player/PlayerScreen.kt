@@ -358,12 +358,14 @@ private fun SettingsPanel(
 
     Column(
         verticalArrangement = Arrangement.spacedBy(18.dp),
+        // verticalScroll AVANT padding : sinon la zone défilable est mal bornée
+        // et le bas du panneau (Cast, Session) devient inaccessible.
         modifier = Modifier
             .width(360.dp)
             .fillMaxHeight()
             .background(Color(0xF0121218))
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
     ) {
         Text("Options de lecture", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
 
@@ -481,14 +483,20 @@ private fun SettingSection(icon: ImageVector, title: String, content: @Composabl
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun <T> ChipRow(
     options: List<Pair<String, T>>,
     isSelected: (T) -> Boolean,
     onSelect: (T) -> Unit,
 ) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(options) { (label, value) ->
+    // FlowRow : les puces passent à la ligne — toutes les options restent
+    // visibles, rien n'est coupé sur le bord du panneau.
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { (label, value) ->
             val selected = isSelected(value)
             Text(
                 label,
