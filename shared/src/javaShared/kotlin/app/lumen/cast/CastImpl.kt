@@ -23,12 +23,18 @@ import javax.net.ssl.X509TrustManager
 // Découverte
 // ---------------------------------------------------------------------------
 
+// Ce fichier compile pour le desktop ET pour Android (srcDir partagé) : il ne
+// contient que du java.net/javax.net, présent tel quel sur les deux cibles.
 actual suspend fun discoverCastDevices(timeoutMs: Long): List<CastDevice> = coroutineScope {
-    val both = listOf(
-        async(Dispatchers.IO) { runCatching { discoverChromecasts(timeoutMs) }.getOrDefault(emptyList()) },
-        async(Dispatchers.IO) { runCatching { discoverDlna(timeoutMs) }.getOrDefault(emptyList()) },
-    ).awaitAll()
-    both.flatten().distinctBy { it.id }
+    // Android n'accepte les paquets multicast (réponses mDNS) que sous verrou
+    // Wi-Fi ; sur desktop le verrou est un passe-plat.
+    withMulticastLock {
+        val both = listOf(
+            async(Dispatchers.IO) { runCatching { discoverChromecasts(timeoutMs) }.getOrDefault(emptyList()) },
+            async(Dispatchers.IO) { runCatching { discoverDlna(timeoutMs) }.getOrDefault(emptyList()) },
+        ).awaitAll()
+        both.flatten().distinctBy { it.id }
+    }
 }
 
 /**

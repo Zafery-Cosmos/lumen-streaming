@@ -7,9 +7,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -96,7 +98,43 @@ class Media3Engine(private val context: Context) : PlayerEngine {
     override fun seekTo(positionMs: Long) { player.seekTo(positionMs) }
     override fun setRate(rate: Float) { player.setPlaybackSpeed(rate) }
     override fun setVolume(volume: Int) { player.volume = (volume / 100f).coerceIn(0f, 1f) }
-    // TODO(L4b) : sélection de pistes via TrackSelectionParameters.
+    /**
+     * Les pistes viennent de `currentTracks`, disponibles une fois la lecture
+     * préparée. L'identifiant est l'index (groupe, piste) encodé sur un Int :
+     * un flux réel n'approche jamais les 1000 groupes.
+     */
+    private fun tracks(type: Int): List<MediaTrack> =
+        player.currentTracks.groups
+            .withIndex()
+            .filter { (_, g) -> g.type == type }
+            .flatMap { (gi, g) ->
+                (0 until g.length).map { ti ->
+                    val format = g.getTrackFormat(ti)
+                    MediaTrack(
+                        id = gi * 1000 + ti,
+                        label = listOfNotNull(format.label, format.language?.uppercase())
+                            .distinct().joinToString(" · ")
+                            .ifEmpty { "Piste ${gi * 1000 + ti}" },
+                    )
+                }
+            }
+
+    override fun audioTracks(): List<MediaTrack> = tracks(C.TRACK_TYPE_AUDIO)
+    override fun subtitleTracks(): List<MediaTrack> = tracks(C.TRACK_TYPE_TEXT)
+
+    private fun select(type: Int, id: Int) {
+        // L'id encode l'index ABSOLU du groupe : on retombe dessus directement.
+        val group = player.currentTracks.groups.getOrNull(id / 1000)
+            ?.takeIf { it.type == type } ?: return
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, id % 1000))
+            .build()
+    }
+
+    override fun selectAudioTrack(id: Int) = select(C.TRACK_TYPE_AUDIO, id)
+    override fun selectSubtitleTrack(id: Int) = select(C.TRACK_TYPE_TEXT, id)
+
     override fun release() {
         scope.cancel()
         player.release()

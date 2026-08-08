@@ -102,6 +102,11 @@ kotlin {
             implementation(libs.media3.exoplayer.hls)
             implementation(libs.media3.ui)
         }
+        // Code java.net commun au desktop et à Android (cast) : un seul
+        // fichier, compilé dans les deux cibles.
+        jvmMain { kotlin.srcDir("src/javaShared/kotlin") }
+        androidMain { kotlin.srcDir("src/javaShared/kotlin") }
+
         jvmMain.dependencies {
             implementation(compose.desktop.common)
             // Fournit Dispatchers.Main sur desktop : sans lui, tout passage sur

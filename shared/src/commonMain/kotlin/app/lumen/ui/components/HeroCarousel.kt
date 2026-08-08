@@ -77,12 +77,16 @@ fun HeroCarousel(
         }
     }
 
-    Box(
-        modifier
-            .fillMaxWidth()
-            .aspectRatio(16f / 8f)
-            .clip(if (rounded) RoundedCornerShape(18.dp) else RectangleShape),
-    ) {
+    // Sur téléphone le 16/8 devient un bandeau minuscule : on redresse le
+    // format pour garder un vrai visuel plein écran, comme Netflix mobile.
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxWidth()) {
+        val ratio = if (maxWidth < 700.dp) 4f / 5f else 16f / 8f
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(ratio)
+                .clip(if (rounded) RoundedCornerShape(18.dp) else RectangleShape),
+        ) {
         AnimatedContent(
             targetState = index,
             transitionSpec = { fadeIn(tween(700)).togetherWith(fadeOut(tween(700))) },
@@ -90,6 +94,7 @@ fun HeroCarousel(
             HeroSlide(heroes[i], onOpen, onPlay)
         }
 
+        }
     }
 }
 

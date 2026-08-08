@@ -19,14 +19,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.animation.core.animateFloatAsState
@@ -149,10 +155,13 @@ fun Shell(
 
     // La barre est TRANSPARENTE et flotte au-dessus du contenu (style Netflix) :
     // le hero passe dessous, un dégradé assure la lisibilité des onglets.
-    Box(
+    androidx.compose.foundation.layout.BoxWithConstraints(
         Modifier.fillMaxSize().background(LumenColors.Background)
             .pointerInputObserve { lastActivity = app.lumen.db.epochMillis(); screensaverOn = false },
     ) {
+        // En dessous de 700 dp de large, on est sur un téléphone : les onglets
+        // partent dans une barre du bas, sous le pouce, comme Netflix mobile.
+        val compact = maxWidth < 700.dp
         val showSearch = searchOpen && searchQuery.isNotBlank()
         val target = detailStack.lastOrNull()
             ?: if (showSearch) "search" else if (tab == ShellTab.Settings && settingsSub != null) "settings-${settingsSub}" else tab.name
@@ -268,17 +277,36 @@ fun Shell(
             }
         }
 
-        TopBar(
-            current = tab,
-            onTab = { tab = it; searchOpen = false; searchQuery = ""; detailStack = emptyList() },
-            searchOpen = searchOpen,
-            searchQuery = searchQuery,
-            onSearchOpen = { searchOpen = true },
-            onSearchClose = { searchOpen = false; searchQuery = "" },
-            onSearchChange = { searchQuery = it },
-            refreshKey = refreshKey,
-            onSync = { refreshKey++ },
-        )
+        if (compact) {
+            CompactTopBar(
+                searchOpen = searchOpen,
+                searchQuery = searchQuery,
+                onSearchOpen = { searchOpen = true },
+                onSearchClose = { searchOpen = false; searchQuery = "" },
+                onSearchChange = { searchQuery = it },
+                refreshKey = refreshKey,
+                onSync = { refreshKey++ },
+                settingsSelected = tab == ShellTab.Settings,
+                onSettings = { tab = ShellTab.Settings; searchOpen = false; detailStack = emptyList() },
+            )
+            CompactBottomBar(
+                current = tab,
+                onTab = { tab = it; searchOpen = false; searchQuery = ""; detailStack = emptyList() },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        } else {
+            TopBar(
+                current = tab,
+                onTab = { tab = it; searchOpen = false; searchQuery = ""; detailStack = emptyList() },
+                searchOpen = searchOpen,
+                searchQuery = searchQuery,
+                onSearchOpen = { searchOpen = true },
+                onSearchClose = { searchOpen = false; searchQuery = "" },
+                onSearchChange = { searchQuery = it },
+                refreshKey = refreshKey,
+                onSync = { refreshKey++ },
+            )
+        }
 
         // L'écran de veille par-dessus tout — n'existe que lorsqu'il est actif,
         // donc il ne bloque jamais les interactions en temps normal.
@@ -391,6 +419,125 @@ private fun NavItem(label: String, selected: Boolean, onClick: () -> Unit) {
             onClick = onClick,
         ),
     )
+}
+
+/** Barre du haut téléphone : logo, recherche, synchro, réglages. */
+@Composable
+private fun CompactTopBar(
+    searchOpen: Boolean,
+    searchQuery: String,
+    onSearchOpen: () -> Unit,
+    onSearchClose: () -> Unit,
+    onSearchChange: (String) -> Unit,
+    refreshKey: Int,
+    onSync: () -> Unit,
+    settingsSelected: Boolean,
+    onSettings: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0f to LumenColors.Background.copy(alpha = 0.9f),
+                    1f to androidx.compose.ui.graphics.Color.Transparent,
+                ),
+            )
+            .statusBarsPadding()
+            .height(60.dp)
+            .padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Image(
+            painter = painterResource(Res.drawable.logo),
+            contentDescription = "Lumen",
+            modifier = Modifier.size(32.dp),
+        )
+        Spacer(Modifier.weight(1f))
+        SearchField(searchOpen, searchQuery, onSearchOpen, onSearchClose, onSearchChange)
+        val syncTurns by animateFloatAsState(
+            targetValue = refreshKey * 360f,
+            animationSpec = androidx.compose.animation.core.tween(700, easing = LinearEasing),
+        )
+        Icon(
+            Icons.Filled.Sync,
+            contentDescription = "Synchroniser",
+            tint = LumenColors.Muted,
+            modifier = Modifier.size(22.dp)
+                .graphicsLayer { rotationZ = syncTurns }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onSync,
+                ),
+        )
+        Icon(
+            Icons.Filled.Settings,
+            contentDescription = "Paramètres",
+            tint = if (settingsSelected) LumenColors.OnBackground else LumenColors.Muted,
+            modifier = Modifier.size(22.dp).clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onSettings,
+            ),
+        )
+    }
+}
+
+/** Barre du bas téléphone : les quatre onglets, à portée de pouce. */
+@Composable
+private fun CompactBottomBar(
+    current: ShellTab,
+    onTab: (ShellTab) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0f to androidx.compose.ui.graphics.Color.Transparent,
+                    0.35f to LumenColors.Background.copy(alpha = 0.96f),
+                    1f to LumenColors.Background,
+                ),
+            )
+            .padding(top = 14.dp)
+            .navigationBarsPadding()
+            .padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        listOf(
+            Triple(ShellTab.Home, Icons.Filled.Home, "Accueil"),
+            Triple(ShellTab.Movies, Icons.Filled.Movie, "Films"),
+            Triple(ShellTab.Series, Icons.Filled.Subscriptions, "Séries"),
+            Triple(ShellTab.Discover, Icons.Filled.Explore, "Découvrir"),
+        ).forEach { (t, icon, label) ->
+            val selected = t == current
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { onTab(t) },
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = label,
+                    tint = if (selected) LumenColors.OnBackground else LumenColors.Muted,
+                    modifier = Modifier.size(24.dp),
+                )
+                Text(
+                    label,
+                    color = if (selected) LumenColors.OnBackground else LumenColors.Muted,
+                    fontSize = 10.sp,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                )
+            }
+        }
+    }
 }
 
 /** Champ de recherche qui se déploie en douceur depuis l'icône loupe. */

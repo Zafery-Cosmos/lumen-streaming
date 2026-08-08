@@ -10,5 +10,6 @@ import app.lumen.App
  * d'AGP 9, le module app n'a ainsi pas besoin du plugin compose-compiler.
  */
 fun ComponentActivity.setLumenContent() {
+    app.lumen.AndroidCtx.app = applicationContext
     setContent { App() }
 }
