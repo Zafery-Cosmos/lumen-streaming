@@ -42,7 +42,9 @@ jobs:
             label: macOS Apple Silicon (dmg)
             task: packageDmg
             artifacts: desktopApp/build/compose/binaries/main/dmg/*.dmg
-          - os: macos-13
+          # macos-13 a été retiré du parc GitHub : le job restait en file
+          # indéfiniment. macos-15-intel est son remplaçant x86_64.
+          - os: macos-15-intel
             id: macos-x64
             label: macOS Intel (dmg)
             task: packageDmg
