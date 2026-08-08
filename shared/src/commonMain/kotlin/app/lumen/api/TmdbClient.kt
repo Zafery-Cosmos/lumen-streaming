@@ -4,6 +4,7 @@ import app.lumen.config.Secrets
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.http.encodeURLParameter
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -56,6 +57,35 @@ data class TmdbDetail(
     val displayName: String get() = title ?: nameField ?: ""
     val year: Int? get() = (releaseDate ?: firstAirDate)?.take(4)?.toIntOrNull()
 }
+
+@Serializable
+data class TmdbPersonSearch(
+    @SerialName("results") val results: List<TmdbPersonRef> = emptyList(),
+)
+
+@Serializable
+data class TmdbPersonRef(
+    @SerialName("id") val id: Long = 0,
+    @SerialName("name") val name: String = "",
+    @SerialName("profile_path") val profilePath: String? = null,
+)
+
+@Serializable
+data class TmdbPersonDetail(
+    @SerialName("id") val id: Long = 0,
+    @SerialName("name") val name: String = "",
+    @SerialName("biography") val biography: String? = null,
+    @SerialName("birthday") val birthday: String? = null,
+    @SerialName("place_of_birth") val placeOfBirth: String? = null,
+    @SerialName("profile_path") val profilePath: String? = null,
+    @SerialName("known_for_department") val knownForDepartment: String? = null,
+    @SerialName("combined_credits") val combinedCredits: TmdbPersonCredits? = null,
+)
+
+@Serializable
+data class TmdbPersonCredits(
+    @SerialName("cast") val cast: List<TmdbItem> = emptyList(),
+)
 
 @Serializable
 data class TmdbCredits(
@@ -118,6 +148,20 @@ class TmdbClient(private val http: HttpClient) {
         http.get(
             "$BASE/$mediaType/$id?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR" +
                 "&append_to_response=credits,similar",
+        ).body()
+
+    /** Recherche d'une personne par nom (pont depuis les fiches Jellyfin). */
+    suspend fun searchPerson(name: String): TmdbPersonSearch =
+        http.get(
+            "$BASE/search/person?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR" +
+                "&query=${name.encodeURLParameter()}",
+        ).body()
+
+    /** Fiche d'une personne : bio + toute sa filmographie. */
+    suspend fun person(id: Long): TmdbPersonDetail =
+        http.get(
+            "$BASE/person/$id?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR" +
+                "&append_to_response=combined_credits",
         ).body()
 
     /** Une saison complète, avec tous ses épisodes (titres, résumés, vignettes). */

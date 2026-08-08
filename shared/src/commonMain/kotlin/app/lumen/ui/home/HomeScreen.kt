@@ -44,14 +44,15 @@ fun HomeScreen(
     client: JellyfinClient,
     tmdb: TmdbClient,
     session: StoredSession,
+    profile: app.lumen.domain.LocalProfile?,
     refreshKey: Int,
     onOpen: (String) -> Unit,
     onPlay: (String) -> Unit,
 ) {
     val repo = remember { HomeRepository(client, tmdb, session) }
-    val content by produceState<HomeContent?>(initialValue = null, refreshKey) {
+    val content by produceState<HomeContent?>(initialValue = null, refreshKey, profile) {
         value = null
-        value = repo.load()
+        value = repo.load(profile)
     }
 
     Box(Modifier.fillMaxSize().background(LumenColors.Background)) {

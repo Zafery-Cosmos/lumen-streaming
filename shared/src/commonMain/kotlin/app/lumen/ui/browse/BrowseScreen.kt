@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import app.lumen.api.BaseItem
 import app.lumen.api.JellyfinClient
 import app.lumen.auth.StoredSession
+import app.lumen.domain.allows
 import app.lumen.domain.toCard
 import app.lumen.domain.toHero
 import app.lumen.ui.components.HeroCarousel
@@ -39,18 +40,19 @@ import app.lumen.ui.theme.LumenColors
 fun BrowseScreen(
     client: JellyfinClient,
     session: StoredSession,
+    profile: app.lumen.domain.LocalProfile?,
     includeTypes: String,
     title: String,
     onOpen: (String) -> Unit,
     onPlay: (String) -> Unit,
 ) {
-    val items by produceState<List<BaseItem>?>(initialValue = null, includeTypes) {
+    val items by produceState<List<BaseItem>?>(initialValue = null, includeTypes, profile) {
         value = runCatching {
             client.items(
                 session.baseUrl, session.userId,
                 includeTypes = includeTypes,
                 limit = 200,
-            ).items
+            ).items.filter { profile.allows(it) }
         }.getOrDefault(emptyList())
     }
 

@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import app.lumen.api.BaseItem
 import app.lumen.api.JellyfinClient
 import app.lumen.auth.StoredSession
+import app.lumen.domain.allows
 import app.lumen.domain.toCard
 import app.lumen.ui.components.MediaCard
 import app.lumen.ui.theme.LumenColors
@@ -35,12 +36,19 @@ import kotlinx.coroutines.delay
  * avec l'index local du L7 — ici c'est la recherche serveur.
  */
 @Composable
-fun SearchScreen(client: JellyfinClient, session: StoredSession, query: String, onOpen: (String) -> Unit) {
-    val results by produceState<List<BaseItem>?>(initialValue = null, query) {
+fun SearchScreen(
+    client: JellyfinClient,
+    session: StoredSession,
+    profile: app.lumen.domain.LocalProfile?,
+    query: String,
+    onOpen: (String) -> Unit,
+) {
+    val results by produceState<List<BaseItem>?>(initialValue = null, query, profile) {
         value = null           // relance l'indicateur pendant la frappe
         delay(350)             // debounce : on attend que la frappe se calme
         value = runCatching {
             client.search(session.baseUrl, session.userId, query).items
+                .filter { profile.allows(it) }
         }.getOrDefault(emptyList())
     }
 

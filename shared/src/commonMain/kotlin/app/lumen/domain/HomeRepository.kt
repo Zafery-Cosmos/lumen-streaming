@@ -33,7 +33,7 @@ class HomeRepository(
     private val session: StoredSession,
 ) {
 
-    suspend fun load(): HomeContent = coroutineScope {
+    suspend fun load(profile: LocalProfile? = null): HomeContent = coroutineScope {
         val base = session.baseUrl
         val uid = session.userId
 
@@ -52,20 +52,26 @@ class HomeRepository(
         }
 
         // --- TMDB (éditorial) ----------------------------------------------
-        val trending = async { runCatching { tmdb.trendingWeek() }.getOrDefault(emptyList()) }
-        val genreRails = TmdbClient.HOME_GENRES.map { (genreId, label) ->
+        // Profil enfant : pas de Top 10 tout-venant, et uniquement les genres
+        // adaptés (Animation, Familial). Le contenu Jellyfin est filtré par âge.
+        val isChild = profile?.child == true
+        val trending = async {
+            if (isChild) emptyList() else runCatching { tmdb.trendingWeek() }.getOrDefault(emptyList())
+        }
+        val genres = if (isChild) listOf(16 to "Animation", 10751 to "Familial") else TmdbClient.HOME_GENRES
+        val genreRails = genres.map { (genreId, label) ->
             async {
                 Triple(genreId, label, runCatching { tmdb.moviesByGenre(genreId) }.getOrDefault(emptyList()))
             }
         }
 
-        val recentItems = recent.await()
+        val recentItems = recent.await().filter { profile.allows(it) }
 
         val rails = buildList {
-            resume.await().takeIf { it.isNotEmpty() }?.let { list ->
+            resume.await().filter { profile.allows(it) }.takeIf { it.isNotEmpty() }?.let { list ->
                 add(Rail("resume", "Reprendre la lecture", list.map { it.toCard(client, session, wideThumb = true) }, wide = true))
             }
-            nextUp.await().takeIf { it.isNotEmpty() }?.let { list ->
+            nextUp.await().filter { profile.allows(it) }.takeIf { it.isNotEmpty() }?.let { list ->
                 add(Rail("nextup", "À suivre", list.map { it.toCard(client, session, wideThumb = true) }, wide = true))
             }
             recentItems.takeIf { it.isNotEmpty() }?.let { list ->

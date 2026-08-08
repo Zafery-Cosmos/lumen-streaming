@@ -280,6 +280,7 @@ private fun JellyfinDetail(
                             },
                         )
                     },
+                    onPerson = { name -> onOpen("person:$name") },
                 )
             }
         }
@@ -533,7 +534,7 @@ private fun TmdbDetailBody(detail: TmdbDetail, onOpen: (String) -> Unit) {
             PersonCardData(it.name, it.character, TmdbClient.profileUrl(it.profilePath))
         }
         if (directors.isNotEmpty() || cast.isNotEmpty()) {
-            item(key = "people") { PeopleSection(directors, cast) }
+            item(key = "people") { PeopleSection(directors, cast, onPerson = { onOpen("person:$it") }) }
         }
         val similar = detail.similar?.results.orEmpty().take(12).map { it.toCard() }
         if (similar.isNotEmpty()) {
@@ -553,7 +554,7 @@ private fun Meta(text: String) {
 data class PersonCardData(val name: String, val subtitle: String?, val imageUrl: String?)
 
 @Composable
-private fun PeopleSection(directors: List<String>, cast: List<PersonCardData>) {
+private fun PeopleSection(directors: List<String>, cast: List<PersonCardData>, onPerson: (String) -> Unit) {
     Column(
         verticalArrangement = Arrangement.spacedBy(14.dp),
         modifier = Modifier.padding(top = 26.dp),
@@ -584,18 +585,22 @@ private fun PeopleSection(directors: List<String>, cast: List<PersonCardData>) {
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 contentPadding = PaddingValues(horizontal = 48.dp),
             ) {
-                items(cast.size) { i -> PersonCard(cast[i]) }
+                items(cast.size) { i -> PersonCard(cast[i], onClick = { onPerson(cast[i].name) }) }
             }
         }
     }
 }
 
 @Composable
-private fun PersonCard(person: PersonCardData) {
+private fun PersonCard(person: PersonCardData, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.width(92.dp),
+        modifier = Modifier.width(92.dp).clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = onClick,
+        ),
     ) {
         Box(
             modifier = Modifier.size(84.dp).clip(CircleShape).background(LumenColors.SurfaceHigh),

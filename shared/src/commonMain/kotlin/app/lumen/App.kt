@@ -42,6 +42,9 @@ fun App() {
     val store = remember { SessionStore() }
     val client = remember { JellyfinClient(deviceId = store.deviceId, deviceName = platformDeviceName()) }
     val flow = remember { ConnectFlow(client, ServerResolver(client), store) }
+    val profileStore = remember { app.lumen.domain.ProfileStore() }
+    var profiles by remember { mutableStateOf(profileStore.list()) }
+    var activeProfile by remember { mutableStateOf<app.lumen.domain.LocalProfile?>(null) }
 
     // Coil : toutes les AsyncImage passent par Ktor, avec crossfade systématique.
     setSingletonImageLoaderFactory { context ->
@@ -79,7 +82,19 @@ fun App() {
                 RootState.Home -> {
                     val session = (flow.step.value as? ConnectStep.Done)?.session
                     if (session != null) {
-                        Shell(client, session, onLogout = { flow.logout() })
+                        if (profiles.isNotEmpty() && activeProfile == null) {
+                            // « Qui regarde ? » — seulement si des profils existent.
+                            app.lumen.ui.profiles.ProfileGate(profiles) { activeProfile = it }
+                        } else {
+                            Shell(
+                                client, session,
+                                profile = activeProfile,
+                                profileStore = profileStore,
+                                onLogout = { activeProfile = null; flow.logout() },
+                                onSwitchProfile = { activeProfile = null },
+                                onProfilesChanged = { profiles = profileStore.list() },
+                            )
+                        }
                     }
                 }
             }

@@ -16,7 +16,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,7 +36,13 @@ import app.lumen.ui.theme.LumenColors
  * C'est LE SEUL endroit de l'app où « Se déconnecter » existe.
  */
 @Composable
-fun SettingsScreen(session: StoredSession, onLogout: () -> Unit) {
+fun SettingsScreen(
+    session: StoredSession,
+    profileName: String?,
+    onOpenProfiles: () -> Unit,
+    onSwitchProfile: () -> Unit,
+    onLogout: () -> Unit,
+) {
     Column(
         modifier = Modifier.fillMaxSize().background(LumenColors.Background)
             .padding(start = 48.dp, end = 48.dp, top = 96.dp, bottom = 48.dp),
@@ -57,6 +65,20 @@ fun SettingsScreen(session: StoredSession, onLogout: () -> Unit) {
             title = "Serveur",
             value = session.serverName.ifEmpty { session.baseUrl },
         )
+        SettingRow(
+            icon = { Icon(Icons.Filled.Group, null, tint = LumenColors.Muted, modifier = Modifier.size(20.dp)) },
+            title = "Profils du foyer",
+            value = profileName ?: "Aucun profil",
+            onClick = onOpenProfiles,
+        )
+        if (profileName != null) {
+            SettingRow(
+                icon = { Icon(Icons.Filled.SwapHoriz, null, tint = LumenColors.Muted, modifier = Modifier.size(20.dp)) },
+                title = "Changer de profil",
+                value = null,
+                onClick = onSwitchProfile,
+            )
+        }
         SettingRow(
             icon = {
                 Icon(

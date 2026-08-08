@@ -76,11 +76,20 @@ enum class ShellTab(val label: String) {
  * dans la barre et prend le dessus tant qu'elle contient du texte.
  */
 @Composable
-fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) {
+fun Shell(
+    client: JellyfinClient,
+    session: StoredSession,
+    profile: app.lumen.domain.LocalProfile?,
+    profileStore: app.lumen.domain.ProfileStore,
+    onLogout: () -> Unit,
+    onSwitchProfile: () -> Unit,
+    onProfilesChanged: () -> Unit,
+) {
     var tab by remember { mutableStateOf(ShellTab.Home) }
     var searchQuery by remember { mutableStateOf("") }
     var searchOpen by remember { mutableStateOf(false) }
     var refreshKey by remember { mutableStateOf(0) }
+    var settingsSub by remember { mutableStateOf<String?>(null) }
     val tmdb = remember { app.lumen.api.TmdbClient(client.http) }
 
     // Pile des fiches ouvertes : on peut enchaîner fiche → fiche et revenir.
@@ -102,7 +111,8 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
     // le hero passe dessous, un dégradé assure la lisibilité des onglets.
     Box(Modifier.fillMaxSize().background(LumenColors.Background)) {
         val showSearch = searchOpen && searchQuery.isNotBlank()
-        val target = detailStack.lastOrNull() ?: if (showSearch) "search" else tab.name
+        val target = detailStack.lastOrNull()
+            ?: if (showSearch) "search" else if (tab == ShellTab.Settings && settingsSub != null) "settings-${settingsSub}" else tab.name
         AnimatedContent(
             targetState = target,
             transitionSpec = {
@@ -119,21 +129,39 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
                     onPlay = { id -> playingId = id },
                     onOpen = openDetail,
                 )
-                state == "search" -> SearchScreen(client, session, searchQuery, onOpen = openDetail)
+                state.startsWith("person:") -> app.lumen.ui.person.PersonScreen(
+                    tmdb,
+                    personName = state.removePrefix("person:"),
+                    onOpen = openDetail,
+                )
+                state == "search" -> SearchScreen(client, session, profile, searchQuery, onOpen = openDetail)
                 state == ShellTab.Home.name -> HomeScreen(
-                    client, tmdb, session, refreshKey,
+                    client, tmdb, session, profile, refreshKey,
                     onOpen = openDetail,
                     onPlay = { id -> playingId = id },
                 )
                 state == ShellTab.Movies.name -> BrowseScreen(
-                    client, session, includeTypes = "Movie", title = "Films",
+                    client, session, profile, includeTypes = "Movie", title = "Films",
                     onOpen = openDetail, onPlay = { id -> playingId = id },
                 )
                 state == ShellTab.Series.name -> BrowseScreen(
-                    client, session, includeTypes = "Series", title = "Séries",
+                    client, session, profile, includeTypes = "Series", title = "Séries",
                     onOpen = openDetail, onPlay = { id -> playingId = id },
                 )
-                else -> SettingsScreen(session, onLogout)
+                else -> when (settingsSub) {
+                    "profiles" -> app.lumen.ui.profiles.ProfileSettingsScreen(
+                        profileStore,
+                        onBack = { settingsSub = null },
+                        onProfilesChanged = onProfilesChanged,
+                    )
+                    else -> SettingsScreen(
+                        session,
+                        profileName = profile?.name,
+                        onOpenProfiles = { settingsSub = "profiles" },
+                        onSwitchProfile = onSwitchProfile,
+                        onLogout = onLogout,
+                    )
+                }
             }
         }
 
