@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -39,12 +40,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.lumen.api.BaseItem
-import app.lumen.api.JellyfinClient
-import app.lumen.auth.StoredSession
+import app.lumen.domain.CardItem
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
@@ -66,17 +66,11 @@ fun StaggeredReveal(index: Int, content: @Composable () -> Unit) {
 }
 
 /**
- * Carte média commune (accueil, grilles, recherche) : scale animé au survol,
- * badge lecture vectoriel, barre de progression si entamé.
+ * Carte média unifiée (Jellyfin ou TMDB) : scale animé au survol, badge lecture
+ * vectoriel, barre de progression si entamé, numéro pour les rangées Top 10.
  */
 @Composable
-fun MediaCard(
-    client: JellyfinClient,
-    session: StoredSession,
-    item: BaseItem,
-    wide: Boolean = false,
-    onClick: () -> Unit = {},
-) {
+fun MediaCard(card: CardItem, wide: Boolean = false, onClick: () -> Unit = {}) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
     val scale by animateFloatAsState(
@@ -84,11 +78,7 @@ fun MediaCard(
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
     )
 
-    val (width, height, imageType) = if (wide) {
-        Triple(248.dp, 140.dp, if (item.imageTags.containsKey("Thumb")) "Thumb" else "Primary")
-    } else {
-        Triple(138.dp, 207.dp, "Primary")
-    }
+    val (width, height) = if (wide) 248.dp to 140.dp else 138.dp to 207.dp
 
     Column(
         modifier = Modifier
@@ -100,14 +90,27 @@ fun MediaCard(
     ) {
         Box(Modifier.height(height).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(LumenColors.Surface)) {
             AsyncImage(
-                model = client.imageUrl(
-                    session.baseUrl, item.id, imageType, item.imageTags[imageType], maxWidth = 500,
-                ),
-                contentDescription = item.name,
+                model = card.posterUrl,
+                contentDescription = card.title,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
-            val progress = item.userData?.playedPercentage
+            // Numéro de classement (Top 10) — cartouche sombre en haut à gauche.
+            card.rank?.let { rank ->
+                Box(
+                    Modifier.align(Alignment.TopStart).padding(6.dp)
+                        .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        rank.toString(),
+                        color = LumenColors.OnBackground,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+            }
+            val progress = card.progressPercent
             if (progress != null && progress > 0) {
                 Box(
                     Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp)
@@ -134,11 +137,8 @@ fun MediaCard(
                 }
             }
         }
-        val label = if (item.type == "Episode") {
-            "${item.seriesName ?: item.name} — S${item.parentIndexNumber ?: "?"}E${item.indexNumber ?: "?"}"
-        } else item.name
         Text(
-            label,
+            card.title,
             color = LumenColors.Muted,
             fontSize = 12.sp,
             maxLines = 1,

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.serialization)
@@ -6,6 +8,39 @@ plugins {
     // AGP 9 : plugin KMP dédié, l'ancien com.android.library est incompatible
     // avec kotlin.multiplatform depuis la 9.0.
     alias(libs.plugins.android.kmp.library)
+}
+
+// Génère app/lumen/config/Secrets.kt depuis local.properties (jamais commité).
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val tmdbKey: String = localProps.getProperty("tmdb.api.key", "")
+val secretsDir = layout.buildDirectory.dir("generated/lumen/kotlin")
+val generateSecrets by tasks.registering {
+    // Copies locales : la lambda ne doit capturer AUCUNE référence au script
+    // (exigence du configuration cache de Gradle 9).
+    val keyLocal = tmdbKey
+    val outDir = secretsDir
+    inputs.property("tmdbKey", keyLocal)
+    outputs.dir(outDir)
+    doLast {
+        val out = outDir.get().file("app/lumen/config/Secrets.kt").asFile
+        out.parentFile.mkdirs()
+        out.writeText(
+            """
+            |package app.lumen.config
+            |
+            |// Fichier GÉNÉRÉ depuis local.properties — ne pas éditer, ne pas commiter.
+            |object Secrets {
+            |    const val TMDB_API_KEY: String = "$keyLocal"
+            |}
+            """.trimMargin(),
+        )
+    }
+}
+tasks.configureEach {
+    if (name.startsWith("compile") || name.endsWith("SourcesJar")) dependsOn(generateSecrets)
 }
 
 compose.resources {
@@ -23,6 +58,9 @@ kotlin {
     jvm()
 
     sourceSets {
+        commonMain {
+            kotlin.srcDir(secretsDir)
+        }
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)

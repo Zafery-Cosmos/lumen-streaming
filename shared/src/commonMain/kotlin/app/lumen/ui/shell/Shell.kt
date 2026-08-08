@@ -23,10 +23,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -75,6 +79,8 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
     var tab by remember { mutableStateOf(ShellTab.Home) }
     var searchQuery by remember { mutableStateOf("") }
     var searchOpen by remember { mutableStateOf(false) }
+    var refreshKey by remember { mutableStateOf(0) }
+    val tmdb = remember { app.lumen.api.TmdbClient(client.http) }
 
     Column(Modifier.fillMaxSize().background(LumenColors.Background)) {
         TopBar(
@@ -85,6 +91,8 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
             onSearchOpen = { searchOpen = true },
             onSearchClose = { searchOpen = false; searchQuery = "" },
             onSearchChange = { searchQuery = it },
+            refreshKey = refreshKey,
+            onSync = { refreshKey++ },
         )
 
         val showSearch = searchOpen && searchQuery.isNotBlank()
@@ -98,7 +106,7 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
         ) { state ->
             when {
                 state == "search" -> SearchScreen(client, session, searchQuery)
-                state == ShellTab.Home.name -> HomeScreen(client, session)
+                state == ShellTab.Home.name -> HomeScreen(client, tmdb, session, refreshKey)
                 state == ShellTab.Movies.name -> BrowseScreen(client, session, includeTypes = "Movie", title = "Films")
                 state == ShellTab.Series.name -> BrowseScreen(client, session, includeTypes = "Series", title = "Séries")
                 else -> SettingsScreen(session, onLogout)
@@ -116,6 +124,8 @@ private fun TopBar(
     onSearchOpen: () -> Unit,
     onSearchClose: () -> Unit,
     onSearchChange: (String) -> Unit,
+    refreshKey: Int,
+    onSync: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 28.dp),
@@ -133,6 +143,23 @@ private fun TopBar(
         }
         Spacer(Modifier.weight(1f))
         SearchField(searchOpen, searchQuery, onSearchOpen, onSearchClose, onSearchChange)
+        // Synchroniser : recharge l'accueil (Jellyfin + TMDB) avec un tour d'icône.
+        val syncTurns by animateFloatAsState(
+            targetValue = refreshKey * 360f,
+            animationSpec = androidx.compose.animation.core.tween(700, easing = LinearEasing),
+        )
+        Icon(
+            Icons.Filled.Sync,
+            contentDescription = "Synchroniser",
+            tint = LumenColors.Muted,
+            modifier = Modifier.size(22.dp)
+                .graphicsLayer { rotationZ = syncTurns }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onSync,
+                ),
+        )
         Icon(
             Icons.Filled.Settings,
             contentDescription = "Paramètres",

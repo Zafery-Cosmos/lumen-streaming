@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import app.lumen.api.BaseItem
 import app.lumen.api.JellyfinClient
 import app.lumen.auth.StoredSession
+import app.lumen.domain.toCard
 import app.lumen.ui.components.MediaCard
 import app.lumen.ui.theme.LumenColors
 
@@ -69,7 +70,7 @@ fun BrowseScreen(
                     )
                 }
                 items(list, key = { it.id }) { item ->
-                    MediaCard(client, session, item)
+                    MediaCard(item.toCard(client, session))
                 }
                 if (list.isEmpty()) {
                     item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {

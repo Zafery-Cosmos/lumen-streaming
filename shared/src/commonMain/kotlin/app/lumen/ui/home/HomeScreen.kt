@@ -1,6 +1,14 @@
 package app.lumen.ui.home
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -27,9 +36,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -39,9 +51,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.lumen.api.BaseItem
 import app.lumen.api.JellyfinClient
+import app.lumen.api.TmdbClient
 import app.lumen.auth.StoredSession
+import app.lumen.domain.HeroItem
 import app.lumen.domain.HomeContent
 import app.lumen.domain.HomeRepository
 import app.lumen.domain.Rail
@@ -49,15 +62,18 @@ import app.lumen.ui.components.MediaCard
 import app.lumen.ui.components.StaggeredReveal
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
 
 /**
- * Accueil Netflix-like (plan §3) : hero plein écran + rangées horizontales.
- * La déconnexion n'existe QUE dans les paramètres — jamais ici.
+ * Accueil éditorial : carrousel hero (films/séries Jellyfin qui défilent),
+ * puis rangées Reprendre / À suivre / Nouveautés / Top 10 / genres TMDB.
+ * `refreshKey` change quand l'utilisateur presse « Synchroniser » → tout recharge.
  */
 @Composable
-fun HomeScreen(client: JellyfinClient, session: StoredSession) {
-    val repo = remember { HomeRepository(client, session) }
-    val content by produceState<HomeContent?>(initialValue = null) {
+fun HomeScreen(client: JellyfinClient, tmdb: TmdbClient, session: StoredSession, refreshKey: Int) {
+    val repo = remember { HomeRepository(client, tmdb, session) }
+    val content by produceState<HomeContent?>(initialValue = null, refreshKey) {
+        value = null
         value = repo.load()
     }
 
@@ -67,48 +83,87 @@ fun HomeScreen(client: JellyfinClient, session: StoredSession) {
                 color = LumenColors.Accent,
                 modifier = Modifier.align(Alignment.Center).size(36.dp),
             )
-            else -> HomeBody(client, session, c)
+            else -> HomeBody(c)
         }
     }
 }
 
 @Composable
-private fun HomeBody(client: JellyfinClient, session: StoredSession, content: HomeContent) {
+private fun HomeBody(content: HomeContent) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
-        item(key = "hero") {
-            content.hero?.let { Hero(client, session, it) }
+        if (content.heroes.isNotEmpty()) {
+            item(key = "hero") { HeroCarousel(content.heroes) }
         }
         items(content.rails.size, key = { content.rails[it].id }) { index ->
             StaggeredReveal(index) {
-                RailRow(client, session, content.rails[index])
+                RailRow(content.rails[index])
             }
         }
         item(key = "bottom-spacer") { Spacer(Modifier.height(24.dp)) }
     }
 }
 
+/**
+ * Carrousel du hero : défile tout seul (8 s), fondu entre les titres, points
+ * de position cliquables en bas à droite.
+ */
 @Composable
-private fun Hero(client: JellyfinClient, session: StoredSession, item: BaseItem) {
-    val backdropUrl = when {
-        item.backdropImageTags.isNotEmpty() ->
-            client.imageUrl(session.baseUrl, item.id, "Backdrop", item.backdropImageTags.first(), maxWidth = 1920)
-        item.imageTags.containsKey("Thumb") ->
-            client.imageUrl(session.baseUrl, item.id, "Thumb", item.imageTags["Thumb"], maxWidth = 1920)
-        else -> client.imageUrl(session.baseUrl, item.id, "Primary", item.imageTags["Primary"], maxWidth = 1920)
+private fun HeroCarousel(heroes: List<HeroItem>) {
+    var index by remember { mutableStateOf(0) }
+
+    // Rotation automatique — le clic sur un point repart de ce titre.
+    LaunchedEffect(heroes.size) {
+        while (true) {
+            delay(8_000)
+            index = (index + 1) % heroes.size
+        }
     }
-    val logoTag = item.imageTags["Logo"]
 
     Box(Modifier.fillMaxWidth().aspectRatio(16f / 8f)) {
+        AnimatedContent(
+            targetState = index,
+            transitionSpec = { fadeIn(tween(700)).togetherWith(fadeOut(tween(700))) },
+        ) { i ->
+            HeroSlide(heroes[i])
+        }
+
+        // Indicateurs de position — vecteurs purs, pas de glyphes.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(horizontal = 48.dp, vertical = 24.dp),
+        ) {
+            heroes.forEachIndexed { i, _ ->
+                val active = i == index
+                val width by animateFloatAsState(if (active) 22f else 8f, tween(250))
+                Box(
+                    Modifier
+                        .size(width = width.dp, height = 8.dp)
+                        .background(
+                            if (active) LumenColors.Accent else LumenColors.Muted.copy(alpha = 0.45f),
+                            CircleShape,
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { index = i },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeroSlide(hero: HeroItem) {
+    Box(Modifier.fillMaxSize()) {
         AsyncImage(
-            model = backdropUrl,
-            contentDescription = item.name,
+            model = hero.backdropUrl,
+            contentDescription = hero.title,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
-        // Double dégradé : lisibilité du texte en bas, fondu vers le fond à gauche.
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
@@ -131,9 +186,9 @@ private fun Hero(client: JellyfinClient, session: StoredSession, item: BaseItem)
             modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 48.dp, vertical = 36.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            if (logoTag != null) {
+            if (hero.logoUrl != null) {
                 AsyncImage(
-                    model = client.imageUrl(session.baseUrl, item.id, "Logo", logoTag, maxWidth = 800),
+                    model = hero.logoUrl,
                     contentDescription = null,
                     modifier = Modifier.height(90.dp),
                     contentScale = ContentScale.Fit,
@@ -141,18 +196,18 @@ private fun Hero(client: JellyfinClient, session: StoredSession, item: BaseItem)
                 )
             } else {
                 Text(
-                    item.name,
+                    hero.title,
                     color = LumenColors.OnBackground,
                     fontSize = 42.sp,
                     fontWeight = FontWeight.Black,
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                item.productionYear?.let { MetaChip(it.toString()) }
-                item.runTimeMinutes?.let { MetaChip("${it / 60}h${(it % 60).toString().padStart(2, '0')}") }
-                item.officialRating?.let { MetaChip(it) }
+                hero.year?.let { MetaChip(it.toString()) }
+                hero.runtimeMinutes?.let { MetaChip("${it / 60}h${(it % 60).toString().padStart(2, '0')}") }
+                hero.rating?.let { MetaChip(it) }
             }
-            item.overview?.let {
+            hero.overview?.let {
                 Text(
                     it,
                     color = LumenColors.OnBackground.copy(alpha = 0.85f),
@@ -199,7 +254,7 @@ private fun MetaChip(text: String) {
 }
 
 @Composable
-private fun RailRow(client: JellyfinClient, session: StoredSession, rail: Rail) {
+private fun RailRow(rail: Rail) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             rail.title,
@@ -212,8 +267,8 @@ private fun RailRow(client: JellyfinClient, session: StoredSession, rail: Rail) 
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(horizontal = 48.dp),
         ) {
-            items(rail.items, key = { it.id }) { item ->
-                MediaCard(client, session, item, wide = rail.wide)
+            items(rail.items, key = { it.id }) { card ->
+                MediaCard(card, wide = rail.wide)
             }
         }
     }
