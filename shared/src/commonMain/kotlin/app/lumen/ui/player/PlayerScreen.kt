@@ -603,6 +603,8 @@ fun PlayerScreen(
                 fill = fill,
                 onFill = { fill = it },
                 onSnapshot = { engine.snapshot() },
+                streamUrl = streamUrl,
+                playerTitle = title,
                 playMethod = buildString {
                     append(playMethod)
                     append(" · ")
@@ -688,6 +690,8 @@ private fun SettingsPanel(
     onFill: (Boolean) -> Unit,
     onSnapshot: () -> Unit,
     playMethod: String,
+    streamUrl: String?,
+    playerTitle: String,
 ) {
     var selectedAudio by remember { mutableStateOf<Int?>(null) }
     var selectedSub by remember { mutableStateOf(-1) }
@@ -799,13 +803,101 @@ private fun SettingsPanel(
         }
 
         SettingSection(Icons.Filled.Cast, "Diffuser (Cast)") {
-            Text("Bientôt disponible", color = LumenColors.Muted, fontSize = 13.sp)
+            CastSection(streamUrl = streamUrl, title = playerTitle)
         }
 
         SettingSection(Icons.Filled.Info, "Session") {
             Text(playMethod, color = LumenColors.Muted, fontSize = 13.sp)
         }
     }
+}
+
+/**
+ * Diffusion vers un appareil du réseau.
+ *
+ * On envoie l'adresse AMONT du flux : c'est le téléviseur qui va la chercher,
+ * or le proxy local n'écoute que sur la boucle et lui serait injoignable. Un
+ * dossier HLS importé n'est donc pas diffusable — c'est dit plutôt que tenté.
+ */
+@Composable
+private fun CastSection(streamUrl: String?, title: String) {
+    val scope = rememberCoroutineScope()
+    var devices by remember { mutableStateOf<List<app.lumen.cast.CastDevice>?>(null) }
+    var scanning by remember { mutableStateOf(false) }
+    var active by remember { mutableStateOf<app.lumen.cast.CastDevice?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    val local = streamUrl == null || streamUrl.startsWith("file://")
+    if (local) {
+        Text(
+            "Ce flux est local : le téléviseur ne pourrait pas aller le " +
+                "chercher. La diffusion vaut pour les titres du serveur et " +
+                "ceux des addons.",
+            color = LumenColors.Muted, fontSize = 12.sp,
+        )
+        return
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            if (scanning) "Recherche…" else "Chercher des appareils",
+            color = if (scanning) LumenColors.Muted else Color.White,
+            fontSize = 13.sp,
+            modifier = Modifier
+                .background(LumenColors.SurfaceHigh, RoundedCornerShape(8.dp))
+                .clickable(enabled = !scanning) {
+                    scanning = true
+                    message = null
+                    scope.launch {
+                        devices = app.lumen.cast.discoverCastDevices()
+                        scanning = false
+                        if (devices.orEmpty().isEmpty()) message = "Aucun appareil trouvé sur le réseau"
+                    }
+                }
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        )
+        active?.let {
+            Text(
+                "Arrêter",
+                color = LumenColors.Accent,
+                fontSize = 13.sp,
+                modifier = Modifier
+                    .background(LumenColors.SurfaceHigh, RoundedCornerShape(8.dp))
+                    .clickable {
+                        val device = it
+                        scope.launch {
+                            app.lumen.cast.castStop(device)
+                            active = null
+                            message = "Diffusion arrêtée"
+                        }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            )
+        }
+    }
+
+    devices.orEmpty().forEach { device ->
+        val selected = active?.id == device.id
+        Text(
+            device.label + if (selected) "  ● en cours" else "",
+            color = if (selected) LumenColors.Accent else Color.White,
+            fontSize = 13.sp,
+            modifier = Modifier.fillMaxWidth()
+                .background(LumenColors.SurfaceHigh, RoundedCornerShape(8.dp))
+                .clickable {
+                    val url = streamUrl ?: return@clickable
+                    message = "Envoi vers ${device.name}…"
+                    scope.launch {
+                        val ok = app.lumen.cast.castPlay(device, url, title)
+                        active = if (ok) device else null
+                        message = if (ok) "Lecture lancée sur ${device.name}" else "${device.name} a refusé le flux"
+                    }
+                }
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        )
+    }
+
+    message?.let { Text(it, color = LumenColors.Muted, fontSize = 12.sp) }
 }
 
 @Composable
