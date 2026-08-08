@@ -103,6 +103,73 @@ class JellyfinClient(
     fun userImageUrl(baseUrl: String, userId: String, tag: String?): String? =
         tag?.let { "${baseUrl.trimEnd('/')}/UserImage?userId=$userId&tag=$it" }
 
+    // --- Bibliothèques & items (L2) — routes actuelles de la 10.11 -----------
+
+    /** Les vues (bibliothèques) de l'utilisateur : Films, Séries, etc. */
+    suspend fun userViews(baseUrl: String, userId: String): ItemsResult =
+        authedGet(baseUrl, "/UserViews?userId=$userId")
+
+    /** Items en cours de lecture, pour la rangée « Reprendre ». */
+    suspend fun resumeItems(baseUrl: String, userId: String, limit: Int = 12): ItemsResult =
+        authedGet(
+            baseUrl,
+            "/UserItems/Resume?userId=$userId&limit=$limit&mediaTypes=Video" +
+                "&fields=$DEFAULT_FIELDS",
+        )
+
+    /** « À suivre » : le prochain épisode de chaque série entamée. */
+    suspend fun nextUp(baseUrl: String, userId: String, limit: Int = 12): ItemsResult =
+        authedGet(baseUrl, "/Shows/NextUp?userId=$userId&limit=$limit&fields=$DEFAULT_FIELDS")
+
+    /** Derniers ajouts d'une bibliothèque (le endpoint renvoie un tableau nu). */
+    suspend fun latestItems(baseUrl: String, userId: String, parentId: String, limit: Int = 16): List<BaseItem> =
+        http.get("${baseUrl.trimEnd('/')}/Items/Latest?userId=$userId&parentId=$parentId&limit=$limit&fields=$DEFAULT_FIELDS") {
+            header("Authorization", authorizationHeader())
+        }.body()
+
+    /** Contenu d'une bibliothèque, paginé et trié. */
+    suspend fun items(
+        baseUrl: String,
+        userId: String,
+        parentId: String? = null,
+        includeTypes: String? = null,
+        sortBy: String = "SortName",
+        limit: Int = 60,
+        startIndex: Int = 0,
+    ): ItemsResult = authedGet(
+        baseUrl,
+        buildString {
+            append("/Items?userId=$userId&Recursive=true&limit=$limit&startIndex=$startIndex")
+            append("&sortBy=$sortBy&fields=$DEFAULT_FIELDS")
+            parentId?.let { append("&parentId=$it") }
+            includeTypes?.let { append("&includeItemTypes=$it") }
+        },
+    )
+
+    /** URL d'une image d'item (Primary, Backdrop, Logo, Thumb). */
+    fun imageUrl(
+        baseUrl: String,
+        itemId: String,
+        type: String = "Primary",
+        tag: String? = null,
+        maxWidth: Int? = null,
+    ): String = buildString {
+        append("${baseUrl.trimEnd('/')}/Items/$itemId/Images/$type")
+        append("?quality=90")
+        tag?.let { append("&tag=$it") }
+        maxWidth?.let { append("&maxWidth=$it") }
+    }
+
+    private suspend inline fun <reified T> authedGet(baseUrl: String, path: String): T =
+        http.get("${baseUrl.trimEnd('/')}$path") {
+            header("Authorization", authorizationHeader())
+        }.body()
+
+    private companion object {
+        /** Champs additionnels demandés partout — évite un second aller-retour par fiche. */
+        const val DEFAULT_FIELDS = "ProviderIds,Overview,Genres,ParentId"
+    }
+
     /** Vérifie qu'un token stocké est encore valable (reconnexion silencieuse). */
     suspend fun tokenIsValid(baseUrl: String): Boolean = try {
         http.get("${baseUrl.trimEnd('/')}/System/Info") {

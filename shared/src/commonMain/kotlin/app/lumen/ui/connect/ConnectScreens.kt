@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import app.lumen.api.PublicUser
 import app.lumen.resources.Res
@@ -59,12 +60,28 @@ fun ConnectScreen(flow: ConnectFlow) {
         modifier = Modifier.fillMaxSize().background(LumenColors.Background),
         contentAlignment = Alignment.Center,
     ) {
-        when (val s = step) {
-            is ConnectStep.Server -> ServerStep(flow, s)
-            is ConnectStep.Profiles -> ProfilesStep(flow, s)
-            is ConnectStep.Credentials -> CredentialsStep(flow, s)
-            is ConnectStep.QuickConnect -> QuickConnectStep(flow, s)
-            is ConnectStep.Done -> Unit // App() bascule sur l'accueil
+        // Chaque étape glisse et fond vers la suivante — pas de bascule sèche.
+        androidx.compose.animation.AnimatedContent(
+            targetState = step,
+            contentKey = { it::class },
+            transitionSpec = {
+                (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(350)) +
+                    androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(350)) { it / 8 })
+                    .togetherWith(
+                        androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(180)) +
+                            androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(180)) { -it / 10 },
+                    )
+            },
+        ) { s ->
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                when (s) {
+                    is ConnectStep.Server -> ServerStep(flow, s)
+                    is ConnectStep.Profiles -> ProfilesStep(flow, s)
+                    is ConnectStep.Credentials -> CredentialsStep(flow, s)
+                    is ConnectStep.QuickConnect -> QuickConnectStep(flow, s)
+                    is ConnectStep.Done -> Unit // App() bascule sur l'accueil
+                }
+            }
         }
     }
 }
