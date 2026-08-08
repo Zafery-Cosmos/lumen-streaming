@@ -197,7 +197,10 @@ fun MediaCard(
                 ) {
                     Icon(Icons.Filled.PlayArrow, contentDescription = "Lire", tint = Color.White, modifier = Modifier.size(24.dp))
                 }
-                // Rangée d'actions rapides — médiathèque uniquement.
+            }
+            // Rangée d'actions : reste MONTÉE tant que le menu est ouvert —
+            // sinon le popup fait perdre le survol, se démonte, et clignote.
+            if (hovered || menuOpen || infoOpen) {
                 if (ctx != null && card.inLibrary) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),

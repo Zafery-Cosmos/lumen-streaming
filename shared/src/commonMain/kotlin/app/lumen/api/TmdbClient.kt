@@ -53,6 +53,7 @@ data class TmdbDetail(
     @SerialName("seasons") val seasons: List<TmdbSeasonInfo> = emptyList(),
     @SerialName("credits") val credits: TmdbCredits? = null,
     @SerialName("similar") val similar: TmdbPaged? = null,
+    @SerialName("external_ids") val externalIds: TmdbExternalIds? = null,
 ) {
     val displayName: String get() = title ?: nameField ?: ""
     val year: Int? get() = (releaseDate ?: firstAirDate)?.take(4)?.toIntOrNull()
@@ -85,6 +86,11 @@ data class TmdbPersonDetail(
 @Serializable
 data class TmdbPersonCredits(
     @SerialName("cast") val cast: List<TmdbItem> = emptyList(),
+)
+
+@Serializable
+data class TmdbExternalIds(
+    @SerialName("imdb_id") val imdbId: String? = null,
 )
 
 @Serializable
@@ -147,7 +153,7 @@ class TmdbClient(private val http: HttpClient) {
     suspend fun detail(mediaType: String, id: Long): TmdbDetail =
         http.get(
             "$BASE/$mediaType/$id?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR" +
-                "&append_to_response=credits,similar",
+                "&append_to_response=credits,similar,external_ids",
         ).body()
 
     /** Recherche d'une personne par nom (pont depuis les fiches Jellyfin). */

@@ -104,17 +104,19 @@ fun Shell(
     val openDetail: (String) -> Unit = { id -> detailStack = detailStack + id }
 
     // Lecture en cours : le lecteur remplace TOUT l'écran, barre comprise.
-    var playingId by remember { mutableStateOf<String?>(null) }
-    playingId?.let { id ->
+    // Un PlayRequest est soit un item Jellyfin, soit un flux externe d'addon.
+    var playing by remember { mutableStateOf<app.lumen.domain.PlayRequest?>(null) }
+    playing?.let { req ->
         app.lumen.ui.player.PlayerScreen(
             client, session,
-            itemId = id,
+            request = req,
             profile = profile,
             watchRepo = watchRepo,
-            onBack = { playingId = null; refreshKey++ },  // refresh → « Reprendre » à jour
+            onBack = { playing = null; refreshKey++ },  // refresh → « Reprendre » à jour
         )
         return
     }
+    val playItem: (String) -> Unit = { id -> playing = app.lumen.domain.PlayRequest(itemId = id) }
 
     // Écran de veille : la moindre interaction (observée en phase initiale,
     // sans rien consommer) réarme le délai.
@@ -151,8 +153,11 @@ fun Shell(
                     client, tmdb, session,
                     mediaId = state,
                     onBack = { detailStack = detailStack.dropLast(1) },
-                    onPlay = { id -> playingId = id },
+                    onPlay = playItem,
                     onOpen = openDetail,
+                    onPlayExternal = { url, title, headers ->
+                        playing = app.lumen.domain.PlayRequest(url = url, title = title, headers = headers)
+                    },
                 )
                 state.startsWith("person:") -> app.lumen.ui.person.PersonScreen(
                     tmdb,
@@ -162,20 +167,20 @@ fun Shell(
                 state == "search" -> SearchScreen(
                     client, session, profile, searchQuery,
                     onOpen = openDetail,
-                    onPlay = { id -> playingId = id },
+                    onPlay = playItem,
                 )
                 state == ShellTab.Home.name -> HomeScreen(
                     client, tmdb, session, profile, watchRepo, refreshKey,
                     onOpen = openDetail,
-                    onPlay = { id -> playingId = id },
+                    onPlay = playItem,
                 )
                 state == ShellTab.Movies.name -> BrowseScreen(
                     client, session, profile, includeTypes = "Movie", title = "Films",
-                    onOpen = openDetail, onPlay = { id -> playingId = id },
+                    onOpen = openDetail, onPlay = playItem,
                 )
                 state == ShellTab.Series.name -> BrowseScreen(
                     client, session, profile, includeTypes = "Series", title = "Séries",
-                    onOpen = openDetail, onPlay = { id -> playingId = id },
+                    onOpen = openDetail, onPlay = playItem,
                 )
                 else -> when (val sub = settingsSub) {
                     null -> SettingsScreen(

@@ -46,7 +46,18 @@ interface PlayerEngine {
 
     /** Capture d'écran de la frame courante ; false si non supporté. */
     fun snapshot(): Boolean = false
+
+    /** Statistiques temps réel du flux ; null si le moteur ne les expose pas. */
+    fun stats(): PlayerStats? = null
 }
+
+/** Statistiques du flux en cours (panneau « Statistiques » du lecteur). */
+data class PlayerStats(
+    val inputKbps: Int,          // débit d'arrivée
+    val inputBytesRead: Long,    // données reçues
+    val demuxKbps: Int,          // débit utile après démultiplexage
+    val picturesLost: Int,       // images perdues (santé du décodage)
+)
 
 /** Fabrique le moteur natif de la plateforme, lié au cycle de vie de l'écran. */
 @Composable

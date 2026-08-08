@@ -77,6 +77,7 @@ fun SettingsSectionScreen(
             "playback" -> "Lecture"
             "quality" -> "Qualité et réseau"
             "audio" -> "Audio et sous-titres"
+            "addons" -> "Addons Stremio"
             "quickconnect" -> "Connexion rapide"
             "server" -> "Serveurs"
             else -> "Paramètres"
@@ -89,6 +90,7 @@ fun SettingsSectionScreen(
             "playback" -> PlaybackSection(client, session)
             "quality" -> QualitySection()
             "audio" -> AudioSection(client, session)
+            "addons" -> AddonsSection(client)
             "quickconnect" -> QuickConnectSection(client, session)
             "server" -> ServerSection(session, servers, onSwitchServer, onAddServer, onForgetServer, onLogout)
         }
@@ -489,6 +491,90 @@ private fun AudioSection(client: JellyfinClient, session: StoredSession) {
             value = cfg.subtitleLanguagePreference.orEmpty(),
             onValue = { saveConfig(cfg.copy(subtitleLanguagePreference = it.ifBlank { null })) },
         )
+    }
+}
+
+@Composable
+private fun AddonsSection(client: JellyfinClient) {
+    val scope = rememberCoroutineScope()
+    val stremio = remember { app.lumen.api.StremioClient(client.http) }
+    val store = remember { app.lumen.domain.AddonStore() }
+    var addons by remember { mutableStateOf(store.list()) }
+    var url by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    Text(
+        "Colle l'URL du manifeste d'un addon Stremio (Torrentio, Frenchio…) — " +
+            "les liens « stremio:// » des pages d'installation fonctionnent aussi. " +
+            "Ses sources apparaîtront sur les fiches via le bouton « Sources ».",
+        color = LumenColors.Muted, fontSize = 13.sp,
+    )
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedTextField(
+            value = url,
+            onValueChange = { url = it; error = null },
+            label = { Text("URL du manifeste", color = LumenColors.Muted) },
+            singleLine = true,
+            colors = fieldColors(),
+            modifier = Modifier.weight(1f),
+        )
+        Button(
+            onClick = {
+                busy = true
+                scope.launch {
+                    val installed = store.install(stremio, url)
+                    busy = false
+                    if (installed != null) {
+                        addons = store.list()
+                        url = ""
+                    } else {
+                        error = "Manifeste invalide ou injoignable"
+                    }
+                }
+            },
+            enabled = url.isNotBlank() && !busy,
+            colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
+            shape = RoundedCornerShape(8.dp),
+        ) {
+            Text(if (busy) "Vérification…" else "Installer", fontWeight = FontWeight.SemiBold)
+        }
+    }
+    error?.let { Text(it, color = LumenColors.Accent, fontSize = 13.sp) }
+
+    addons.forEach { addon ->
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().background(LumenColors.Surface, RoundedCornerShape(10.dp))
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(addon.name, color = LumenColors.OnBackground, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    addon.manifestUrl,
+                    color = LumenColors.Muted, fontSize = 11.sp,
+                    maxLines = 1,
+                )
+            }
+            Switch(
+                checked = addon.enabled,
+                onCheckedChange = { store.toggle(addon.manifestUrl); addons = store.list() },
+                colors = SwitchDefaults.colors(checkedTrackColor = LumenColors.Accent),
+            )
+            Spacer(Modifier.width(10.dp))
+            Icon(
+                Icons.Filled.Delete,
+                contentDescription = "Supprimer",
+                tint = LumenColors.Muted,
+                modifier = Modifier.size(18.dp).clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { store.remove(addon.manifestUrl); addons = store.list() },
+            )
+        }
+    }
+    if (addons.isEmpty()) {
+        Text("Aucun addon installé pour l'instant.", color = LumenColors.Muted, fontSize = 13.sp)
     }
 }
 

@@ -21,6 +21,17 @@ data class CardItem(
     val favorite: Boolean = false,
 )
 
+/**
+ * Ce que le lecteur doit lire : un item Jellyfin (négocié via PlaybackInfo)
+ * OU un flux externe direct venu d'un addon Stremio (plan §5).
+ */
+data class PlayRequest(
+    val itemId: String? = null,
+    val url: String? = null,
+    val title: String = "",
+    val headers: Map<String, String> = emptyMap(),
+)
+
 /** Une entrée du carrousel hero : visuels précalculés, prêts à afficher. */
 data class HeroItem(
     val id: String,

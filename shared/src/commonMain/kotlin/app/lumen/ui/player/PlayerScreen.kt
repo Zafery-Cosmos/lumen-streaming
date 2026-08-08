@@ -37,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.HighQuality
@@ -96,11 +97,12 @@ import kotlinx.coroutines.launch
 fun PlayerScreen(
     client: JellyfinClient,
     session: StoredSession,
-    itemId: String,
+    request: app.lumen.domain.PlayRequest,
     profile: app.lumen.domain.LocalProfile?,
     watchRepo: app.lumen.domain.WatchStateRepository?,
     onBack: () -> Unit,
 ) {
+    val itemId = request.itemId
     val engine = rememberPlayerEngine()
     val state by engine.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -111,7 +113,17 @@ fun PlayerScreen(
     var controlsVisible by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
+    var statsOpen by remember { mutableStateOf(false) }
+    var stats by remember { mutableStateOf<app.lumen.player.PlayerStats?>(null) }
     var playMethod by remember { mutableStateOf("…") }
+
+    // Rafraîchit les statistiques du flux chaque seconde quand le panneau est ouvert.
+    LaunchedEffect(statsOpen) {
+        while (statsOpen) {
+            stats = engine.stats()
+            delay(1_000)
+        }
+    }
 
     // Réglages du lecteur.
     var rate by remember { mutableStateOf(app.lumen.domain.AppSettings.defaultRatePct.value / 100f) }
@@ -128,6 +140,7 @@ fun PlayerScreen(
     var subTracks by remember { mutableStateOf(listOf<MediaTrack>()) }
 
     suspend fun startPlayback(startMs: Long) {
+        if (itemId == null) return
         val info = client.playbackInfo(session.baseUrl, session.userId, itemId, maxBitrate)
         val source = info.mediaSources.firstOrNull() ?: error("Aucune source de lecture")
         playSessionId = info.playSessionId
@@ -139,8 +152,19 @@ fun PlayerScreen(
         engine.play(client.streamUrl(session.baseUrl, itemId, source), startMs = startMs)
     }
 
-    // Démarrage : détail (titre + reprise) → PlaybackInfo → lecture → session.
-    LaunchedEffect(itemId) {
+    // Démarrage : item Jellyfin (PlaybackInfo + session) OU flux externe direct.
+    LaunchedEffect(request) {
+        if (request.url != null) {
+            // Flux d'addon Stremio : lecture directe, en-têtes côté client (§4).
+            title = request.title
+            playMethod = "Flux direct (addon)"
+            engine.play(request.url, request.headers)
+            return@LaunchedEffect
+        }
+        if (itemId == null) {
+            loadError = "Rien à lire"
+            return@LaunchedEffect
+        }
         try {
             val it = client.item(session.baseUrl, session.userId, itemId)
             item = it
@@ -205,6 +229,7 @@ fun PlayerScreen(
         while (true) {
             delay(10_000)
             val s = engine.state.value
+            if (itemId == null) continue
             // Progression locale PAR PROFIL + progression serveur (partagée).
             profile?.let { p -> watchRepo?.record(p.id, itemId, s.positionMs, s.durationMs) }
             runCatching {
@@ -226,11 +251,13 @@ fun PlayerScreen(
 
     fun leave() {
         val s = engine.state.value
-        profile?.let { p -> watchRepo?.record(p.id, itemId, s.positionMs, s.durationMs) }
-        val pos = s.positionMs * 10_000
-        val psid = playSessionId
-        CoroutineScope(Dispatchers.Default).launch {
-            runCatching { client.reportPlaybackStopped(session.baseUrl, itemId, pos, psid) }
+        if (itemId != null) {
+            profile?.let { p -> watchRepo?.record(p.id, itemId, s.positionMs, s.durationMs) }
+            val pos = s.positionMs * 10_000
+            val psid = playSessionId
+            CoroutineScope(Dispatchers.Default).launch {
+                runCatching { client.reportPlaybackStopped(session.baseUrl, itemId, pos, psid) }
+            }
         }
         onBack()
     }
@@ -283,9 +310,47 @@ fun PlayerScreen(
                 onTogglePlay = { if (state.playing) engine.pause() else engine.resume() },
                 onSeek = { engine.seekTo(it) },
                 onOpenSettings = { settingsOpen = !settingsOpen },
+                onToggleStats = { statsOpen = !statsOpen },
                 seekBackMs = seekBackMs,
                 seekFwdMs = seekFwdMs,
             )
+        }
+
+        // Panneau de statistiques du flux — débit d'arrivée, données, santé.
+        AnimatedVisibility(
+            visible = statsOpen,
+            enter = fadeIn(tween(200)) + slideInVertically(tween(250)) { -it / 4 },
+            exit = fadeOut(tween(180)),
+            modifier = Modifier.align(Alignment.TopStart).padding(start = 24.dp, top = 88.dp),
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black.copy(alpha = 0.8f))
+                    .padding(16.dp),
+            ) {
+                Text("Statistiques du flux", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                StatLine("Session", playMethod)
+                val s = stats
+                StatLine(
+                    "Débit d'arrivée",
+                    s?.let { "${(it.inputKbps / 100) / 10.0} Mb/s" } ?: "—",
+                )
+                StatLine(
+                    "Données reçues",
+                    s?.let { "${it.inputBytesRead / 1_000_000} Mo" } ?: "—",
+                )
+                StatLine(
+                    "Débit utile",
+                    s?.let { "${(it.demuxKbps / 100) / 10.0} Mb/s" } ?: "—",
+                )
+                StatLine("Images perdues", s?.picturesLost?.toString() ?: "—")
+                // Honnête : pairs et % n'existent que pour un moteur torrent —
+                // les flux d'addons lisibles ici sont du HTTP direct (debrid/HTTP).
+                StatLine("Pairs", "— (flux HTTP direct)")
+                StatLine("Téléchargé", "— (flux HTTP direct)")
+            }
         }
 
         // Panneau d'options — glisse depuis la droite.
@@ -301,8 +366,10 @@ fun PlayerScreen(
                 maxBitrate = maxBitrate,
                 onMaxBitrate = {
                     maxBitrate = it
-                    val pos = engine.state.value.positionMs
-                    scope.launch { runCatching { startPlayback(pos) } }
+                    if (itemId != null) {
+                        val pos = engine.state.value.positionMs
+                        scope.launch { runCatching { startPlayback(pos) } }
+                    }
                 },
                 audioTracks = audioTracks,
                 subTracks = subTracks,
@@ -577,6 +644,7 @@ private fun ControlsOverlay(
     onTogglePlay: () -> Unit,
     onSeek: (Long) -> Unit,
     onOpenSettings: () -> Unit,
+    onToggleStats: () -> Unit,
     seekBackMs: Long,
     seekFwdMs: Long,
 ) {
@@ -607,6 +675,8 @@ private fun ControlsOverlay(
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(16.dp))
+            RoundControl(Icons.Filled.Equalizer, "Statistiques du flux", 20.dp, onClick = onToggleStats)
+            Spacer(Modifier.width(10.dp))
             RoundControl(Icons.Filled.Tune, "Options", 22.dp, onClick = onOpenSettings)
         }
 
@@ -651,6 +721,14 @@ private fun ControlsOverlay(
                 Text(formatTime(durationMs), color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun StatLine(label: String, value: String) {
+    Row {
+        Text("$label : ", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+        Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

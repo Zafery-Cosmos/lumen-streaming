@@ -172,6 +172,17 @@ class VlcjEngine : PlayerEngine {
         player.subpictures().setTrack(id)
     }
 
+    override fun stats(): PlayerStats? = runCatching {
+        val s = player.media().info()?.statistics() ?: return null
+        PlayerStats(
+            // libvlc exprime les débits en kO/s → ×8 pour des kb/s.
+            inputKbps = (s.inputBitrate() * 8000).toInt(),
+            inputBytesRead = s.inputBytesRead().toLong(),
+            demuxKbps = (s.demuxBitrate() * 8000).toInt(),
+            picturesLost = s.picturesLost(),
+        )
+    }.getOrNull()
+
     override fun snapshot(): Boolean {
         val dir = java.io.File(System.getProperty("user.home"), "Images")
             .takeIf { it.isDirectory } ?: java.io.File(System.getProperty("user.home"))

@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -82,7 +83,12 @@ fun DetailScreen(
     onBack: () -> Unit,
     onPlay: (String) -> Unit,
     onOpen: (String) -> Unit,
+    onPlayExternal: (url: String, title: String, headers: Map<String, String>) -> Unit,
 ) {
+    // Sources d'addons Stremio (plan §5) : état du panneau + clients.
+    val stremio = remember { app.lumen.api.StremioClient(client.http) }
+    val addonStore = remember { app.lumen.domain.AddonStore() }
+    var sourcesTarget by remember { mutableStateOf<SourcesTarget?>(null) }
     val data by produceState<DetailData?>(initialValue = null, mediaId) {
         value = runCatching {
             when {
@@ -105,8 +111,11 @@ fun DetailScreen(
                 color = LumenColors.Accent,
                 modifier = Modifier.align(Alignment.Center).size(36.dp),
             )
-            is DetailData.Jellyfin -> JellyfinDetail(client, tmdb, session, d.item, onPlay, onOpen)
-            is DetailData.Tmdb -> TmdbDetailBody(d.detail, onOpen)
+            is DetailData.Jellyfin -> JellyfinDetail(
+                client, tmdb, session, d.item, onPlay, onOpen,
+                onSources = { sourcesTarget = it },
+            )
+            is DetailData.Tmdb -> TmdbDetailBody(d.detail, onOpen, onSources = { sourcesTarget = it })
             is DetailData.Failed -> Text(
                 "Impossible de charger cette fiche.",
                 color = LumenColors.Muted,
@@ -132,6 +141,20 @@ fun DetailScreen(
                 modifier = Modifier.size(22.dp),
             )
         }
+
+        // Panneau Sources — par-dessus la fiche.
+        sourcesTarget?.let { target ->
+            SourcesOverlay(
+                stremio = stremio,
+                addons = addonStore.list(),
+                target = target,
+                onDismiss = { sourcesTarget = null },
+                onPlay = { url, headers ->
+                    sourcesTarget = null
+                    onPlayExternal(url, target.title, headers)
+                },
+            )
+        }
     }
 }
 
@@ -153,7 +176,9 @@ private fun JellyfinDetail(
     item: BaseItem,
     onPlay: (String) -> Unit,
     onOpen: (String) -> Unit,
+    onSources: (SourcesTarget) -> Unit,
 ) {
+    val seriesImdb = item.providerIds["Imdb"]
     // Titres similaires proposés par le serveur.
     val similar by produceState<List<app.lumen.domain.CardItem>>(initialValue = emptyList(), item.id) {
         value = runCatching {
@@ -207,7 +232,14 @@ private fun JellyfinDetail(
     var selectedSeason by remember(organized) { mutableStateOf(organized?.keys?.firstOrNull { it > 0 } ?: organized?.keys?.firstOrNull()) }
 
     LazyColumn(Modifier.fillMaxSize()) {
-        item(key = "header") { DetailHeader(client, session, item, onPlay) }
+        item(key = "header") {
+            DetailHeader(
+                client, session, item, onPlay,
+                onSources = if (item.type == "Movie" && seriesImdb != null) {
+                    { onSources(SourcesTarget("movie", seriesImdb, item.name)) }
+                } else null,
+            )
+        }
 
         val groups = organized
         if (item.type == "Series") {
@@ -257,7 +289,20 @@ private fun JellyfinDetail(
                             modifier = Modifier.padding(horizontal = 48.dp, vertical = 16.dp),
                         ) {
                             seasonNum?.let { groups[it] }.orEmpty().forEach { org ->
-                                EpisodeRow(client, session, org, onPlay)
+                                EpisodeRow(
+                                    client, session, org, onPlay,
+                                    onSources = if (seriesImdb != null) {
+                                        {
+                                            onSources(
+                                                SourcesTarget(
+                                                    "series",
+                                                    "$seriesImdb:${org.season}:${org.number}",
+                                                    "${item.name} S${org.season}E${org.number}",
+                                                ),
+                                            )
+                                        }
+                                    } else null,
+                                )
                             }
                         }
                     }
@@ -295,7 +340,13 @@ private fun JellyfinDetail(
 }
 
 @Composable
-private fun DetailHeader(client: JellyfinClient, session: StoredSession, item: BaseItem, onPlay: (String) -> Unit) {
+private fun DetailHeader(
+    client: JellyfinClient,
+    session: StoredSession,
+    item: BaseItem,
+    onPlay: (String) -> Unit,
+    onSources: (() -> Unit)? = null,
+) {
     // Fiche d'épisode : nom de fichier parsé + visuels de la SÉRIE en secours,
     // sinon on affiche « 727 - FL - 08-03 - … » sur fond noir.
     val parsed = if (item.type == "Episode") app.lumen.domain.parseEpisodeFileName(item.path) else null
@@ -363,21 +414,41 @@ private fun DetailHeader(client: JellyfinClient, session: StoredSession, item: B
                 )
             }
             val resume = (item.userData?.playbackPositionTicks ?: 0L) > 0L
-            Button(
-                // Série : « Lire » lance le premier épisode utile via NextUp au L12 ;
-                // pour l'instant il ne s'applique qu'aux items directement lisibles.
-                onClick = { if (item.type != "Series") onPlay(item.id) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                shape = RoundedCornerShape(6.dp),
-            ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.Black, modifier = Modifier.size(22.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    if (resume) "Reprendre" else "Lire",
-                    color = Color.Black,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    // Série : « Lire » lance le premier épisode utile via NextUp au L12 ;
+                    // pour l'instant il ne s'applique qu'aux items directement lisibles.
+                    onClick = { if (item.type != "Series") onPlay(item.id) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(6.dp),
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.Black, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (resume) "Reprendre" else "Lire",
+                        color = Color.Black,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                onSources?.let { open ->
+                    Button(
+                        onClick = open,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = LumenColors.SurfaceHigh.copy(alpha = 0.75f),
+                        ),
+                        shape = RoundedCornerShape(6.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.Cloud,
+                            contentDescription = null,
+                            tint = LumenColors.OnBackground,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Sources", color = LumenColors.OnBackground, fontSize = 15.sp)
+                    }
+                }
             }
         }
     }
@@ -389,6 +460,7 @@ private fun EpisodeRow(
     session: StoredSession,
     org: OrganizedEpisode,
     onPlay: (String) -> Unit,
+    onSources: (() -> Unit)? = null,
 ) {
     val ep = org.ep
     val extra = org.extra
@@ -467,6 +539,18 @@ private fun EpisodeRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            onSources?.let { open ->
+                Text(
+                    "Sources (addons)",
+                    color = LumenColors.Accent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(onClick = open)
+                        .padding(vertical = 4.dp),
+                )
+            }
         }
     }
 }
@@ -474,7 +558,7 @@ private fun EpisodeRow(
 // --- Fiche TMDB (catalogue, pas encore lisible) ----------------------------
 
 @Composable
-private fun TmdbDetailBody(detail: TmdbDetail, onOpen: (String) -> Unit) {
+private fun TmdbDetailBody(detail: TmdbDetail, onOpen: (String) -> Unit, onSources: (SourcesTarget) -> Unit) {
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
@@ -516,16 +600,36 @@ private fun TmdbDetailBody(detail: TmdbDetail, onOpen: (String) -> Unit) {
                             modifier = Modifier.width(620.dp),
                         )
                     }
-                    // Pas dans la médiathèque : la lecture viendra des addons (L8).
-                    Button(
-                        onClick = {},
-                        enabled = false,
-                        colors = ButtonDefaults.buttonColors(
-                            disabledContainerColor = LumenColors.SurfaceHigh,
-                        ),
-                        shape = RoundedCornerShape(6.dp),
-                    ) {
-                        Text("Pas encore dans votre médiathèque", color = LumenColors.Muted, fontSize = 14.sp)
+                    // Pas dans la médiathèque : la lecture passe par les ADDONS.
+                    val imdb = detail.externalIds?.imdbId
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (imdb != null && detail.runtime != null) {
+                            // Un runtime → c'est un film : sources directes possibles.
+                            Button(
+                                onClick = { onSources(SourcesTarget("movie", imdb, detail.displayName)) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                                shape = RoundedCornerShape(6.dp),
+                            ) {
+                                Icon(
+                                    Icons.Filled.Cloud,
+                                    contentDescription = null,
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Sources", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Button(
+                            onClick = {},
+                            enabled = false,
+                            colors = ButtonDefaults.buttonColors(
+                                disabledContainerColor = LumenColors.SurfaceHigh,
+                            ),
+                            shape = RoundedCornerShape(6.dp),
+                        ) {
+                            Text("Pas dans votre médiathèque", color = LumenColors.Muted, fontSize = 14.sp)
+                        }
                     }
                 }
             }
