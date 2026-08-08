@@ -26,12 +26,15 @@ jobs:
             id: linux-x64
             label: Linux — Debian, Ubuntu, Fedora (deb + rpm)
             task: packageDeb packageRpm
-            artifacts: desktopApp/build/compose/binaries/main/deb/*.deb desktopApp/build/compose/binaries/main/rpm/*.rpm
+            artifacts: |
+              desktopApp/build/compose/binaries/main/deb/*.deb
+              desktopApp/build/compose/binaries/main/rpm/*.rpm
           - os: windows-latest
             id: windows-x64
             label: Windows (msi)
             task: packageMsi
             artifacts: desktopApp/build/compose/binaries/main/msi/*.msi
+
           # macos-latest est en Apple Silicon : un .dmg produit là ne tourne
           # PAS sur un Mac Intel. Les deux architectures sont donc bâties.
           - os: macos-latest
