@@ -332,12 +332,17 @@ private fun CardMenu(
                     feedback = if (ok) "Téléchargement lancé" else "Indisponible sur cette plateforme"
                 }
                 MenuItem(Icons.Filled.ContentCopy, "Copier l'URL du flux") {
-                    clipboard.setText(
-                        AnnotatedString(
-                            "${ctx.session.baseUrl.trimEnd('/')}/Videos/$rawId/stream?static=true&api_key=${ctx.client.accessToken}",
-                        ),
-                    )
-                    feedback = "URL copiée"
+                    scope.launch {
+                        val upstream = "${ctx.session.baseUrl.trimEnd('/')}/Videos/$rawId/stream" +
+                            "?static=true&api_key=${ctx.client.accessToken}"
+                        // On copie l'adresse LOCALE : le jeton d'accès reste
+                        // dans l'app au lieu de partir dans le presse-papier.
+                        val link = if (app.lumen.player.StreamProxy.ensureRunning()) {
+                            app.lumen.player.StreamProxy.register(upstream)
+                        } else upstream
+                        clipboard.setText(AnnotatedString(link))
+                        feedback = "URL copiée (locale, sans jeton)"
+                    }
                 }
                 MenuItem(Icons.Filled.Info, "Informations du média") { onDismiss(); onInfo() }
                 feedback?.let {

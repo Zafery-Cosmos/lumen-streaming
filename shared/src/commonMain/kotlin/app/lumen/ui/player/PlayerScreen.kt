@@ -161,7 +161,16 @@ fun PlayerScreen(
             source.supportsDirectStream -> "Direct Stream"
             else -> "Transcodage"
         }
-        engine.play(client.streamUrl(session.baseUrl, itemId, source), startMs = startMs)
+        val upstream = client.streamUrl(session.baseUrl, itemId, source)
+        engine.play(
+            if (app.lumen.player.StreamProxy.ensureRunning()) {
+                app.lumen.player.StreamProxy.register(
+                    upstream,
+                    extension = app.lumen.player.guessStreamExtension(upstream),
+                )
+            } else upstream,
+            startMs = startMs,
+        )
     }
 
     // Démarrage : item Jellyfin (PlaybackInfo + session), flux externe direct,
@@ -181,10 +190,18 @@ fun PlayerScreen(
             return@LaunchedEffect
         }
         if (request.url != null) {
+            // Passe par le proxy local : URL propre et en-têtes réinjectés.
+            val proxied = if (app.lumen.player.StreamProxy.ensureRunning()) {
+                app.lumen.player.StreamProxy.register(
+                    request.url,
+                    request.headers,
+                    app.lumen.player.guessStreamExtension(request.url),
+                )
+            } else request.url
             // Flux d'addon Stremio : lecture directe, en-têtes côté client (§4).
             title = request.title
             playMethod = "Flux direct (addon)"
-            engine.play(request.url, request.headers)
+            engine.play(proxied, request.headers)
             return@LaunchedEffect
         }
         if (itemId == null) {
@@ -343,14 +360,23 @@ fun PlayerScreen(
             hash != null -> {
                 playMethod = "Torrent — moteur intégré"
                 if (app.lumen.player.ensureTorrentEngine()) {
-                    engine.play(app.lumen.player.torrentStreamUrl(hash, title), startMs = resumeMs)
+                    val direct = app.lumen.player.torrentStreamUrl(hash, title)
+                    engine.play(
+                        if (app.lumen.player.StreamProxy.ensureRunning()) {
+                            app.lumen.player.StreamProxy.register(direct)
+                        } else direct,
+                        startMs = resumeMs,
+                    )
                 } else {
                     loadError = "Moteur torrent indisponible"
                 }
             }
             url != null -> {
                 playMethod = "Flux direct (addon)"
-                engine.play(url, headers, startMs = resumeMs)
+                val proxied = if (app.lumen.player.StreamProxy.ensureRunning()) {
+                    app.lumen.player.StreamProxy.register(url, headers, app.lumen.player.guessStreamExtension(url))
+                } else url
+                engine.play(proxied, headers, startMs = resumeMs)
             }
         }
     }

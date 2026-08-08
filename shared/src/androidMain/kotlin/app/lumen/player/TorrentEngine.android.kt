@@ -9,3 +9,5 @@ actual suspend fun torrentEngineStatus(): TorrentEngineStatus =
     TorrentEngineStatus(running = false, endpoint = "", cacheBytes = 0, cacheDir = "")
 
 actual suspend fun purgeTorrentCache(): Long = 0
+
+actual suspend fun restartTorrentEngine(): Boolean = false

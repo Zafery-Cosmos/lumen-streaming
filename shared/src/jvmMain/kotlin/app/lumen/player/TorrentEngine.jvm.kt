@@ -146,3 +146,12 @@ actual suspend fun purgeTorrentCache(): Long = withContext(Dispatchers.Default) 
     }.getOrDefault(0L)
     (before - after).coerceAtLeast(0L)
 }
+
+actual suspend fun restartTorrentEngine(): Boolean = withContext(Dispatchers.Default) {
+    // Le moteur relit sa configuration au démarrage : on le coupe proprement
+    // puis ensureTorrentEngine() le relance avec les nouveaux réglages.
+    httpGet("$BASE/shutdown", timeoutMs = 2000)
+    runCatching { ProcessBuilder("pkill", "-f", "torrserver").start().waitFor() }
+    delay(1200)
+    ensureTorrentEngine()
+}

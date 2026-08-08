@@ -33,3 +33,6 @@ expect suspend fun torrentEngineStatus(): TorrentEngineStatus
 
 /** Vide le cache du moteur ; renvoie le nombre d'octets libérés. */
 expect suspend fun purgeTorrentCache(): Long
+
+/** Arrête puis relance le moteur, pour appliquer cache et profils. */
+expect suspend fun restartTorrentEngine(): Boolean

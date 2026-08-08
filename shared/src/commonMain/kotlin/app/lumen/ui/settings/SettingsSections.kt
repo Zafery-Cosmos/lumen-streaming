@@ -1028,6 +1028,46 @@ private fun SectionScaffold(title: String, onBack: () -> Unit, content: @Composa
                 Text(title, color = LumenColors.OnBackground, fontSize = 26.sp, fontWeight = FontWeight.Bold)
             }
             content()
+            SaveSettingsRow()
+        }
+    }
+}
+
+/**
+ * Bouton « Sauvegarder » — les réglages sont écrits dès qu'on les touche,
+ * mais certains (cache, profil de torrent, transcodage) ne prennent effet
+ * qu'au redémarrage du moteur de streaming. Ce bouton le fait, et confirme.
+ */
+@Composable
+private fun SaveSettingsRow() {
+    val scope = rememberCoroutineScope()
+    var saving by remember { mutableStateOf(false) }
+    var saved by remember { mutableStateOf(false) }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.padding(top = 10.dp),
+    ) {
+        Button(
+            onClick = {
+                saving = true
+                saved = false
+                scope.launch {
+                    // Relance le moteur pour que cache et profils s'appliquent.
+                    runCatching { app.lumen.player.restartTorrentEngine() }
+                    saving = false
+                    saved = true
+                }
+            },
+            enabled = !saving,
+            colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
+            shape = RoundedCornerShape(8.dp),
+        ) {
+            Text(if (saving) "Application…" else "Sauvegarder les paramètres", fontWeight = FontWeight.SemiBold)
+        }
+        if (saved) {
+            Text("Paramètres appliqués", color = LumenColors.Muted, fontSize = 13.sp)
         }
     }
 }
