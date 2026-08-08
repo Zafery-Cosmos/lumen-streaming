@@ -3,6 +3,7 @@ package app.lumen.update
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.onDownload
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
@@ -14,7 +15,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /** La version actuellement installée — comparée à celle publiée sur le NAS. */
-const val LUMEN_VERSION = "1.0.0"
+const val LUMEN_VERSION = "1.1.0"
 
 /** Adresse du serveur de mises à jour (NAS). */
 const val UPDATE_SERVER = "http://192.168.1.170:8500"
@@ -69,9 +70,26 @@ class UpdateClient(
     /**
      * Flux des publications : le serveur pousse dès qu'une version sort.
      * Chaque élément est le manifeste fraîchement publié.
+     *
+     * La connexion se rétablit TOUTE SEULE : le client HTTP partagé coupe
+     * chaque requête après 15 s, ce qui tuait l'abonnement en silence — le
+     * « en direct » ne tenait que 15 secondes. On désactive donc le délai
+     * pour cette requête-ci, et on se réabonne en boucle si le serveur
+     * ferme ou devient injoignable.
      */
     fun events(): Flow<ReleaseManifest> = flow {
-        http.prepareGet("$baseUrl/api/events").execute { response ->
+        while (true) {
+            runCatching { listenOnce() }
+            // Serveur redémarré ou réseau coupé : on retente sans harceler.
+            kotlinx.coroutines.delay(15_000)
+        }
+    }
+
+    private suspend fun kotlinx.coroutines.flow.FlowCollector<ReleaseManifest>.listenOnce() {
+        http.prepareGet("$baseUrl/api/events") {
+            // Un flux SSE est infini par nature : aucun délai ne doit le couper.
+            timeout { requestTimeoutMillis = Long.MAX_VALUE }
+        }.execute { response ->
             val channel = response.bodyAsChannel()
             var event = ""
             while (true) {
@@ -101,6 +119,9 @@ class UpdateClient(
     ): String? = runCatching {
         var startedAt = 0L
         val bytes: ByteArray = http.get("$baseUrl/files/${artifact.file}") {
+            // 100 Mo ne passent pas toujours en 15 s : le délai global du
+            // client aurait interrompu le téléchargement en plein vol.
+            timeout { requestTimeoutMillis = 30 * 60_000 }
             onDownload { received, contentLength ->
                 val now = nowMillis()
                 if (startedAt == 0L) startedAt = now
