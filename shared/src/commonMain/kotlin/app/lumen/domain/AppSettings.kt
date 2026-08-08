@@ -50,8 +50,14 @@ object AppSettings {
     // --- Affichage ---------------------------------------------------------
     /** Noir pur OLED au lieu du noir bleuté — appliqué par LumenTheme. */
     val oledBlack = BoolPref("display.oled", false)
+    /** Animations réduites : le hero ne défile plus tout seul. */
+    val reducedMotion = BoolPref("display.reducedmotion", false)
+    /** Nombre d'éléments chargés dans les grilles Films/Séries. */
+    val browsePageSize = IntPref("display.pagesize", 200)
 
-    // --- Accueil : visibilité des rangées ----------------------------------
+    // --- Accueil : ordre ET visibilité des rangées -------------------------
+    /** Ordre des sections, séparées par des virgules — réordonnable dans l'UI. */
+    val homeOrder = StringPref("home.order", "resume,nextup,recent,top10,genres")
     val showResume = BoolPref("home.resume", true)
     val showNextUp = BoolPref("home.nextup", true)
     val showRecent = BoolPref("home.recent", true)
@@ -61,10 +67,17 @@ object AppSettings {
     // --- Lecture -----------------------------------------------------------
     /** true → reprendre là où on s'est arrêté ; false → toujours du début. */
     val resumeAlways = BoolPref("play.resume", true)
-    /** Durée du saut avant/arrière du lecteur, en secondes. */
-    val seekStepSec = IntPref("play.seekstep", 10)
+    /** Sauts avant et arrière SÉPARÉS (comme Jellyfin), en secondes. */
+    val seekForwardSec = IntPref("play.seekfwd", 30)
+    val seekBackSec = IntPref("play.seekback", 10)
+    /** Vitesse de lecture par défaut, en pourcent (100 = normale). */
+    val defaultRatePct = IntPref("play.rate", 100)
     /** Lecture auto de l'épisode suivant (branché au L12 — enchaînement). */
     val autoPlayNext = BoolPref("play.autonext", true)
+
+    // --- Sous-titres -------------------------------------------------------
+    /** Échelle du texte des sous-titres, en pourcent (desktop/libvlc). */
+    val subtitleScalePct = IntPref("subs.scale", 100)
 
     // --- Qualité & réseau --------------------------------------------------
     /** Plafond de bitrate par défaut du lecteur ; 0 = automatique. */

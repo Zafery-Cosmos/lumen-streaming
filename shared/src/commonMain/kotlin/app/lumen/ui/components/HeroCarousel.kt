@@ -68,7 +68,9 @@ fun HeroCarousel(
     if (heroes.isEmpty()) return
     var index by remember { mutableStateOf(0) }
 
-    LaunchedEffect(heroes.size) {
+    // Rotation automatique — coupée si « animations réduites » est actif.
+    LaunchedEffect(heroes.size, app.lumen.domain.AppSettings.reducedMotion.value) {
+        if (app.lumen.domain.AppSettings.reducedMotion.value) return@LaunchedEffect
         while (true) {
             delay(8_000)
             index = (index + 1) % heroes.size

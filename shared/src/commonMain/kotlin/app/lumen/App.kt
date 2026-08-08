@@ -57,6 +57,7 @@ fun App() {
     val watchRepo = remember(db) { app.lumen.domain.WatchStateRepository(db) }
     var profiles by remember { mutableStateOf(profileRepo.list()) }
     var activeProfile by remember { mutableStateOf<app.lumen.domain.LocalProfile?>(null) }
+    var gateMode by remember { mutableStateOf<String?>(null) }  // null | add | manage
 
     // Coil : toutes les AsyncImage passent par Ktor, avec crossfade systématique.
     setSingletonImageLoaderFactory { context ->
@@ -103,12 +104,29 @@ fun App() {
                                     activeProfile = created
                                 },
                             )
-                            // Puis, à CHAQUE lancement : « Qui regarde ? ».
-                            activeProfile == null -> app.lumen.ui.profiles.ProfileGate(
-                                profiles,
-                                verifyPin = profileRepo::verifyPin,
-                                onSelect = { activeProfile = it },
-                            )
+                            // Puis, à CHAQUE lancement : « Qui regarde ? »,
+                            // avec ajout et gestion des profils sur place.
+                            activeProfile == null -> when (gateMode) {
+                                "add" -> FirstProfileScreen(
+                                    onCreate = { name, avatar, child, maxAge, pin ->
+                                        profileRepo.add(name, avatar, child, maxAge, pin)
+                                        profiles = profileRepo.list()
+                                        gateMode = null
+                                    },
+                                )
+                                "manage" -> app.lumen.ui.profiles.ProfileSettingsScreen(
+                                    profileRepo,
+                                    onBack = { gateMode = null },
+                                    onProfilesChanged = { profiles = profileRepo.list() },
+                                )
+                                else -> app.lumen.ui.profiles.ProfileGate(
+                                    profiles,
+                                    verifyPin = profileRepo::verifyPin,
+                                    onSelect = { activeProfile = it },
+                                    onAdd = { gateMode = "add" },
+                                    onManage = { gateMode = "manage" },
+                                )
+                            }
                             else -> Shell(
                                 client, session,
                                 profile = activeProfile,

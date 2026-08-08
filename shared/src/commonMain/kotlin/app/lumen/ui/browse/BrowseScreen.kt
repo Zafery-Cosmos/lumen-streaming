@@ -51,7 +51,7 @@ fun BrowseScreen(
             client.items(
                 session.baseUrl, session.userId,
                 includeTypes = includeTypes,
-                limit = 200,
+                limit = app.lumen.domain.AppSettings.browsePageSize.value,
             ).items.filter { profile.allows(it) }
         }.getOrDefault(emptyList())
     }

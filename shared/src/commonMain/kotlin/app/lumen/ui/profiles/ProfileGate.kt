@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -41,6 +42,8 @@ fun ProfileGate(
     profiles: List<LocalProfile>,
     verifyPin: (LocalProfile, String) -> Boolean,
     onSelect: (LocalProfile) -> Unit,
+    onAdd: () -> Unit,
+    onManage: () -> Unit,
 ) {
     var pinFor by remember { mutableStateOf<LocalProfile?>(null) }
 
@@ -62,7 +65,46 @@ fun ProfileGate(
                             if (profile.hasPin) pinFor = profile else onSelect(profile)
                         }
                     }
+                    // Pastille « + » : créer un profil directement depuis le gate.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onAdd,
+                        ),
+                    ) {
+                        Box(
+                            Modifier.size(104.dp).background(
+                                LumenColors.SurfaceHigh,
+                                androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                            ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = "Ajouter un profil",
+                                tint = LumenColors.Muted,
+                                modifier = Modifier.size(40.dp),
+                            )
+                        }
+                        Text("Ajouter", color = LumenColors.Muted, fontSize = 15.sp)
+                    }
                 }
+                Text(
+                    "Gérer les profils",
+                    color = LumenColors.Muted,
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .background(Color.Transparent)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onManage,
+                        )
+                        .padding(8.dp),
+                )
             }
             else -> PinPad(
                 title = "Code de ${p.name}",

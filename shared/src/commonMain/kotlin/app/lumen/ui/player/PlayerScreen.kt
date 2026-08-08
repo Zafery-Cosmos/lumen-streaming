@@ -114,7 +114,7 @@ fun PlayerScreen(
     var playMethod by remember { mutableStateOf("…") }
 
     // Réglages du lecteur.
-    var rate by remember { mutableStateOf(1f) }
+    var rate by remember { mutableStateOf(app.lumen.domain.AppSettings.defaultRatePct.value / 100f) }
     var volume by remember { mutableStateOf(100) }
     var muted by remember { mutableStateOf(false) }
     var fill by remember { mutableStateOf(false) }
@@ -122,7 +122,8 @@ fun PlayerScreen(
     var maxBitrate by remember {
         mutableStateOf(app.lumen.domain.AppSettings.defaultMaxBitrate.value.takeIf { it > 0 })
     }
-    val seekStepMs = app.lumen.domain.AppSettings.seekStepSec.value * 1000L
+    val seekBackMs = app.lumen.domain.AppSettings.seekBackSec.value * 1000L
+    val seekFwdMs = app.lumen.domain.AppSettings.seekForwardSec.value * 1000L
     var audioTracks by remember { mutableStateOf(listOf<MediaTrack>()) }
     var subTracks by remember { mutableStateOf(listOf<MediaTrack>()) }
 
@@ -171,6 +172,8 @@ fun PlayerScreen(
     LaunchedEffect(state.playing) {
         if (state.playing && audioTracks.isEmpty()) {
             delay(500)
+            // Vitesse par défaut des réglages, appliquée une fois la lecture partie.
+            if (rate != 1f) engine.setRate(rate)
             audioTracks = engine.audioTracks()
             subTracks = engine.subtitleTracks()
 
@@ -280,7 +283,8 @@ fun PlayerScreen(
                 onTogglePlay = { if (state.playing) engine.pause() else engine.resume() },
                 onSeek = { engine.seekTo(it) },
                 onOpenSettings = { settingsOpen = !settingsOpen },
-                seekStepMs = seekStepMs,
+                seekBackMs = seekBackMs,
+                seekFwdMs = seekFwdMs,
             )
         }
 
@@ -566,9 +570,9 @@ private fun ControlsOverlay(
     onTogglePlay: () -> Unit,
     onSeek: (Long) -> Unit,
     onOpenSettings: () -> Unit,
-    seekStepMs: Long,
+    seekBackMs: Long,
+    seekFwdMs: Long,
 ) {
-    val stepLabel = "${seekStepMs / 1000} s"
     Box(
         Modifier.fillMaxSize().background(
             Brush.verticalGradient(
@@ -605,8 +609,8 @@ private fun ControlsOverlay(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.align(Alignment.Center),
         ) {
-            RoundControl(Icons.Filled.FastRewind, "Reculer de $stepLabel", 28.dp) {
-                onSeek((positionMs - seekStepMs).coerceAtLeast(0))
+            RoundControl(Icons.Filled.FastRewind, "Reculer de ${seekBackMs / 1000} s", 28.dp) {
+                onSeek((positionMs - seekBackMs).coerceAtLeast(0))
             }
             RoundControl(
                 if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -615,8 +619,8 @@ private fun ControlsOverlay(
                 big = true,
                 onClick = onTogglePlay,
             )
-            RoundControl(Icons.Filled.FastForward, "Avancer de $stepLabel", 28.dp) {
-                onSeek((positionMs + seekStepMs).coerceAtMost(durationMs))
+            RoundControl(Icons.Filled.FastForward, "Avancer de ${seekFwdMs / 1000} s", 28.dp) {
+                onSeek((positionMs + seekFwdMs).coerceAtMost(durationMs))
             }
         }
 

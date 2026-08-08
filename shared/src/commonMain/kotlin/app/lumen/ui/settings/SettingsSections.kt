@@ -21,6 +21,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -91,19 +93,108 @@ private fun DisplaySection() {
         checked = AppSettings.oledBlack.value,
         onChecked = { AppSettings.oledBlack.set(it) },
     )
+    SwitchRow(
+        title = "Animations réduites",
+        description = "Le hero de l'accueil ne défile plus automatiquement.",
+        checked = AppSettings.reducedMotion.value,
+        onChecked = { AppSettings.reducedMotion.set(it) },
+    )
+    ChoiceRow(
+        title = "Taille des pages de la médiathèque",
+        options = listOf("100" to 100, "200" to 200, "500" to 500, "1000" to 1000),
+        selected = AppSettings.browsePageSize.value,
+        onSelect = { AppSettings.browsePageSize.set(it) },
+    )
 }
+
+/** Libellés des sections réordonnables de l'accueil. */
+private val HOME_SECTIONS = listOf(
+    "resume" to "Reprendre la lecture",
+    "nextup" to "À suivre",
+    "recent" to "Nouveautés (médiathèque)",
+    "top10" to "Top 10 cette semaine (TMDB)",
+    "genres" to "Rangées par genre (TMDB)",
+)
 
 @Composable
 private fun HomeSection() {
     Text(
-        "Choisis les rangées visibles sur l'accueil.",
+        "Réordonne les sections avec les flèches, active ou masque chacune —" +
+            " comme sur Jellyfin, mais en direct.",
         color = LumenColors.Muted, fontSize = 13.sp,
     )
-    SwitchRow("Reprendre la lecture", null, AppSettings.showResume.value) { AppSettings.showResume.set(it) }
-    SwitchRow("À suivre", null, AppSettings.showNextUp.value) { AppSettings.showNextUp.set(it) }
-    SwitchRow("Nouveautés (votre médiathèque)", null, AppSettings.showRecent.value) { AppSettings.showRecent.set(it) }
-    SwitchRow("Top 10 cette semaine (TMDB)", null, AppSettings.showTop10.value) { AppSettings.showTop10.set(it) }
-    SwitchRow("Rangées par genre (TMDB)", null, AppSettings.showGenres.value) { AppSettings.showGenres.set(it) }
+
+    var order by remember {
+        mutableStateOf(
+            AppSettings.homeOrder.value.split(',').map { it.trim() }
+                .filter { key -> HOME_SECTIONS.any { it.first == key } }
+                .ifEmpty { HOME_SECTIONS.map { it.first } },
+        )
+    }
+
+    fun move(key: String, delta: Int) {
+        val idx = order.indexOf(key)
+        val target = idx + delta
+        if (idx < 0 || target !in order.indices) return
+        order = order.toMutableList().apply {
+            removeAt(idx)
+            add(target, key)
+        }
+        AppSettings.homeOrder.set(order.joinToString(","))
+    }
+
+    fun prefFor(key: String) = when (key) {
+        "resume" -> AppSettings.showResume
+        "nextup" -> AppSettings.showNextUp
+        "recent" -> AppSettings.showRecent
+        "top10" -> AppSettings.showTop10
+        else -> AppSettings.showGenres
+    }
+
+    order.forEachIndexed { index, key ->
+        val label = HOME_SECTIONS.first { it.first == key }.second
+        val pref = prefFor(key)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().background(LumenColors.Surface, RoundedCornerShape(10.dp))
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+        ) {
+            Column {
+                Icon(
+                    Icons.Filled.KeyboardArrowUp,
+                    contentDescription = "Monter",
+                    tint = if (index > 0) LumenColors.OnBackground else LumenColors.SurfaceHigh,
+                    modifier = Modifier.size(22.dp).clickable(
+                        enabled = index > 0,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { move(key, -1) },
+                )
+                Icon(
+                    Icons.Filled.KeyboardArrowDown,
+                    contentDescription = "Descendre",
+                    tint = if (index < order.lastIndex) LumenColors.OnBackground else LumenColors.SurfaceHigh,
+                    modifier = Modifier.size(22.dp).clickable(
+                        enabled = index < order.lastIndex,
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { move(key, +1) },
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                label,
+                color = if (pref.value) LumenColors.OnBackground else LumenColors.Muted,
+                fontSize = 14.sp,
+                modifier = Modifier.weight(1f),
+            )
+            Switch(
+                checked = pref.value,
+                onCheckedChange = { pref.set(it) },
+                colors = SwitchDefaults.colors(checkedTrackColor = LumenColors.Accent),
+            )
+        }
+    }
 }
 
 @Composable
@@ -115,10 +206,22 @@ private fun PlaybackSection() {
         onChecked = { AppSettings.resumeAlways.set(it) },
     )
     ChoiceRow(
-        title = "Durée du saut avant/arrière",
-        options = listOf("5 s" to 5, "10 s" to 10, "30 s" to 30, "60 s" to 60),
-        selected = AppSettings.seekStepSec.value,
-        onSelect = { AppSettings.seekStepSec.set(it) },
+        title = "Durée du saut en arrière",
+        options = listOf("5 s" to 5, "10 s" to 10, "15 s" to 15, "30 s" to 30),
+        selected = AppSettings.seekBackSec.value,
+        onSelect = { AppSettings.seekBackSec.set(it) },
+    )
+    ChoiceRow(
+        title = "Durée du saut en avant",
+        options = listOf("10 s" to 10, "30 s" to 30, "60 s" to 60, "90 s" to 90),
+        selected = AppSettings.seekForwardSec.value,
+        onSelect = { AppSettings.seekForwardSec.set(it) },
+    )
+    ChoiceRow(
+        title = "Vitesse de lecture par défaut",
+        options = listOf("0.75×" to 75, "1×" to 100, "1.25×" to 125, "1.5×" to 150, "2×" to 200),
+        selected = AppSettings.defaultRatePct.value,
+        onSelect = { AppSettings.defaultRatePct.set(it) },
     )
     SwitchRow(
         title = "Épisode suivant automatique",
@@ -163,9 +266,15 @@ private fun AudioSection() {
         selected = AppSettings.preferredSubLang.value,
         onSelect = { AppSettings.preferredSubLang.set(it) },
     )
+    ChoiceRow(
+        title = "Taille des sous-titres",
+        options = listOf("Normal" to 100, "Grand" to 130, "Très grand" to 160),
+        selected = AppSettings.subtitleScalePct.value,
+        onSelect = { AppSettings.subtitleScalePct.set(it) },
+    )
     Text(
         "La piste correspondante est sélectionnée automatiquement au lancement " +
-            "de la lecture quand elle existe.",
+            "de la lecture quand elle existe. La taille s'applique à la prochaine lecture.",
         color = LumenColors.Muted, fontSize = 12.sp,
     )
 }

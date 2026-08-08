@@ -126,6 +126,9 @@ class VlcjEngine : PlayerEngine {
             if (startMs > 0) add(":start-time=${startMs / 1000}")
             headers["Referer"]?.let { add(":http-referrer=$it") }
             headers["User-Agent"]?.let { add(":http-user-agent=$it") }
+            // Taille des sous-titres — réglage « Audio et sous-titres » (§6.2).
+            val scale = app.lumen.domain.AppSettings.subtitleScalePct.value
+            if (scale != 100) add(":sub-text-scale=$scale")
         }.toTypedArray()
         player.media().play(url, *options)
     }
