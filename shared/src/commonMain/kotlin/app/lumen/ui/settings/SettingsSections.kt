@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -80,6 +81,7 @@ fun SettingsSectionScreen(
             "audio" -> "Audio et sous-titres"
             "addons" -> "Addons Stremio"
             "streaming" -> "Streaming et cache"
+            "simkl" -> "Simkl — suivi de visionnage"
             "quickconnect" -> "Connexion rapide"
             "server" -> "Serveurs"
             else -> "Paramètres"
@@ -94,6 +96,7 @@ fun SettingsSectionScreen(
             "audio" -> AudioSection(client, session)
             "addons" -> AddonsSection(client)
             "streaming" -> StreamingSection()
+            "simkl" -> SimklSection(client)
             "quickconnect" -> QuickConnectSection(client, session)
             "server" -> ServerSection(session, servers, onSwitchServer, onAddServer, onForgetServer, onLogout)
         }
@@ -714,6 +717,142 @@ private fun StreamingSection() {
             shape = RoundedCornerShape(8.dp),
         ) {
             Text(if (busy) "Purge…" else "Vider le cache", fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun SimklSection(client: JellyfinClient) {
+    val scope = rememberCoroutineScope()
+    val simkl = remember { app.lumen.api.SimklClient(client.http) }
+    var pin by remember { mutableStateOf<app.lumen.api.SimklPin?>(null) }
+    var waiting by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val connected = AppSettings.simklToken.value.isNotBlank()
+
+    Text(
+        "Simkl garde l'historique de TOUT ce que tu regardes — y compris les " +
+            "titres lus par addon, que ton serveur Jellyfin ignore complètement.",
+        color = LumenColors.Muted, fontSize = 13.sp,
+    )
+
+    if (connected) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().background(LumenColors.Surface, RoundedCornerShape(10.dp))
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+        ) {
+            Text("Compte", color = LumenColors.OnBackground, fontSize = 15.sp)
+            Spacer(Modifier.weight(1f))
+            Text(
+                AppSettings.simklUser.value.ifBlank { "connecté" },
+                color = LumenColors.Muted, fontSize = 13.sp,
+            )
+        }
+        SwitchRow(
+            title = "Envoyer automatiquement",
+            description = "Un titre terminé à plus de 90 % part dans l'historique Simkl.",
+            checked = AppSettings.simklScrobble.value,
+            onChecked = { AppSettings.simklScrobble.set(it) },
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                AppSettings.simklToken.set("")
+                AppSettings.simklUser.set("")
+            },
+        ) {
+            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
+            Text("Déconnecter Simkl", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
+        return
+    }
+
+    when (val p = pin) {
+        null -> {
+            Button(
+                onClick = {
+                    error = null
+                    scope.launch {
+                        val requested = simkl.requestPin()
+                        if (requested == null) {
+                            error = "Simkl injoignable — réessaie plus tard"
+                            return@launch
+                        }
+                        pin = requested
+                        waiting = true
+                        // On interroge jusqu'à validation, sans bloquer l'UI.
+                        val deadline = requested.expiresIn
+                        var elapsed = 0
+                        while (waiting && elapsed < deadline) {
+                            kotlinx.coroutines.delay(requested.interval * 1000L)
+                            elapsed += requested.interval
+                            val token = simkl.pollPin(requested.userCode)
+                            if (token != null) {
+                                AppSettings.simklToken.set(token)
+                                AppSettings.simklUser.set(simkl.userName(token).orEmpty())
+                                waiting = false
+                                pin = null
+                            }
+                        }
+                        if (waiting) {
+                            error = "Code expiré — relance la connexion"
+                            waiting = false
+                            pin = null
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                Text("Connecter mon compte Simkl", fontWeight = FontWeight.SemiBold)
+            }
+            error?.let { Text(it, color = LumenColors.Accent, fontSize = 13.sp) }
+        }
+        else -> {
+            Text(
+                "Va sur ${app.lumen.api.SimklClient.PIN_PAGE} et saisis ce code :",
+                color = LumenColors.OnBackground, fontSize = 14.sp,
+            )
+            // Le code, en gros : il doit être lisible de loin (utile sur TV).
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                p.userCode.forEach { c ->
+                    Box(
+                        Modifier.background(LumenColors.SurfaceHigh, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                    ) {
+                        Text(c.toString(), color = LumenColors.OnBackground, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(18.dp))
+                Text("En attente de validation…", color = LumenColors.Muted, fontSize = 13.sp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = { app.lumen.platformOpenUrl(p.verificationUrl.ifBlank { app.lumen.api.SimklClient.PIN_PAGE }) },
+                    colors = ButtonDefaults.buttonColors(containerColor = LumenColors.SurfaceHigh),
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, tint = LumenColors.OnBackground, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Ouvrir la page", color = LumenColors.OnBackground)
+                }
+                Text(
+                    "Annuler",
+                    color = LumenColors.Muted,
+                    fontSize = 14.sp,
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { waiting = false; pin = null }.padding(8.dp),
+                )
+            }
         }
     }
 }

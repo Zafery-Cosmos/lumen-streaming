@@ -121,6 +121,13 @@ object AppSettings {
     /** Profil de transcodage : « none » ou un périphérique détecté (vaapi-renderD128…). */
     val transcodeProfile = StringPref("stream.transcode", "none")
 
+    // --- Simkl (suivi de ce qui est regardé, addons compris) ---------------
+    /** Jeton Simkl ; vide = non connecté. */
+    val simklToken = StringPref("simkl.token", "")
+    val simklUser = StringPref("simkl.user", "")
+    /** Envoyer automatiquement ce qui est terminé (>90 %) à Simkl. */
+    val simklScrobble = BoolPref("simkl.scrobble", true)
+
     // --- Segments de média (actions, comme Jellyfin) -----------------------
     // Valeurs : none | ask | auto. Consommés par le lecteur quand le serveur
     // fournit des segments (plugin) — déjà stockés et modifiables.

@@ -277,6 +277,51 @@ fun PlayerScreen(
 
     fun leave(navigateBack: Boolean = true) {
         val s = engine.state.value
+
+        // Simkl : ce qui est vu à plus de 90 % part dans l'historique — y
+        // compris les titres lus par addon, que Jellyfin ne connaît pas.
+        val watched = s.durationMs > 0 && s.positionMs * 100 / s.durationMs >= 90
+        val token = app.lumen.domain.AppSettings.simklToken.value
+        if (watched && token.isNotBlank() && app.lumen.domain.AppSettings.simklScrobble.value) {
+            val simkl = app.lumen.api.SimklClient(client.http)
+            val current = item
+            CoroutineScope(Dispatchers.Default).launch {
+                runCatching {
+                    when {
+                        // Épisode : IMDb de la série + saison/épisode réels.
+                        current?.type == "Episode" && current.seriesId != null -> {
+                            val series = client.item(session.baseUrl, session.userId, current.seriesId)
+                            val imdb = series.providerIds["Imdb"]
+                            val parsed = app.lumen.domain.parseEpisodeFileName(current.path)
+                            val season = parsed?.season ?: current.parentIndexNumber
+                            val number = parsed?.episode ?: current.indexNumber
+                            if (imdb != null && season != null && number != null) {
+                                simkl.markEpisodeWatched(token, imdb, season, number)
+                            }
+                        }
+                        current?.providerIds?.get("Imdb") != null ->
+                            simkl.markMovieWatched(token, current.providerIds["Imdb"]!!)
+                        // Titre lu via un addon : l'identifiant EST un IMDb.
+                        request.stremioId != null -> {
+                            val parts = request.stremioId.split(":")
+                            val imdb = parts.firstOrNull().orEmpty()
+                            if (imdb.startsWith("tt")) {
+                                if (parts.size >= 3) {
+                                    simkl.markEpisodeWatched(
+                                        token, imdb,
+                                        parts[1].toIntOrNull() ?: 1,
+                                        parts[2].toIntOrNull() ?: 1,
+                                    )
+                                } else {
+                                    simkl.markMovieWatched(token, imdb)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if (itemId != null) {
             profile?.let { p -> watchRepo?.record(p.id, itemId, s.positionMs, s.durationMs) }
             val pos = s.positionMs * 10_000

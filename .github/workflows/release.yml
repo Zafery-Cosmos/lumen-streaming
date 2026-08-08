@@ -52,7 +52,9 @@ jobs:
       # La clé TMDB vit dans les secrets du dépôt, jamais dans le code.
       - name: Configuration locale
         shell: bash
-        run: echo "tmdb.api.key=${{ secrets.TMDB_API_KEY }}" > local.properties
+        run: |
+          echo "tmdb.api.key=${{ secrets.TMDB_API_KEY }}" > local.properties
+          echo "simkl.client.id=${{ secrets.SIMKL_CLIENT_ID }}" >> local.properties
 
       - name: Compiler
         shell: bash

@@ -3,3 +3,5 @@
 tmdb.api.key=VOTRE_CLE_TMDB
 # Uniquement pour compiler l'APK Android.
 sdk.dir=/chemin/vers/Android/Sdk
+# Client ID Simkl — suivi de visionnage (simkl.com/settings/developer)
+simkl.client.id=VOTRE_CLIENT_ID

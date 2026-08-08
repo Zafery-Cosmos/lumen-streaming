@@ -25,13 +25,16 @@ val localProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 val tmdbKey: String = localProps.getProperty("tmdb.api.key", "")
+val simklClientId: String = localProps.getProperty("simkl.client.id", "")
 val secretsDir = layout.buildDirectory.dir("generated/lumen/kotlin")
 val generateSecrets by tasks.registering {
     // Copies locales : la lambda ne doit capturer AUCUNE référence au script
     // (exigence du configuration cache de Gradle 9).
     val keyLocal = tmdbKey
+    val simklLocal = simklClientId
     val outDir = secretsDir
     inputs.property("tmdbKey", keyLocal)
+    inputs.property("simklClientId", simklLocal)
     outputs.dir(outDir)
     doLast {
         val out = outDir.get().file("app/lumen/config/Secrets.kt").asFile
@@ -43,6 +46,7 @@ val generateSecrets by tasks.registering {
             |// Fichier GÉNÉRÉ depuis local.properties — ne pas éditer, ne pas commiter.
             |object Secrets {
             |    const val TMDB_API_KEY: String = "$keyLocal"
+            |    const val SIMKL_CLIENT_ID: String = "$simklLocal"
             |}
             """.trimMargin(),
         )
