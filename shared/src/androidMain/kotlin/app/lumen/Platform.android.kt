@@ -7,3 +7,6 @@ actual fun platformDeviceName(): String =
 
 /** TODO(L9 hors-ligne) : DownloadManager Android. */
 actual fun platformDownload(url: String, fileName: String): Boolean = false
+
+/** TODO : Intent ACTION_VIEW (nécessite un Context). */
+actual fun platformOpenUrl(url: String): Boolean = false

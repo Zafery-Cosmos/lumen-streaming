@@ -26,3 +26,14 @@ actual fun platformDownload(url: String, fileName: String): Boolean = try {
 } catch (_: Exception) {
     false
 }
+
+/** xdg-open gère http ET magnet (client torrent système). */
+actual fun platformOpenUrl(url: String): Boolean = try {
+    ProcessBuilder("xdg-open", url).start()
+    true
+} catch (_: Exception) {
+    runCatching {
+        java.awt.Desktop.getDesktop().browse(java.net.URI(url))
+        true
+    }.getOrDefault(false)
+}

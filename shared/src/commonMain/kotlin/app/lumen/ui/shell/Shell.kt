@@ -69,6 +69,7 @@ enum class ShellTab(val label: String) {
     Home("Accueil"),
     Movies("Films"),
     Series("Séries"),
+    Discover("Découvrir"),
     Settings("Paramètres"),
 }
 
@@ -182,6 +183,13 @@ fun Shell(
                     client, session, profile, includeTypes = "Series", title = "Séries",
                     onOpen = openDetail, onPlay = playItem,
                 )
+                state == ShellTab.Discover.name -> app.lumen.ui.discover.DiscoverScreen(
+                    client, tmdb,
+                    onOpen = openDetail,
+                    onPlayExternal = { url, title, headers ->
+                        playing = app.lumen.domain.PlayRequest(url = url, title = title, headers = headers)
+                    },
+                )
                 else -> when (val sub = settingsSub) {
                     null -> SettingsScreen(
                         session,
@@ -285,7 +293,7 @@ private fun TopBar(
             modifier = Modifier.size(38.dp),
         )
         // Onglets de navigation (Paramètres vit à droite, pas ici).
-        listOf(ShellTab.Home, ShellTab.Movies, ShellTab.Series).forEach { t ->
+        listOf(ShellTab.Home, ShellTab.Movies, ShellTab.Series, ShellTab.Discover).forEach { t ->
             NavItem(t.label, selected = t == current) { onTab(t) }
         }
         Spacer(Modifier.weight(1f))

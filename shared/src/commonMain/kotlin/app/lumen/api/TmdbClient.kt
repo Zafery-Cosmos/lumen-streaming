@@ -89,6 +89,12 @@ data class TmdbPersonCredits(
 )
 
 @Serializable
+data class TmdbFindResponse(
+    @SerialName("movie_results") val movieResults: List<TmdbItem> = emptyList(),
+    @SerialName("tv_results") val tvResults: List<TmdbItem> = emptyList(),
+)
+
+@Serializable
 data class TmdbExternalIds(
     @SerialName("imdb_id") val imdbId: String? = null,
 )
@@ -169,6 +175,16 @@ class TmdbClient(private val http: HttpClient) {
             "$BASE/person/$id?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR" +
                 "&append_to_response=combined_credits",
         ).body()
+
+    /** Retrouve un titre TMDB depuis un identifiant IMDb (pont Stremio → fiche). */
+    suspend fun findByImdb(imdbId: String): Pair<String, Long>? {
+        val found: TmdbFindResponse = http.get(
+            "$BASE/find/$imdbId?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR&external_source=imdb_id",
+        ).body()
+        found.movieResults.firstOrNull()?.let { return "movie" to it.id }
+        found.tvResults.firstOrNull()?.let { return "tv" to it.id }
+        return null
+    }
 
     /** Une saison complète, avec tous ses épisodes (titres, résumés, vignettes). */
     suspend fun season(tvId: Long, seasonNumber: Int): TmdbSeason =

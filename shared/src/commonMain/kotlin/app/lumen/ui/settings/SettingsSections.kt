@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -556,6 +557,21 @@ private fun AddonsSection(client: JellyfinClient) {
                     maxLines = 1,
                 )
             }
+            // Ouvre la page /configure de l'addon dans le navigateur.
+            Icon(
+                Icons.AutoMirrored.Filled.OpenInNew,
+                contentDescription = "Configurer dans le navigateur",
+                tint = LumenColors.Muted,
+                modifier = Modifier.size(18.dp).clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) {
+                    app.lumen.platformOpenUrl(
+                        addon.manifestUrl.removeSuffix("/manifest.json") + "/configure",
+                    )
+                },
+            )
+            Spacer(Modifier.width(12.dp))
             Switch(
                 checked = addon.enabled,
                 onCheckedChange = { store.toggle(addon.manifestUrl); addons = store.list() },

@@ -13,6 +13,27 @@ data class StremioManifest(
     @SerialName("version") val version: String = "",
     @SerialName("description") val description: String? = null,
     @SerialName("types") val types: List<String> = emptyList(),
+    @SerialName("catalogs") val catalogs: List<StremioCatalogRef> = emptyList(),
+)
+
+@Serializable
+data class StremioCatalogRef(
+    @SerialName("type") val type: String = "",   // movie | series | tv | channel…
+    @SerialName("id") val id: String = "",
+    @SerialName("name") val name: String = "",
+)
+
+@Serializable
+data class StremioCatalogResponse(
+    @SerialName("metas") val metas: List<StremioMeta> = emptyList(),
+)
+
+@Serializable
+data class StremioMeta(
+    @SerialName("id") val id: String = "",       // souvent un IMDb « tt… »
+    @SerialName("type") val type: String = "",
+    @SerialName("name") val name: String = "",
+    @SerialName("poster") val poster: String? = null,
 )
 
 @Serializable
@@ -63,6 +84,12 @@ class StremioClient(private val http: HttpClient) {
     suspend fun streams(manifestUrl: String, type: String, mediaId: String): List<StremioStream> {
         val base = normalizeManifestUrl(manifestUrl).removeSuffix("/manifest.json")
         return http.get("$base/stream/$type/$mediaId.json").body<StremioStreamsResponse>().streams
+    }
+
+    /** Un catalogue d'addon (rangées de l'onglet Découvrir). */
+    suspend fun catalog(manifestUrl: String, type: String, id: String): List<StremioMeta> {
+        val base = normalizeManifestUrl(manifestUrl).removeSuffix("/manifest.json")
+        return http.get("$base/catalog/$type/$id.json").body<StremioCatalogResponse>().metas
     }
 
     companion object {

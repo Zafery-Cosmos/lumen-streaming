@@ -19,8 +19,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -165,23 +165,32 @@ fun SourcesOverlay(
 @Composable
 private fun StreamRow(stream: StremioStream, onPlay: (String) -> Unit) {
     val playable = stream.playable
+    val magnet = stream.infoHash?.let { "magnet:?xt=urn:btih:$it" }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(LumenColors.SurfaceHigh.copy(alpha = if (playable) 1f else 0.45f))
+            .background(LumenColors.SurfaceHigh)
             .clickable(
-                enabled = playable,
+                enabled = playable || magnet != null,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-            ) { stream.url?.let(onPlay) }
+            ) {
+                when {
+                    // Flux direct → lecture dans Lumen.
+                    playable -> stream.url?.let(onPlay)
+                    // Torrent nu → PAS une impasse : magnet ouvert dans le client
+                    // torrent du système, en attendant le moteur intégré.
+                    magnet != null -> app.lumen.platformOpenUrl(magnet)
+                }
+            }
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Icon(
-            if (playable) Icons.Filled.PlayArrow else Icons.Filled.Lock,
+            if (playable) Icons.Filled.PlayArrow else Icons.AutoMirrored.Filled.OpenInNew,
             contentDescription = null,
-            tint = if (playable) LumenColors.OnBackground else LumenColors.Muted,
+            tint = LumenColors.OnBackground,
             modifier = Modifier.size(16.dp),
         )
         Spacer(Modifier.size(10.dp))
@@ -191,13 +200,17 @@ private fun StreamRow(stream: StremioStream, onPlay: (String) -> Unit) {
             }
             Text(
                 stream.label,
-                color = if (playable) LumenColors.Muted else LumenColors.Muted.copy(alpha = 0.7f),
+                color = LumenColors.Muted,
                 fontSize = 11.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (!playable) {
-                Text("Torrent — nécessite un debrid configuré dans l'addon", color = LumenColors.Accent.copy(alpha = 0.8f), fontSize = 10.sp)
+            if (!playable && magnet != null) {
+                Text(
+                    "Torrent — s'ouvre dans votre client torrent (lecture intégrée à venir ; instantané avec un debrid)",
+                    color = LumenColors.Muted.copy(alpha = 0.8f),
+                    fontSize = 10.sp,
+                )
             }
         }
     }
