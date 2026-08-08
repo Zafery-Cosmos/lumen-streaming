@@ -66,6 +66,8 @@ fun SettingsScreen(
     )
 
     Column(
+        // Contenu CENTRÉ dans la page, pas collé à gauche.
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxSize().background(LumenColors.Background)
             .verticalScroll(rememberScrollState())
             .padding(start = 48.dp, end = 48.dp, top = 96.dp, bottom = 48.dp),

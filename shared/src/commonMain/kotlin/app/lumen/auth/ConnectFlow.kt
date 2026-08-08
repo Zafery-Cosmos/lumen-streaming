@@ -145,6 +145,27 @@ class ConnectFlow(
         _step.value = ConnectStep.Server()
     }
 
+    /** Ajout d'un serveur : repart sur l'écran serveur SANS oublier les autres. */
+    fun addServer() {
+        _step.value = ConnectStep.Server()
+    }
+
+    /** Bascule dynamique vers un serveur déjà connu (token mémorisé). */
+    suspend fun switchTo(target: StoredSession): Boolean {
+        val previousToken = client.accessToken
+        client.accessToken = target.accessToken
+        return if (client.tokenIsValid(target.baseUrl)) {
+            server = ResolvedServer(target.baseUrl, client.publicInfo(target.baseUrl))
+            store.save(target)
+            store.rememberServer(target)
+            _step.value = ConnectStep.Done(target)
+            true
+        } else {
+            client.accessToken = previousToken
+            false
+        }
+    }
+
     private fun finish(userId: String, userName: String, token: String) {
         val srv = server ?: return
         val session = StoredSession(
@@ -155,6 +176,7 @@ class ConnectFlow(
             accessToken = token,
         )
         store.save(session)
+        store.rememberServer(session)
         _step.value = ConnectStep.Done(session)
     }
 }

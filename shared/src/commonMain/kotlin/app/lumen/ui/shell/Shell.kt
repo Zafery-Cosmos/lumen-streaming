@@ -85,6 +85,10 @@ fun Shell(
     onLogout: () -> Unit,
     onSwitchProfile: () -> Unit,
     onProfilesChanged: () -> Unit,
+    servers: List<StoredSession>,
+    onSwitchServer: (StoredSession) -> Unit,
+    onAddServer: () -> Unit,
+    onForgetServer: (StoredSession) -> Unit,
 ) {
     var tab by remember { mutableStateOf(ShellTab.Home) }
     var searchQuery by remember { mutableStateOf("") }
@@ -167,6 +171,10 @@ fun Shell(
                         sectionKey = sub,
                         client = client,
                         session = session,
+                        servers = servers,
+                        onSwitchServer = onSwitchServer,
+                        onAddServer = onAddServer,
+                        onForgetServer = onForgetServer,
                         onBack = { settingsSub = null },
                         onLogout = onLogout,
                     )

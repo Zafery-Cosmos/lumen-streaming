@@ -64,6 +64,8 @@ fun ProfileSettingsScreen(repo: ProfileRepository, onBack: () -> Unit, onProfile
     }
 
     Column(
+        // Contenu CENTRÉ, cohérent avec le reste des paramètres.
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxSize().background(LumenColors.Background)
             .verticalScroll(rememberScrollState())
             .padding(start = 48.dp, end = 48.dp, top = 96.dp, bottom = 48.dp),

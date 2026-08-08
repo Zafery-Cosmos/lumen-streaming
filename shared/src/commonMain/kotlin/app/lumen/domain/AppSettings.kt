@@ -78,6 +78,27 @@ object AppSettings {
     // --- Sous-titres -------------------------------------------------------
     /** Échelle du texte des sous-titres, en pourcent (desktop/libvlc). */
     val subtitleScalePct = IntPref("subs.scale", 100)
+    /** Couleur du texte : white | yellow | cyan | green. */
+    val subtitleColor = StringPref("subs.color", "white")
+    /** Position verticale : marge depuis le bas, en pixels. */
+    val subtitleMarginPx = IntPref("subs.margin", 0)
+
+    // --- Affichage (suite) -------------------------------------------------
+    /** Intervalle de défilement du hero, en secondes. */
+    val heroIntervalSec = IntPref("display.herointerval", 8)
+
+    // --- Accueil (suite) ---------------------------------------------------
+    /** Miroir local de HidePlayedInLatest (aussi synchronisé côté serveur). */
+    val hidePlayedInRecent = BoolPref("home.hideplayed", false)
+
+    // --- Segments de média (actions, comme Jellyfin) -----------------------
+    // Valeurs : none | ask | auto. Consommés par le lecteur quand le serveur
+    // fournit des segments (plugin) — déjà stockés et modifiables.
+    val segmentIntro = StringPref("segments.intro", "ask")
+    val segmentOutro = StringPref("segments.outro", "ask")
+    val segmentRecap = StringPref("segments.recap", "none")
+    val segmentPreview = StringPref("segments.preview", "none")
+    val segmentCommercial = StringPref("segments.commercial", "auto")
 
     // --- Qualité & réseau --------------------------------------------------
     /** Plafond de bitrate par défaut du lecteur ; 0 = automatique. */

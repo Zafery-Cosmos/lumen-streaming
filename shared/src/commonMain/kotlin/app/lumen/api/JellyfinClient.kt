@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -229,6 +230,72 @@ class JellyfinClient(
     /** Détail complet d'un item (fiche film/série/épisode), casting compris. */
     suspend fun item(baseUrl: String, userId: String, itemId: String): BaseItem =
         authedGet(baseUrl, "/Items/$itemId?userId=$userId&fields=$DEFAULT_FIELDS,People,Path")
+
+    // --- Actions sur les items (vu, favori, playlists) ----------------------
+
+    /** Marque vu / non-vu — répercuté sur tous les clients Jellyfin. */
+    suspend fun setPlayed(baseUrl: String, userId: String, itemId: String, played: Boolean) {
+        val url = "${baseUrl.trimEnd('/')}/UserPlayedItems/$itemId?userId=$userId"
+        if (played) {
+            http.post(url) { header("Authorization", authorizationHeader()) }
+        } else {
+            http.delete(url) { header("Authorization", authorizationHeader()) }
+        }
+    }
+
+    /** Ajoute / retire des favoris. */
+    suspend fun setFavorite(baseUrl: String, userId: String, itemId: String, favorite: Boolean) {
+        val url = "${baseUrl.trimEnd('/')}/UserFavoriteItems/$itemId?userId=$userId"
+        if (favorite) {
+            http.post(url) { header("Authorization", authorizationHeader()) }
+        } else {
+            http.delete(url) { header("Authorization", authorizationHeader()) }
+        }
+    }
+
+    /** Les playlists de l'utilisateur. */
+    suspend fun playlists(baseUrl: String, userId: String): ItemsResult =
+        authedGet(baseUrl, "/Items?userId=$userId&includeItemTypes=Playlist&Recursive=true&sortBy=SortName")
+
+    @Serializable
+    private data class CreatePlaylistBody(
+        val Name: String,
+        val Ids: List<String>,
+        val UserId: String,
+        val MediaType: String = "Video",
+    )
+
+    /** Crée une playlist avec un premier item. */
+    suspend fun createPlaylist(baseUrl: String, userId: String, name: String, firstItemId: String): CreatePlaylistResult =
+        http.post("${baseUrl.trimEnd('/')}/Playlists") {
+            header("Authorization", authorizationHeader())
+            contentType(ContentType.Application.Json)
+            setBody(CreatePlaylistBody(name, listOf(firstItemId), userId))
+        }.body()
+
+    /** Ajoute un item à une playlist existante. */
+    suspend fun addToPlaylist(baseUrl: String, userId: String, playlistId: String, itemId: String) {
+        http.post("${baseUrl.trimEnd('/')}/Playlists/$playlistId/Items?ids=$itemId&userId=$userId") {
+            header("Authorization", authorizationHeader())
+        }
+    }
+
+    // --- Préférences serveur (parité client web) -----------------------------
+
+    /** Lit la configuration utilisateur telle que le client web la voit. */
+    suspend fun currentUser(baseUrl: String, userId: String): CurrentUserDto =
+        authedGet(baseUrl, "/Users/$userId")
+
+    /** Écrit la configuration — visible immédiatement dans le client web. */
+    suspend fun updateUserConfiguration(baseUrl: String, userId: String, config: UserConfig): Boolean = try {
+        http.post("${baseUrl.trimEnd('/')}/Users/Configuration?userId=$userId") {
+            header("Authorization", authorizationHeader())
+            contentType(ContentType.Application.Json)
+            setBody(config)
+        }.status.isSuccess()
+    } catch (_: Exception) {
+        false
+    }
 
     /** Items par identifiants — pour la rangée « Reprendre » par profil. */
     suspend fun itemsByIds(baseUrl: String, userId: String, ids: List<String>): ItemsResult =

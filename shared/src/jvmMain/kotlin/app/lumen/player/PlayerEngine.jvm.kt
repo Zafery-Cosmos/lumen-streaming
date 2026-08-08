@@ -126,9 +126,16 @@ class VlcjEngine : PlayerEngine {
             if (startMs > 0) add(":start-time=${startMs / 1000}")
             headers["Referer"]?.let { add(":http-referrer=$it") }
             headers["User-Agent"]?.let { add(":http-user-agent=$it") }
-            // Taille des sous-titres — réglage « Audio et sous-titres » (§6.2).
+            // Apparence des sous-titres — réglages « Audio et sous-titres » (§6.2).
             val scale = app.lumen.domain.AppSettings.subtitleScalePct.value
             if (scale != 100) add(":sub-text-scale=$scale")
+            val margin = app.lumen.domain.AppSettings.subtitleMarginPx.value
+            if (margin != 0) add(":sub-margin=$margin")
+            when (app.lumen.domain.AppSettings.subtitleColor.value) {
+                "yellow" -> add(":freetype-color=16776960")   // 0xFFFF00
+                "cyan" -> add(":freetype-color=65535")        // 0x00FFFF
+                "green" -> add(":freetype-color=65280")       // 0x00FF00
+            }
         }.toTypedArray()
         player.media().play(url, *options)
     }

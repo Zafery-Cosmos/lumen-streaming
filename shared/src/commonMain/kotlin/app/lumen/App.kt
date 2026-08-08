@@ -38,6 +38,7 @@ import app.lumen.ui.connect.Wordmark
 import app.lumen.ui.shell.Shell
 import app.lumen.ui.theme.LumenColors
 import app.lumen.ui.theme.LumenTheme
+import kotlinx.coroutines.launch
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
 import coil3.network.ktor3.KtorNetworkFetcherFactory
@@ -58,6 +59,8 @@ fun App() {
     var profiles by remember { mutableStateOf(profileRepo.list()) }
     var activeProfile by remember { mutableStateOf<app.lumen.domain.LocalProfile?>(null) }
     var gateMode by remember { mutableStateOf<String?>(null) }  // null | add | manage
+    var serverList by remember { mutableStateOf(store.listServers()) }
+    val appScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Coil : toutes les AsyncImage passent par Ktor, avec crossfade systématique.
     setSingletonImageLoaderFactory { context ->
@@ -95,9 +98,22 @@ fun App() {
                 RootState.Home -> {
                     val session = (flow.step.value as? ConnectStep.Done)?.session
                     if (session != null) {
-                        when {
+                        // Chaque bascule (création → gate → gestion → app) est ANIMÉE.
+                        val homeState = when {
+                            profiles.isEmpty() -> "first"
+                            activeProfile == null -> gateMode ?: "gate"
+                            else -> "shell"
+                        }
+                        AnimatedContent(
+                            targetState = homeState,
+                            transitionSpec = {
+                                (fadeIn(tween(400)) + scaleIn(tween(400), initialScale = 1.03f))
+                                    .togetherWith(fadeOut(tween(220)))
+                            },
+                        ) { hs ->
+                            when {
                             // Premier lancement : la création d'un profil est OBLIGATOIRE.
-                            profiles.isEmpty() -> FirstProfileScreen(
+                            hs == "first" -> FirstProfileScreen(
                                 onCreate = { name, avatar, child, maxAge, pin ->
                                     val created = profileRepo.add(name, avatar, child, maxAge, pin)
                                     profiles = profileRepo.list()
@@ -106,27 +122,25 @@ fun App() {
                             )
                             // Puis, à CHAQUE lancement : « Qui regarde ? »,
                             // avec ajout et gestion des profils sur place.
-                            activeProfile == null -> when (gateMode) {
-                                "add" -> FirstProfileScreen(
-                                    onCreate = { name, avatar, child, maxAge, pin ->
-                                        profileRepo.add(name, avatar, child, maxAge, pin)
-                                        profiles = profileRepo.list()
-                                        gateMode = null
-                                    },
-                                )
-                                "manage" -> app.lumen.ui.profiles.ProfileSettingsScreen(
-                                    profileRepo,
-                                    onBack = { gateMode = null },
-                                    onProfilesChanged = { profiles = profileRepo.list() },
-                                )
-                                else -> app.lumen.ui.profiles.ProfileGate(
-                                    profiles,
-                                    verifyPin = profileRepo::verifyPin,
-                                    onSelect = { activeProfile = it },
-                                    onAdd = { gateMode = "add" },
-                                    onManage = { gateMode = "manage" },
-                                )
-                            }
+                            hs == "add" -> FirstProfileScreen(
+                                onCreate = { name, avatar, child, maxAge, pin ->
+                                    profileRepo.add(name, avatar, child, maxAge, pin)
+                                    profiles = profileRepo.list()
+                                    gateMode = null
+                                },
+                            )
+                            hs == "manage" -> app.lumen.ui.profiles.ProfileSettingsScreen(
+                                profileRepo,
+                                onBack = { gateMode = null },
+                                onProfilesChanged = { profiles = profileRepo.list() },
+                            )
+                            hs == "gate" -> app.lumen.ui.profiles.ProfileGate(
+                                profiles,
+                                verifyPin = profileRepo::verifyPin,
+                                onSelect = { activeProfile = it },
+                                onAdd = { gateMode = "add" },
+                                onManage = { gateMode = "manage" },
+                            )
                             else -> Shell(
                                 client, session,
                                 profile = activeProfile,
@@ -135,7 +149,19 @@ fun App() {
                                 onLogout = { activeProfile = null; flow.logout() },
                                 onSwitchProfile = { activeProfile = null },
                                 onProfilesChanged = { profiles = profileRepo.list() },
+                                servers = serverList,
+                                onSwitchServer = { target ->
+                                    appScope.launch {
+                                        if (flow.switchTo(target)) serverList = store.listServers()
+                                    }
+                                },
+                                onAddServer = { flow.addServer() },
+                                onForgetServer = { target ->
+                                    store.forgetServer(target.baseUrl)
+                                    serverList = store.listServers()
+                                },
                             )
+                            }
                         }
                     }
                 }

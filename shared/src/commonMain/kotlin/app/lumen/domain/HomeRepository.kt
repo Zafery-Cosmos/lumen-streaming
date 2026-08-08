@@ -107,9 +107,11 @@ class HomeRepository(
             }
         }
         if (AppSettings.showRecent.value) {
-            recentItems.takeIf { it.isNotEmpty() }?.let { list ->
-                railsByKey["recent"] = listOf(Rail("recent", "Nouveautés", list.map { it.toCard(client, session) }))
-            }
+            recentItems
+                .let { l -> if (AppSettings.hidePlayedInRecent.value) l.filterNot { it.userData?.played == true } else l }
+                .takeIf { it.isNotEmpty() }?.let { list ->
+                    railsByKey["recent"] = listOf(Rail("recent", "Nouveautés", list.map { it.toCard(client, session) }))
+                }
         }
         if (AppSettings.showTop10.value) {
             trending.await().take(10).takeIf { it.isNotEmpty() }?.let { list ->

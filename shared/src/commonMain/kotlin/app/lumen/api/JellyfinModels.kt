@@ -91,6 +91,32 @@ data class UserData(
     @SerialName("UnplayedItemCount") val unplayedItemCount: Int? = null,
 )
 
+/** Préférences utilisateur SERVEUR — les mêmes que le client web Jellyfin. */
+@Serializable
+data class UserConfig(
+    @SerialName("AudioLanguagePreference") val audioLanguagePreference: String? = null,
+    @SerialName("PlayDefaultAudioTrack") val playDefaultAudioTrack: Boolean = true,
+    @SerialName("SubtitleLanguagePreference") val subtitleLanguagePreference: String? = null,
+    @SerialName("SubtitleMode") val subtitleMode: String = "Default",
+    @SerialName("RememberAudioSelections") val rememberAudioSelections: Boolean = true,
+    @SerialName("RememberSubtitleSelections") val rememberSubtitleSelections: Boolean = true,
+    @SerialName("HidePlayedInLatest") val hidePlayedInLatest: Boolean = true,
+    @SerialName("DisplayMissingEpisodes") val displayMissingEpisodes: Boolean = false,
+    @SerialName("EnableNextEpisodeAutoPlay") val enableNextEpisodeAutoPlay: Boolean = true,
+)
+
+@Serializable
+data class CurrentUserDto(
+    @SerialName("Id") val id: String = "",
+    @SerialName("Name") val name: String = "",
+    @SerialName("Configuration") val configuration: UserConfig = UserConfig(),
+)
+
+@Serializable
+data class CreatePlaylistResult(
+    @SerialName("Id") val id: String = "",
+)
+
 @Serializable
 data class PlaybackInfoResponse(
     @SerialName("MediaSources") val mediaSources: List<MediaSource> = emptyList(),

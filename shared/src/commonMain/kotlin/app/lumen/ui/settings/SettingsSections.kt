@@ -17,14 +17,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -32,6 +36,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,10 +45,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumen.api.JellyfinClient
+import app.lumen.api.UserConfig
 import app.lumen.auth.StoredSession
 import app.lumen.domain.AppSettings
 import app.lumen.ui.theme.LumenColors
@@ -55,6 +63,10 @@ fun SettingsSectionScreen(
     sectionKey: String,
     client: JellyfinClient,
     session: StoredSession,
+    servers: List<StoredSession>,
+    onSwitchServer: (StoredSession) -> Unit,
+    onAddServer: () -> Unit,
+    onForgetServer: (StoredSession) -> Unit,
     onBack: () -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -66,21 +78,41 @@ fun SettingsSectionScreen(
             "quality" -> "Qualité et réseau"
             "audio" -> "Audio et sous-titres"
             "quickconnect" -> "Connexion rapide"
-            "server" -> "Serveur"
+            "server" -> "Serveurs"
             else -> "Paramètres"
         },
         onBack = onBack,
     ) {
         when (sectionKey) {
             "display" -> DisplaySection()
-            "home" -> HomeSection()
-            "playback" -> PlaybackSection()
+            "home" -> HomeSection(client, session)
+            "playback" -> PlaybackSection(client, session)
             "quality" -> QualitySection()
-            "audio" -> AudioSection()
+            "audio" -> AudioSection(client, session)
             "quickconnect" -> QuickConnectSection(client, session)
-            "server" -> ServerSection(session, onLogout)
+            "server" -> ServerSection(session, servers, onSwitchServer, onAddServer, onForgetServer, onLogout)
         }
     }
+}
+
+/** Charge la configuration SERVEUR de l'utilisateur et sait la réécrire. */
+@Composable
+private fun rememberServerConfig(
+    client: JellyfinClient,
+    session: StoredSession,
+): Pair<UserConfig?, (UserConfig) -> Unit> {
+    val scope = rememberCoroutineScope()
+    var config by remember { mutableStateOf<UserConfig?>(null) }
+    LaunchedEffect(session.userId) {
+        config = runCatching { client.currentUser(session.baseUrl, session.userId).configuration }.getOrNull()
+    }
+    val save: (UserConfig) -> Unit = { updated ->
+        config = updated
+        scope.launch {
+            runCatching { client.updateUserConfiguration(session.baseUrl, session.userId, updated) }
+        }
+    }
+    return config to save
 }
 
 // --- Sections ---------------------------------------------------------------
@@ -89,7 +121,7 @@ fun SettingsSectionScreen(
 private fun DisplaySection() {
     SwitchRow(
         title = "Noir pur (OLED)",
-        description = "Fond entièrement noir — économise les écrans OLED. Appliqué immédiatement.",
+        description = "Fond entièrement noir — appliqué immédiatement.",
         checked = AppSettings.oledBlack.value,
         onChecked = { AppSettings.oledBlack.set(it) },
     )
@@ -99,15 +131,22 @@ private fun DisplaySection() {
         checked = AppSettings.reducedMotion.value,
         onChecked = { AppSettings.reducedMotion.set(it) },
     )
-    ChoiceRow(
+    NumberRow(
+        title = "Intervalle du hero",
+        suffix = "secondes",
+        value = AppSettings.heroIntervalSec.value,
+        range = 2..120,
+        onValue = { AppSettings.heroIntervalSec.set(it) },
+    )
+    NumberRow(
         title = "Taille des pages de la médiathèque",
-        options = listOf("100" to 100, "200" to 200, "500" to 500, "1000" to 1000),
-        selected = AppSettings.browsePageSize.value,
-        onSelect = { AppSettings.browsePageSize.set(it) },
+        suffix = "éléments",
+        value = AppSettings.browsePageSize.value,
+        range = 20..2000,
+        onValue = { AppSettings.browsePageSize.set(it) },
     )
 }
 
-/** Libellés des sections réordonnables de l'accueil. */
 private val HOME_SECTIONS = listOf(
     "resume" to "Reprendre la lecture",
     "nextup" to "À suivre",
@@ -117,10 +156,11 @@ private val HOME_SECTIONS = listOf(
 )
 
 @Composable
-private fun HomeSection() {
+private fun HomeSection(client: JellyfinClient, session: StoredSession) {
+    val (config, saveConfig) = rememberServerConfig(client, session)
+
     Text(
-        "Réordonne les sections avec les flèches, active ou masque chacune —" +
-            " comme sur Jellyfin, mais en direct.",
+        "Réordonne les sections avec les flèches, active ou masque chacune — appliqué en direct.",
         color = LumenColors.Muted, fontSize = 13.sp,
     )
 
@@ -195,88 +235,187 @@ private fun HomeSection() {
             )
         }
     }
+
+    SubHeader("Synchronisé avec le serveur")
+    ServerConfigOrLoading(config) { cfg ->
+        SwitchRow(
+            title = "Masquer le contenu déjà vu dans « Nouveautés »",
+            description = "Aussi appliqué dans le client web Jellyfin.",
+            checked = AppSettings.hidePlayedInRecent.value,
+            onChecked = {
+                AppSettings.hidePlayedInRecent.set(it)
+                saveConfig(cfg.copy(hidePlayedInLatest = it))
+            },
+        )
+        SwitchRow(
+            title = "Afficher les épisodes manquants dans les saisons",
+            description = "Préférence serveur (DisplayMissingEpisodes).",
+            checked = cfg.displayMissingEpisodes,
+            onChecked = { saveConfig(cfg.copy(displayMissingEpisodes = it)) },
+        )
+    }
 }
 
 @Composable
-private fun PlaybackSection() {
+private fun PlaybackSection(client: JellyfinClient, session: StoredSession) {
+    val (config, saveConfig) = rememberServerConfig(client, session)
+
     SwitchRow(
         title = "Reprendre automatiquement",
         description = "Sinon, la lecture repart toujours du début.",
         checked = AppSettings.resumeAlways.value,
         onChecked = { AppSettings.resumeAlways.set(it) },
     )
-    ChoiceRow(
+    NumberRow(
         title = "Durée du saut en arrière",
-        options = listOf("5 s" to 5, "10 s" to 10, "15 s" to 15, "30 s" to 30),
-        selected = AppSettings.seekBackSec.value,
-        onSelect = { AppSettings.seekBackSec.set(it) },
+        suffix = "secondes",
+        value = AppSettings.seekBackSec.value,
+        range = 1..600,
+        onValue = { AppSettings.seekBackSec.set(it) },
     )
-    ChoiceRow(
+    NumberRow(
         title = "Durée du saut en avant",
-        options = listOf("10 s" to 10, "30 s" to 30, "60 s" to 60, "90 s" to 90),
-        selected = AppSettings.seekForwardSec.value,
-        onSelect = { AppSettings.seekForwardSec.set(it) },
+        suffix = "secondes",
+        value = AppSettings.seekForwardSec.value,
+        range = 1..600,
+        onValue = { AppSettings.seekForwardSec.set(it) },
     )
-    ChoiceRow(
+    NumberRow(
         title = "Vitesse de lecture par défaut",
-        options = listOf("0.75×" to 75, "1×" to 100, "1.25×" to 125, "1.5×" to 150, "2×" to 200),
-        selected = AppSettings.defaultRatePct.value,
-        onSelect = { AppSettings.defaultRatePct.set(it) },
+        suffix = "% (100 = normale)",
+        value = AppSettings.defaultRatePct.value,
+        range = 25..400,
+        onValue = { AppSettings.defaultRatePct.set(it) },
     )
-    SwitchRow(
-        title = "Épisode suivant automatique",
-        description = "Enchaîne la lecture en fin d'épisode (arrive avec l'enchaînement, L12).",
-        checked = AppSettings.autoPlayNext.value,
-        onChecked = { AppSettings.autoPlayNext.set(it) },
+
+    SubHeader("Segments de média")
+    Text(
+        "Comportement quand le serveur signale un segment (générique, récap…).",
+        color = LumenColors.Muted, fontSize = 12.sp,
     )
+    val segmentOptions = listOf("Aucun" to "none", "Demander à passer" to "ask", "Passer automatiquement" to "auto")
+    ChoiceRow("Générique d'intro", segmentOptions, AppSettings.segmentIntro.value) { AppSettings.segmentIntro.set(it) }
+    ChoiceRow("Générique de fin", segmentOptions, AppSettings.segmentOutro.value) { AppSettings.segmentOutro.set(it) }
+    ChoiceRow("Récapitulatif", segmentOptions, AppSettings.segmentRecap.value) { AppSettings.segmentRecap.set(it) }
+    ChoiceRow("Prévisualisation", segmentOptions, AppSettings.segmentPreview.value) { AppSettings.segmentPreview.set(it) }
+    ChoiceRow("Publicité", segmentOptions, AppSettings.segmentCommercial.value) { AppSettings.segmentCommercial.set(it) }
+
+    SubHeader("Synchronisé avec le serveur")
+    ServerConfigOrLoading(config) { cfg ->
+        SwitchRow(
+            title = "Lancer l'épisode suivant automatiquement",
+            description = "Préférence serveur, partagée avec le client web.",
+            checked = cfg.enableNextEpisodeAutoPlay,
+            onChecked = {
+                AppSettings.autoPlayNext.set(it)
+                saveConfig(cfg.copy(enableNextEpisodeAutoPlay = it))
+            },
+        )
+        SwitchRow(
+            title = "Lire la piste audio par défaut quelle que soit la langue",
+            description = null,
+            checked = cfg.playDefaultAudioTrack,
+            onChecked = { saveConfig(cfg.copy(playDefaultAudioTrack = it)) },
+        )
+        SwitchRow(
+            title = "Se souvenir de la piste audio de l'élément précédent",
+            description = null,
+            checked = cfg.rememberAudioSelections,
+            onChecked = { saveConfig(cfg.copy(rememberAudioSelections = it)) },
+        )
+        SwitchRow(
+            title = "Se souvenir des sous-titres de l'élément précédent",
+            description = null,
+            checked = cfg.rememberSubtitleSelections,
+            onChecked = { saveConfig(cfg.copy(rememberSubtitleSelections = it)) },
+        )
+    }
 }
 
 @Composable
 private fun QualitySection() {
-    ChoiceRow(
-        title = "Plafond de débit par défaut",
-        options = listOf(
-            "Auto" to 0L,
-            "20 Mbps" to 20_000_000L,
-            "8 Mbps" to 8_000_000L,
-            "4 Mbps" to 4_000_000L,
-            "2 Mbps" to 2_000_000L,
-        ),
-        selected = AppSettings.defaultMaxBitrate.value,
-        onSelect = { AppSettings.defaultMaxBitrate.set(it) },
+    NumberRow(
+        title = "Plafond de débit",
+        suffix = "Mbps (0 = automatique)",
+        value = (AppSettings.defaultMaxBitrate.value / 1_000_000L).toInt(),
+        range = 0..1000,
+        onValue = { AppSettings.defaultMaxBitrate.set(it * 1_000_000L) },
     )
     Text(
-        "S'applique au lancement de chaque lecture ; modifiable en cours de " +
-            "lecture dans les options du lecteur.",
+        "Valeur libre, appliquée au lancement de chaque lecture ; modifiable en " +
+            "cours de lecture dans les options du lecteur.",
         color = LumenColors.Muted, fontSize = 12.sp,
     )
 }
 
 @Composable
-private fun AudioSection() {
+private fun AudioSection(client: JellyfinClient, session: StoredSession) {
+    val (config, saveConfig) = rememberServerConfig(client, session)
+
     ChoiceRow(
-        title = "Langue audio préférée",
+        title = "Langue audio préférée (app)",
         options = listOf("Automatique" to "auto", "Français" to "fr", "Anglais (VO)" to "en"),
         selected = AppSettings.preferredAudioLang.value,
         onSelect = { AppSettings.preferredAudioLang.set(it) },
     )
     ChoiceRow(
-        title = "Sous-titres préférés",
+        title = "Sous-titres préférés (app)",
         options = listOf("Désactivés" to "off", "Français" to "fr", "Anglais" to "en"),
         selected = AppSettings.preferredSubLang.value,
         onSelect = { AppSettings.preferredSubLang.set(it) },
     )
+
+    SubHeader("Apparence des sous-titres")
+    NumberRow(
+        title = "Taille du texte",
+        suffix = "% (100 = normal)",
+        value = AppSettings.subtitleScalePct.value,
+        range = 30..400,
+        onValue = { AppSettings.subtitleScalePct.set(it) },
+    )
     ChoiceRow(
-        title = "Taille des sous-titres",
-        options = listOf("Normal" to 100, "Grand" to 130, "Très grand" to 160),
-        selected = AppSettings.subtitleScalePct.value,
-        onSelect = { AppSettings.subtitleScalePct.set(it) },
+        title = "Couleur du texte",
+        options = listOf("Blanc" to "white", "Jaune" to "yellow", "Cyan" to "cyan", "Vert" to "green"),
+        selected = AppSettings.subtitleColor.value,
+        onSelect = { AppSettings.subtitleColor.set(it) },
+    )
+    NumberRow(
+        title = "Position verticale",
+        suffix = "pixels depuis le bas (0 = défaut)",
+        value = AppSettings.subtitleMarginPx.value,
+        range = 0..500,
+        onValue = { AppSettings.subtitleMarginPx.set(it) },
     )
     Text(
-        "La piste correspondante est sélectionnée automatiquement au lancement " +
-            "de la lecture quand elle existe. La taille s'applique à la prochaine lecture.",
+        "L'apparence s'applique à la prochaine lecture (moteur libvlc).",
         color = LumenColors.Muted, fontSize = 12.sp,
     )
+
+    SubHeader("Synchronisé avec le serveur")
+    ServerConfigOrLoading(config) { cfg ->
+        ChoiceRow(
+            title = "Mode des sous-titres (serveur)",
+            options = listOf(
+                "Par défaut" to "Default",
+                "Intelligent" to "Smart",
+                "Uniquement forcés" to "OnlyForced",
+                "Toujours" to "Always",
+                "Aucun" to "None",
+            ),
+            selected = cfg.subtitleMode,
+            onSelect = { saveConfig(cfg.copy(subtitleMode = it)) },
+        )
+        TextFieldRow(
+            title = "Langue audio préférée (code ISO, ex. fra, eng, jpn)",
+            value = cfg.audioLanguagePreference.orEmpty(),
+            onValue = { saveConfig(cfg.copy(audioLanguagePreference = it.ifBlank { null })) },
+        )
+        TextFieldRow(
+            title = "Langue de sous-titres préférée (code ISO)",
+            value = cfg.subtitleLanguagePreference.orEmpty(),
+            onValue = { saveConfig(cfg.copy(subtitleLanguagePreference = it.ifBlank { null })) },
+        )
+    }
 }
 
 @Composable
@@ -286,8 +425,7 @@ private fun QuickConnectSection(client: JellyfinClient, session: StoredSession) 
     var result by remember { mutableStateOf<Boolean?>(null) }
 
     Text(
-        "Saisis le code affiché par un autre appareil (TV, téléphone) pour " +
-            "l'autoriser sur ton compte, sans taper le mot de passe.",
+        "Saisis le code affiché par un autre appareil pour l'autoriser sur ton compte.",
         color = LumenColors.Muted, fontSize = 13.sp,
     )
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -296,19 +434,11 @@ private fun QuickConnectSection(client: JellyfinClient, session: StoredSession) 
             onValueChange = { v -> if (v.length <= 6 && v.all { it.isDigit() }) { code = v; result = null } },
             label = { Text("Code à 6 chiffres", color = LumenColors.Muted) },
             singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = LumenColors.Accent,
-                unfocusedBorderColor = LumenColors.SurfaceHigh,
-                focusedTextColor = LumenColors.OnBackground,
-                unfocusedTextColor = LumenColors.OnBackground,
-                cursorColor = LumenColors.Accent,
-            ),
+            colors = fieldColors(),
             modifier = Modifier.width(220.dp),
         )
         Button(
-            onClick = {
-                scope.launch { result = client.quickConnectAuthorize(session.baseUrl, code) }
-            },
+            onClick = { scope.launch { result = client.quickConnectAuthorize(session.baseUrl, code) } },
             enabled = code.length == 6,
             colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
             shape = RoundedCornerShape(8.dp),
@@ -326,11 +456,76 @@ private fun QuickConnectSection(client: JellyfinClient, session: StoredSession) 
 }
 
 @Composable
-private fun ServerSection(session: StoredSession, onLogout: () -> Unit) {
-    InfoRow("Serveur", session.serverName.ifEmpty { session.baseUrl })
-    InfoRow("Adresse", session.baseUrl)
-    InfoRow("Compte", session.userName)
-    Spacer(Modifier.size(8.dp))
+private fun ServerSection(
+    current: StoredSession,
+    servers: List<StoredSession>,
+    onSwitchServer: (StoredSession) -> Unit,
+    onAddServer: () -> Unit,
+    onForgetServer: (StoredSession) -> Unit,
+    onLogout: () -> Unit,
+) {
+    Text(
+        "Bascule d'un serveur à l'autre sans te reconnecter — la session de " +
+            "chaque serveur est mémorisée.",
+        color = LumenColors.Muted, fontSize = 13.sp,
+    )
+    servers.forEach { server ->
+        val isCurrent = server.baseUrl == current.baseUrl
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+                .background(
+                    if (isCurrent) LumenColors.SurfaceHigh else LumenColors.Surface,
+                    RoundedCornerShape(10.dp),
+                )
+                .clickable(
+                    enabled = !isCurrent,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { onSwitchServer(server) }
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    server.serverName.ifEmpty { server.baseUrl },
+                    color = LumenColors.OnBackground,
+                    fontSize = 15.sp,
+                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                )
+                Text(
+                    "${server.baseUrl} · ${server.userName}",
+                    color = LumenColors.Muted,
+                    fontSize = 12.sp,
+                )
+            }
+            if (isCurrent) {
+                Text("Actuel", color = LumenColors.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            } else {
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = "Oublier ce serveur",
+                    tint = LumenColors.Muted,
+                    modifier = Modifier.size(18.dp).clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { onForgetServer(server) },
+                )
+            }
+        }
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onClick = onAddServer,
+        ).padding(vertical = 6.dp),
+    ) {
+        Icon(Icons.Filled.Add, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
+        Text("Ajouter un serveur", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+    }
+    Spacer(Modifier.size(10.dp))
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -341,37 +536,58 @@ private fun ServerSection(session: StoredSession, onLogout: () -> Unit) {
         ),
     ) {
         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
-        Text("Se déconnecter du serveur", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text("Se déconnecter du serveur actuel", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
 // --- Composants communs ------------------------------------------------------
 
 @Composable
+private fun ServerConfigOrLoading(config: UserConfig?, content: @Composable (UserConfig) -> Unit) {
+    if (config == null) {
+        CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(22.dp))
+    } else {
+        content(config)
+    }
+}
+
+@Composable
+private fun SubHeader(text: String) {
+    Text(
+        text,
+        color = LumenColors.OnBackground,
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(top = 12.dp),
+    )
+}
+
+@Composable
 private fun SectionScaffold(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
     Column(
+        // Contenu CENTRÉ dans la page, pas collé à gauche.
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxSize().background(LumenColors.Background)
             .verticalScroll(rememberScrollState())
             .padding(start = 48.dp, end = 48.dp, top = 96.dp, bottom = 48.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Retour",
-                tint = LumenColors.OnBackground,
-                modifier = Modifier.size(24.dp).clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onBack,
-                ),
-            )
-            Text(title, color = LumenColors.OnBackground, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-        }
         Column(
             verticalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.widthIn(max = 620.dp),
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Retour",
+                    tint = LumenColors.OnBackground,
+                    modifier = Modifier.size(24.dp).clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onBack,
+                    ),
+                )
+                Text(title, color = LumenColors.OnBackground, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            }
             content()
         }
     }
@@ -392,6 +608,64 @@ private fun SwitchRow(title: String, description: String?, checked: Boolean, onC
             checked = checked,
             onCheckedChange = onChecked,
             colors = SwitchDefaults.colors(checkedTrackColor = LumenColors.Accent),
+        )
+    }
+}
+
+/** Champ NUMÉRIQUE LIBRE — la personnalisation n'est pas bridée à des presets. */
+@Composable
+private fun NumberRow(title: String, suffix: String, value: Int, range: IntRange, onValue: (Int) -> Unit) {
+    var text by remember(value) { mutableStateOf(value.toString()) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().background(LumenColors.Surface, RoundedCornerShape(10.dp))
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = LumenColors.OnBackground, fontSize = 15.sp)
+            Text(suffix, color = LumenColors.Muted, fontSize = 12.sp)
+        }
+        BasicTextField(
+            value = text,
+            onValueChange = { v ->
+                if (v.length <= 6 && v.all { it.isDigit() }) {
+                    text = v
+                    v.toIntOrNull()?.let { n -> if (n in range) onValue(n) }
+                }
+            },
+            singleLine = true,
+            textStyle = TextStyle(
+                color = LumenColors.OnBackground,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            ),
+            cursorBrush = SolidColor(LumenColors.Accent),
+            modifier = Modifier.width(84.dp)
+                .background(LumenColors.SurfaceHigh, RoundedCornerShape(8.dp))
+                .padding(vertical = 8.dp),
+        )
+    }
+}
+
+@Composable
+private fun TextFieldRow(title: String, value: String, onValue: (String) -> Unit) {
+    var text by remember(value) { mutableStateOf(value) }
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().background(LumenColors.Surface, RoundedCornerShape(10.dp))
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+    ) {
+        Text(title, color = LumenColors.OnBackground, fontSize = 14.sp)
+        BasicTextField(
+            value = text,
+            onValueChange = { text = it; onValue(it) },
+            singleLine = true,
+            textStyle = TextStyle(color = LumenColors.OnBackground, fontSize = 14.sp),
+            cursorBrush = SolidColor(LumenColors.Accent),
+            modifier = Modifier.width(220.dp)
+                .background(LumenColors.SurfaceHigh, RoundedCornerShape(8.dp))
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         )
     }
 }
@@ -433,14 +707,10 @@ private fun <T> ChoiceRow(title: String, options: List<Pair<String, T>>, selecte
 }
 
 @Composable
-private fun InfoRow(title: String, value: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().background(LumenColors.Surface, RoundedCornerShape(10.dp))
-            .padding(horizontal = 18.dp, vertical = 14.dp),
-    ) {
-        Text(title, color = LumenColors.OnBackground, fontSize = 15.sp)
-        Spacer(Modifier.weight(1f))
-        Text(value, color = LumenColors.Muted, fontSize = 13.sp)
-    }
-}
+private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = LumenColors.Accent,
+    unfocusedBorderColor = LumenColors.SurfaceHigh,
+    focusedTextColor = LumenColors.OnBackground,
+    unfocusedTextColor = LumenColors.OnBackground,
+    cursorColor = LumenColors.Accent,
+)

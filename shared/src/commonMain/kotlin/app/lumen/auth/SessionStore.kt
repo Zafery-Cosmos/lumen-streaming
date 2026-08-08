@@ -4,6 +4,7 @@ import com.russhwolf.settings.Settings
 import kotlin.random.Random
 
 /** Session persistée : de quoi se reconnecter silencieusement au lancement. */
+@kotlinx.serialization.Serializable
 data class StoredSession(
     val baseUrl: String,
     val serverName: String,
@@ -52,6 +53,29 @@ class SessionStore(private val settings: Settings = Settings()) {
             .forEach(settings::remove)
     }
 
+    // --- Multi-serveurs (plan §2) : bascule dynamique -----------------------
+
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+    /** Tous les serveurs connus (sessions valides mémorisées), par URL. */
+    fun listServers(): List<StoredSession> =
+        settings.getStringOrNull(KEY_SERVERS)?.let {
+            runCatching { json.decodeFromString<List<StoredSession>>(it) }.getOrDefault(emptyList())
+        } ?: emptyList()
+
+    /** Mémorise (ou met à jour) un serveur dans la liste de bascule. */
+    fun rememberServer(session: StoredSession) {
+        val updated = listServers().filterNot { it.baseUrl == session.baseUrl } + session
+        settings.putString(KEY_SERVERS, json.encodeToString(updated))
+    }
+
+    fun forgetServer(baseUrl: String) {
+        settings.putString(
+            KEY_SERVERS,
+            json.encodeToString(listServers().filterNot { it.baseUrl == baseUrl }),
+        )
+    }
+
     private companion object {
         const val KEY_DEVICE_ID = "device_id"
         const val KEY_BASE_URL = "session.base_url"
@@ -59,5 +83,6 @@ class SessionStore(private val settings: Settings = Settings()) {
         const val KEY_USER_ID = "session.user_id"
         const val KEY_USER_NAME = "session.user_name"
         const val KEY_TOKEN = "session.token"
+        const val KEY_SERVERS = "servers.v1"
     }
 }
