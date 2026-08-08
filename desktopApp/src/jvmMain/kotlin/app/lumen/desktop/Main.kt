@@ -9,7 +9,11 @@ import app.lumen.resources.Res
 import app.lumen.resources.logo
 import org.jetbrains.compose.resources.painterResource
 
-fun main() = application {
+fun main() {
+    // Sans ce flag, la surface vidéo AWT (VLCJ) passerait AU-DESSUS des
+    // contrôles Compose du lecteur — l'overlay maison serait invisible.
+    System.setProperty("compose.interop.blending", "true")
+    application {
     Window(
         onCloseRequest = ::exitApplication,
         title = "Lumen",
@@ -17,5 +21,6 @@ fun main() = application {
         state = rememberWindowState(width = 1280.dp, height = 800.dp),
     ) {
         App()
+    }
     }
 }

@@ -75,6 +75,7 @@ fun HomeScreen(
     session: StoredSession,
     refreshKey: Int,
     onOpen: (String) -> Unit,
+    onPlay: (String) -> Unit,
 ) {
     val repo = remember { HomeRepository(client, tmdb, session) }
     val content by produceState<HomeContent?>(initialValue = null, refreshKey) {
@@ -88,19 +89,19 @@ fun HomeScreen(
                 color = LumenColors.Accent,
                 modifier = Modifier.align(Alignment.Center).size(36.dp),
             )
-            else -> HomeBody(c, onOpen)
+            else -> HomeBody(c, onOpen, onPlay)
         }
     }
 }
 
 @Composable
-private fun HomeBody(content: HomeContent, onOpen: (String) -> Unit) {
+private fun HomeBody(content: HomeContent, onOpen: (String) -> Unit, onPlay: (String) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
         if (content.heroes.isNotEmpty()) {
-            item(key = "hero") { HeroCarousel(content.heroes, onOpen) }
+            item(key = "hero") { HeroCarousel(content.heroes, onOpen, onPlay) }
         }
         // Pas d'apparition différée ici : les rangées doivent TOUJOURS être là
         // quand on scrolle — aucun trou, aucun arrêt de glisse.
@@ -116,7 +117,7 @@ private fun HomeBody(content: HomeContent, onOpen: (String) -> Unit) {
  * de position cliquables en bas à droite.
  */
 @Composable
-private fun HeroCarousel(heroes: List<HeroItem>, onOpen: (String) -> Unit) {
+private fun HeroCarousel(heroes: List<HeroItem>, onOpen: (String) -> Unit, onPlay: (String) -> Unit) {
     var index by remember { mutableStateOf(0) }
 
     // Rotation automatique — le clic sur un point repart de ce titre.
@@ -132,7 +133,7 @@ private fun HeroCarousel(heroes: List<HeroItem>, onOpen: (String) -> Unit) {
             targetState = index,
             transitionSpec = { fadeIn(tween(700)).togetherWith(fadeOut(tween(700))) },
         ) { i ->
-            HeroSlide(heroes[i], onOpen)
+            HeroSlide(heroes[i], onOpen, onPlay)
         }
 
         // Indicateurs de position — vecteurs purs, pas de glyphes.
@@ -161,7 +162,7 @@ private fun HeroCarousel(heroes: List<HeroItem>, onOpen: (String) -> Unit) {
 }
 
 @Composable
-private fun HeroSlide(hero: HeroItem, onOpen: (String) -> Unit) {
+private fun HeroSlide(hero: HeroItem, onOpen: (String) -> Unit, onPlay: (String) -> Unit) {
     Box(Modifier.fillMaxSize()) {
         AsyncImage(
             model = hero.backdropUrl,
@@ -224,7 +225,7 @@ private fun HeroSlide(hero: HeroItem, onOpen: (String) -> Unit) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
-                    onClick = { /* L4 : lecture */ },
+                    onClick = { onPlay(hero.id) },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                     shape = RoundedCornerShape(6.dp),
                 ) {

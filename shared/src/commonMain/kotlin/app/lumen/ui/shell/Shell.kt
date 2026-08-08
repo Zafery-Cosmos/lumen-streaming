@@ -87,6 +87,17 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
     var detailStack by remember { mutableStateOf(listOf<String>()) }
     val openDetail: (String) -> Unit = { id -> detailStack = detailStack + id }
 
+    // Lecture en cours : le lecteur remplace TOUT l'écran, barre comprise.
+    var playingId by remember { mutableStateOf<String?>(null) }
+    playingId?.let { id ->
+        app.lumen.ui.player.PlayerScreen(
+            client, session,
+            itemId = id,
+            onBack = { playingId = null; refreshKey++ },  // refresh → « Reprendre » à jour
+        )
+        return
+    }
+
     Column(Modifier.fillMaxSize().background(LumenColors.Background)) {
         TopBar(
             current = tab,
@@ -115,9 +126,14 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
                     client, tmdb, session,
                     mediaId = state,
                     onBack = { detailStack = detailStack.dropLast(1) },
+                    onPlay = { id -> playingId = id },
                 )
                 state == "search" -> SearchScreen(client, session, searchQuery, onOpen = openDetail)
-                state == ShellTab.Home.name -> HomeScreen(client, tmdb, session, refreshKey, onOpen = openDetail)
+                state == ShellTab.Home.name -> HomeScreen(
+                    client, tmdb, session, refreshKey,
+                    onOpen = openDetail,
+                    onPlay = { id -> playingId = id },
+                )
                 state == ShellTab.Movies.name -> BrowseScreen(client, session, includeTypes = "Movie", title = "Films", onOpen = openDetail)
                 state == ShellTab.Series.name -> BrowseScreen(client, session, includeTypes = "Series", title = "Séries", onOpen = openDetail)
                 else -> SettingsScreen(session, onLogout)

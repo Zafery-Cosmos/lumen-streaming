@@ -81,6 +81,23 @@ data class UserData(
 )
 
 @Serializable
+data class PlaybackInfoResponse(
+    @SerialName("MediaSources") val mediaSources: List<MediaSource> = emptyList(),
+    @SerialName("PlaySessionId") val playSessionId: String = "",
+)
+
+@Serializable
+data class MediaSource(
+    @SerialName("Id") val id: String = "",
+    @SerialName("Container") val container: String? = null,
+    @SerialName("SupportsDirectPlay") val supportsDirectPlay: Boolean = false,
+    @SerialName("SupportsDirectStream") val supportsDirectStream: Boolean = false,
+    @SerialName("SupportsTranscoding") val supportsTranscoding: Boolean = false,
+    @SerialName("TranscodingUrl") val transcodingUrl: String? = null,
+    @SerialName("Bitrate") val bitrate: Long? = null,
+)
+
+@Serializable
 data class QuickConnectState(
     @SerialName("Secret") val secret: String = "",
     @SerialName("Code") val code: String = "",

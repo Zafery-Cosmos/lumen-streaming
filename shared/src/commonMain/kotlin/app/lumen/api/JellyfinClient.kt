@@ -147,6 +147,68 @@ class JellyfinClient(
         },
     )
 
+    // --- Lecture (L4) --------------------------------------------------------
+
+    /**
+     * Négociation de lecture : le serveur décide Direct Play / Direct Stream /
+     * Transcode. Le profil de capacités réel de l'appareil viendra au L5 ; sans
+     * profil, le serveur privilégie le Direct Play — exactement ce qu'on veut.
+     */
+    suspend fun playbackInfo(baseUrl: String, userId: String, itemId: String): PlaybackInfoResponse =
+        http.post("${baseUrl.trimEnd('/')}/Items/$itemId/PlaybackInfo?userId=$userId") {
+            header("Authorization", authorizationHeader())
+            contentType(ContentType.Application.Json)
+            setBody("{}")
+        }.body()
+
+    /** URL de lecture : flux direct si possible, sinon l'URL de transcodage HLS. */
+    fun streamUrl(baseUrl: String, itemId: String, source: MediaSource): String {
+        val b = baseUrl.trimEnd('/')
+        return when {
+            source.supportsDirectPlay || source.supportsDirectStream ->
+                "$b/Videos/$itemId/stream?static=true&mediaSourceId=${source.id}&api_key=$accessToken"
+            source.transcodingUrl != null -> "$b${source.transcodingUrl}"
+            else -> "$b/Videos/$itemId/main.m3u8?mediaSourceId=${source.id}&api_key=$accessToken"
+        }
+    }
+
+    @Serializable
+    private data class ProgressBody(
+        val ItemId: String,
+        val PositionTicks: Long,
+        val IsPaused: Boolean = false,
+        val PlaySessionId: String? = null,
+    )
+
+    /** Signale le début de lecture — la session apparaît dans le tableau de bord. */
+    suspend fun reportPlaybackStart(baseUrl: String, itemId: String, playSessionId: String?) {
+        http.post("${baseUrl.trimEnd('/')}/Sessions/Playing") {
+            header("Authorization", authorizationHeader())
+            contentType(ContentType.Application.Json)
+            setBody(ProgressBody(itemId, 0, PlaySessionId = playSessionId))
+        }
+    }
+
+    /** Position courante (toutes les 10 s) — partage la reprise avec tous les clients. */
+    suspend fun reportPlaybackProgress(
+        baseUrl: String, itemId: String, positionTicks: Long, paused: Boolean, playSessionId: String?,
+    ) {
+        http.post("${baseUrl.trimEnd('/')}/Sessions/Playing/Progress") {
+            header("Authorization", authorizationHeader())
+            contentType(ContentType.Application.Json)
+            setBody(ProgressBody(itemId, positionTicks, IsPaused = paused, PlaySessionId = playSessionId))
+        }
+    }
+
+    /** Fin de lecture — fige la position de reprise côté serveur. */
+    suspend fun reportPlaybackStopped(baseUrl: String, itemId: String, positionTicks: Long, playSessionId: String?) {
+        http.post("${baseUrl.trimEnd('/')}/Sessions/Playing/Stopped") {
+            header("Authorization", authorizationHeader())
+            contentType(ContentType.Application.Json)
+            setBody(ProgressBody(itemId, positionTicks, PlaySessionId = playSessionId))
+        }
+    }
+
     /** Détail complet d'un item (fiche film/série/épisode). */
     suspend fun item(baseUrl: String, userId: String, itemId: String): BaseItem =
         authedGet(baseUrl, "/Items/$itemId?userId=$userId&fields=$DEFAULT_FIELDS")

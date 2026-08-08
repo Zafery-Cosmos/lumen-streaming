@@ -78,6 +78,7 @@ fun DetailScreen(
     session: StoredSession,
     mediaId: String,
     onBack: () -> Unit,
+    onPlay: (String) -> Unit,
 ) {
     val data by produceState<DetailData?>(initialValue = null, mediaId) {
         value = runCatching {
@@ -105,7 +106,7 @@ fun DetailScreen(
                 color = LumenColors.Accent,
                 modifier = Modifier.align(Alignment.Center).size(36.dp),
             )
-            is DetailData.Jellyfin -> JellyfinDetail(client, session, d.item, d.seasons)
+            is DetailData.Jellyfin -> JellyfinDetail(client, session, d.item, d.seasons, onPlay)
             is DetailData.Tmdb -> TmdbDetailBody(d.detail)
             is DetailData.Failed -> Text(
                 "Impossible de charger cette fiche.",
@@ -143,11 +144,12 @@ private fun JellyfinDetail(
     session: StoredSession,
     item: BaseItem,
     seasons: List<BaseItem>,
+    onPlay: (String) -> Unit,
 ) {
     var selectedSeason by remember(seasons) { mutableStateOf(seasons.firstOrNull()) }
 
     LazyColumn(Modifier.fillMaxSize()) {
-        item(key = "header") { DetailHeader(client, session, item) }
+        item(key = "header") { DetailHeader(client, session, item, onPlay) }
 
         if (item.type == "Series" && seasons.isNotEmpty()) {
             item(key = "season-picker") {
@@ -179,7 +181,7 @@ private fun JellyfinDetail(
             }
             item(key = "episodes") {
                 selectedSeason?.let { season ->
-                    EpisodeList(client, session, seriesId = item.id, season = season)
+                    EpisodeList(client, session, seriesId = item.id, season = season, onPlay = onPlay)
                 }
             }
         }
@@ -188,7 +190,7 @@ private fun JellyfinDetail(
 }
 
 @Composable
-private fun DetailHeader(client: JellyfinClient, session: StoredSession, item: BaseItem) {
+private fun DetailHeader(client: JellyfinClient, session: StoredSession, item: BaseItem, onPlay: (String) -> Unit) {
     val backdrop = when {
         item.backdropImageTags.isNotEmpty() ->
             client.imageUrl(session.baseUrl, item.id, "Backdrop", item.backdropImageTags.first(), maxWidth = 1920)
@@ -241,7 +243,9 @@ private fun DetailHeader(client: JellyfinClient, session: StoredSession, item: B
             }
             val resume = (item.userData?.playbackPositionTicks ?: 0L) > 0L
             Button(
-                onClick = { /* L4 : lecture */ },
+                // Série : « Lire » lance le premier épisode utile via NextUp au L12 ;
+                // pour l'instant il ne s'applique qu'aux items directement lisibles.
+                onClick = { if (item.type != "Series") onPlay(item.id) },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                 shape = RoundedCornerShape(6.dp),
             ) {
@@ -259,7 +263,13 @@ private fun DetailHeader(client: JellyfinClient, session: StoredSession, item: B
 }
 
 @Composable
-private fun EpisodeList(client: JellyfinClient, session: StoredSession, seriesId: String, season: BaseItem) {
+private fun EpisodeList(
+    client: JellyfinClient,
+    session: StoredSession,
+    seriesId: String,
+    season: BaseItem,
+    onPlay: (String) -> Unit,
+) {
     val episodes by produceState<List<BaseItem>?>(initialValue = null, season.id) {
         value = runCatching {
             client.episodes(session.baseUrl, session.userId, seriesId, season.id).items
@@ -280,20 +290,20 @@ private fun EpisodeList(client: JellyfinClient, session: StoredSession, seriesId
                     color = LumenColors.Accent,
                     modifier = Modifier.size(28.dp),
                 )
-                else -> list.forEach { ep -> EpisodeRow(client, session, ep) }
+                else -> list.forEach { ep -> EpisodeRow(client, session, ep, onPlay) }
             }
         }
     }
 }
 
 @Composable
-private fun EpisodeRow(client: JellyfinClient, session: StoredSession, ep: BaseItem) {
+private fun EpisodeRow(client: JellyfinClient, session: StoredSession, ep: BaseItem, onPlay: (String) -> Unit) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .clickable { /* L4 : lecture de l'épisode */ }
+            .clickable { onPlay(ep.id) }
             .background(LumenColors.Surface)
             .padding(10.dp),
     ) {

@@ -81,10 +81,14 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.androidx.activity.compose)
+            implementation(libs.media3.exoplayer)
+            implementation(libs.media3.exoplayer.hls)
+            implementation(libs.media3.ui)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.common)
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.vlcj)
         }
     }
 }
