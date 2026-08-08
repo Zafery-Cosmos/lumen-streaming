@@ -34,8 +34,13 @@ data class HlsAnalysis(
     val audioTracks: List<HlsMedia> get() = media.filter { it.type == "AUDIO" }
     val subtitleTracks: List<HlsMedia> get() = media.filter { it.type == "SUBTITLES" }
 
-    /** Verdict de lisibilité SANS ré-encodage, annoncé avant l'import. */
-    val directPlay: Boolean get() = problems.isEmpty() && variants.any { it.universallyPlayable }
+    /**
+     * Verdict de lisibilité SANS ré-encodage, annoncé avant l'import.
+     * Un HLS mono-qualité (le plus courant : `ffmpeg -c copy`) ne déclare
+     * aucune variante — l'absence de liste ne vaut donc pas incompatibilité.
+     */
+    val directPlay: Boolean
+        get() = problems.isEmpty() && (variants.isEmpty() || variants.any { it.universallyPlayable })
 
     val bestResolution: String?
         get() = variants.maxByOrNull { it.bandwidth }?.resolution
