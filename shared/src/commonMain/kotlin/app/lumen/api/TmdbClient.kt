@@ -50,10 +50,31 @@ data class TmdbDetail(
     @SerialName("runtime") val runtime: Int? = null,
     @SerialName("number_of_seasons") val numberOfSeasons: Int? = null,
     @SerialName("seasons") val seasons: List<TmdbSeasonInfo> = emptyList(),
+    @SerialName("credits") val credits: TmdbCredits? = null,
+    @SerialName("similar") val similar: TmdbPaged? = null,
 ) {
     val displayName: String get() = title ?: nameField ?: ""
     val year: Int? get() = (releaseDate ?: firstAirDate)?.take(4)?.toIntOrNull()
 }
+
+@Serializable
+data class TmdbCredits(
+    @SerialName("cast") val cast: List<TmdbCastMember> = emptyList(),
+    @SerialName("crew") val crew: List<TmdbCrewMember> = emptyList(),
+)
+
+@Serializable
+data class TmdbCastMember(
+    @SerialName("name") val name: String = "",
+    @SerialName("character") val character: String? = null,
+    @SerialName("profile_path") val profilePath: String? = null,
+)
+
+@Serializable
+data class TmdbCrewMember(
+    @SerialName("name") val name: String = "",
+    @SerialName("job") val job: String? = null,
+)
 
 @Serializable
 data class TmdbSeasonInfo(
@@ -92,9 +113,12 @@ class TmdbClient(private val http: HttpClient) {
     /** Nouveautés cinéma du moment. */
     suspend fun nowPlaying(): List<TmdbItem> = get("movie/now_playing").results
 
-    /** Fiche détaillée d'un film ou d'une série TMDB. */
+    /** Fiche détaillée d'un film ou d'une série TMDB, avec casting et similaires. */
     suspend fun detail(mediaType: String, id: Long): TmdbDetail =
-        http.get("$BASE/$mediaType/$id?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR").body()
+        http.get(
+            "$BASE/$mediaType/$id?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR" +
+                "&append_to_response=credits,similar",
+        ).body()
 
     /** Une saison complète, avec tous ses épisodes (titres, résumés, vignettes). */
     suspend fun season(tvId: Long, seasonNumber: Int): TmdbSeason =
@@ -119,5 +143,6 @@ class TmdbClient(private val http: HttpClient) {
         fun posterUrl(path: String?): String? = path?.let { "https://image.tmdb.org/t/p/w342$it" }
         fun backdropUrl(path: String?): String? = path?.let { "https://image.tmdb.org/t/p/w1280$it" }
         fun stillUrl(path: String?): String? = path?.let { "https://image.tmdb.org/t/p/w400$it" }
+        fun profileUrl(path: String?): String? = path?.let { "https://image.tmdb.org/t/p/w185$it" }
     }
 }

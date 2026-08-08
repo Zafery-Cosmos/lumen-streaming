@@ -117,6 +117,7 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
                     mediaId = state,
                     onBack = { detailStack = detailStack.dropLast(1) },
                     onPlay = { id -> playingId = id },
+                    onOpen = openDetail,
                 )
                 state == "search" -> SearchScreen(client, session, searchQuery, onOpen = openDetail)
                 state == ShellTab.Home.name -> HomeScreen(

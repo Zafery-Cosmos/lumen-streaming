@@ -56,6 +56,8 @@ import app.lumen.api.JellyfinClient
 import app.lumen.api.TmdbClient
 import app.lumen.api.TmdbDetail
 import app.lumen.auth.StoredSession
+import app.lumen.domain.toCard
+import app.lumen.ui.components.MediaCard
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 
@@ -79,6 +81,7 @@ fun DetailScreen(
     mediaId: String,
     onBack: () -> Unit,
     onPlay: (String) -> Unit,
+    onOpen: (String) -> Unit,
 ) {
     val data by produceState<DetailData?>(initialValue = null, mediaId) {
         value = runCatching {
@@ -102,8 +105,8 @@ fun DetailScreen(
                 color = LumenColors.Accent,
                 modifier = Modifier.align(Alignment.Center).size(36.dp),
             )
-            is DetailData.Jellyfin -> JellyfinDetail(client, tmdb, session, d.item, onPlay)
-            is DetailData.Tmdb -> TmdbDetailBody(d.detail)
+            is DetailData.Jellyfin -> JellyfinDetail(client, tmdb, session, d.item, onPlay, onOpen)
+            is DetailData.Tmdb -> TmdbDetailBody(d.detail, onOpen)
             is DetailData.Failed -> Text(
                 "Impossible de charger cette fiche.",
                 color = LumenColors.Muted,
@@ -111,9 +114,9 @@ fun DetailScreen(
             )
         }
 
-        // Retour — toujours par-dessus, en haut à gauche.
+        // Retour — sous la barre de navigation flottante, pas dessous le logo.
         Box(
-            Modifier.padding(20.dp).size(42.dp)
+            Modifier.padding(start = 24.dp, top = 84.dp).size(42.dp)
                 .background(Color.Black.copy(alpha = 0.55f), CircleShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -149,7 +152,15 @@ private fun JellyfinDetail(
     session: StoredSession,
     item: BaseItem,
     onPlay: (String) -> Unit,
+    onOpen: (String) -> Unit,
 ) {
+    // Titres similaires proposés par le serveur.
+    val similar by produceState<List<app.lumen.domain.CardItem>>(initialValue = emptyList(), item.id) {
+        value = runCatching {
+            client.similar(session.baseUrl, session.userId, item.id).items
+                .map { it.toCard(client, session) }
+        }.getOrDefault(emptyList())
+    }
     // Réorganisation virtuelle : TOUS les épisodes de la série sont chargés,
     // replacés à leur vraie saison via TMDB (numéros absolus compris), puis
     // regroupés — l'app n'affiche jamais le rangement bancal du serveur.
@@ -252,6 +263,28 @@ private fun JellyfinDetail(
                     }
                 }
             }
+        }
+        // Réalisation + distribution (les données People du serveur).
+        val directors = item.people.filter { it.type == "Director" }
+        val cast = item.people.filter { it.type == "Actor" }.take(15)
+        if (directors.isNotEmpty() || cast.isNotEmpty()) {
+            item(key = "people") {
+                PeopleSection(
+                    directors = directors.map { it.name },
+                    cast = cast.map {
+                        PersonCardData(
+                            name = it.name,
+                            subtitle = it.role,
+                            imageUrl = it.primaryImageTag?.let { tag ->
+                                client.imageUrl(session.baseUrl, it.id, "Primary", tag, maxWidth = 200)
+                            },
+                        )
+                    },
+                )
+            }
+        }
+        if (similar.isNotEmpty()) {
+            item(key = "similar") { SimilarSection(similar, onOpen) }
         }
         item(key = "bottom") { Spacer(Modifier.height(32.dp)) }
     }
@@ -437,7 +470,7 @@ private fun EpisodeRow(
 // --- Fiche TMDB (catalogue, pas encore lisible) ----------------------------
 
 @Composable
-private fun TmdbDetailBody(detail: TmdbDetail) {
+private fun TmdbDetailBody(detail: TmdbDetail, onOpen: (String) -> Unit) {
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
@@ -493,10 +526,139 @@ private fun TmdbDetailBody(detail: TmdbDetail) {
                 }
             }
         }
+
+        // Réalisation + distribution TMDB.
+        val directors = detail.credits?.crew?.filter { it.job == "Director" }?.map { it.name }.orEmpty()
+        val cast = detail.credits?.cast?.take(15).orEmpty().map {
+            PersonCardData(it.name, it.character, TmdbClient.profileUrl(it.profilePath))
+        }
+        if (directors.isNotEmpty() || cast.isNotEmpty()) {
+            item(key = "people") { PeopleSection(directors, cast) }
+        }
+        val similar = detail.similar?.results.orEmpty().take(12).map { it.toCard() }
+        if (similar.isNotEmpty()) {
+            item(key = "similar") { SimilarSection(similar, onOpen) }
+        }
+        item(key = "bottom") { Spacer(Modifier.height(32.dp)) }
     }
 }
 
 @Composable
 private fun Meta(text: String) {
     Text(text, color = LumenColors.Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+}
+
+// --- Sections communes : distribution & similaires -------------------------
+
+data class PersonCardData(val name: String, val subtitle: String?, val imageUrl: String?)
+
+@Composable
+private fun PeopleSection(directors: List<String>, cast: List<PersonCardData>) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.padding(top = 26.dp),
+    ) {
+        if (directors.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(horizontal = 48.dp),
+            ) {
+                Text("Réalisation :", color = LumenColors.Muted, fontSize = 14.sp)
+                Text(
+                    directors.joinToString(", "),
+                    color = LumenColors.OnBackground,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+        if (cast.isNotEmpty()) {
+            Text(
+                "Distribution",
+                color = LumenColors.OnBackground,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 48.dp),
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(horizontal = 48.dp),
+            ) {
+                items(cast.size) { i -> PersonCard(cast[i]) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PersonCard(person: PersonCardData) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.width(92.dp),
+    ) {
+        Box(
+            modifier = Modifier.size(84.dp).clip(CircleShape).background(LumenColors.SurfaceHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (person.imageUrl != null) {
+                AsyncImage(
+                    model = person.imageUrl,
+                    contentDescription = person.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Text(
+                    person.name.split(' ').take(2).mapNotNull { it.firstOrNull() }.joinToString(""),
+                    color = LumenColors.Muted,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+        Text(
+            person.name,
+            color = LumenColors.OnBackground,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+        person.subtitle?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                it,
+                color = LumenColors.Muted,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SimilarSection(cards: List<app.lumen.domain.CardItem>, onOpen: (String) -> Unit) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.padding(top = 26.dp),
+    ) {
+        Text(
+            "Titres similaires",
+            color = LumenColors.OnBackground,
+            fontSize = 19.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 48.dp),
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 48.dp),
+        ) {
+            items(cards.size) { i ->
+                MediaCard(cards[i], onClick = { onOpen(cards[i].id) })
+            }
+        }
+    }
 }

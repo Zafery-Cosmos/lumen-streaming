@@ -60,6 +60,7 @@ data class BaseItem(
     @SerialName("Genres") val genres: List<String> = emptyList(),
     // Champs spécifiques aux épisodes / saisons
     @SerialName("Path") val path: String? = null,
+    @SerialName("People") val people: List<Person> = emptyList(),
     @SerialName("SeriesId") val seriesId: String? = null,
     @SerialName("SeriesName") val seriesName: String? = null,
     @SerialName("SeasonName") val seasonName: String? = null,
@@ -71,6 +72,15 @@ data class BaseItem(
     /** Durée en minutes (les ticks Jellyfin valent 100 ns). */
     val runTimeMinutes: Int? get() = runTimeTicks?.let { (it / 600_000_000L).toInt() }
 }
+
+@Serializable
+data class Person(
+    @SerialName("Id") val id: String = "",
+    @SerialName("Name") val name: String = "",
+    @SerialName("Role") val role: String? = null,
+    @SerialName("Type") val type: String = "",
+    @SerialName("PrimaryImageTag") val primaryImageTag: String? = null,
+)
 
 @Serializable
 data class UserData(

@@ -217,9 +217,13 @@ class JellyfinClient(
         }
     }
 
-    /** Détail complet d'un item (fiche film/série/épisode). */
+    /** Détail complet d'un item (fiche film/série/épisode), casting compris. */
     suspend fun item(baseUrl: String, userId: String, itemId: String): BaseItem =
-        authedGet(baseUrl, "/Items/$itemId?userId=$userId&fields=$DEFAULT_FIELDS")
+        authedGet(baseUrl, "/Items/$itemId?userId=$userId&fields=$DEFAULT_FIELDS,People,Path")
+
+    /** Titres similaires proposés par le serveur. */
+    suspend fun similar(baseUrl: String, userId: String, itemId: String, limit: Int = 12): ItemsResult =
+        authedGet(baseUrl, "/Items/$itemId/Similar?userId=$userId&limit=$limit&fields=$DEFAULT_FIELDS")
 
     /** Saisons d'une série. */
     suspend fun seasons(baseUrl: String, userId: String, seriesId: String): ItemsResult =
