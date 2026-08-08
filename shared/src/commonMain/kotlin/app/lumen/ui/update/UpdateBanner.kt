@@ -69,8 +69,17 @@ fun UpdateBanner(client: JellyfinClient) {
     val updates = remember { UpdateClient(client.http) }
     val scope = rememberCoroutineScope()
 
+    val prefs = remember { com.russhwolf.settings.Settings() }
     var manifest by remember { mutableStateOf<ReleaseManifest?>(null) }
-    var dismissedVersion by remember { mutableStateOf<String?>(null) }
+    // Persisté : une version ignorée le reste après redémarrage — sinon le
+    // bandeau revient à chaque lancement, ce qui est insupportable.
+    var dismissedVersion by remember {
+        mutableStateOf(prefs.getStringOrNull("update.dismissed"))
+    }
+    fun dismiss(version: String) {
+        dismissedVersion = version
+        prefs.putString("update.dismissed", version)
+    }
     var phase by remember { mutableStateOf(Phase.Offered) }
     var progress by remember { mutableStateOf<DownloadState?>(null) }
     var downloadedPath by remember { mutableStateOf<String?>(null) }
@@ -96,7 +105,8 @@ fun UpdateBanner(client: JellyfinClient) {
 
     val current = manifest
     val artifact = current?.artifact
-    val visible = current != null && artifact != null && dismissedVersion != current.version
+    val visible = current != null && artifact != null &&
+        current.platforms.isNotEmpty() && dismissedVersion != current.version
 
     AnimatedVisibility(
         visible = visible,
@@ -184,7 +194,7 @@ fun UpdateBanner(client: JellyfinClient) {
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
-                                    ) { dismissedVersion = current.version }
+                                    ) { dismiss(current.version) }
                                     .padding(8.dp),
                             )
                         }
@@ -243,7 +253,7 @@ fun UpdateBanner(client: JellyfinClient) {
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
-                                    ) { dismissedVersion = current.version }
+                                    ) { dismiss(current.version) }
                                     .padding(8.dp),
                             )
                         }

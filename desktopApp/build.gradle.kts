@@ -21,9 +21,28 @@ compose.desktop {
     application {
         mainClass = "app.lumen.desktop.MainKt"
         nativeDistributions {
-            targetFormats(TargetFormat.Rpm, TargetFormat.AppImage, TargetFormat.Msi)
+            // Un format par systeme : jpackage ne cross-compile pas, donc la CI
+            // construit chacun sur son runner (Linux, Windows, macOS).
+            targetFormats(TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "lumen"
-            packageVersion = "0.1.0"
+            packageVersion = "1.0.0"
+            description = "Lumen Streaming — client Jellyfin natif"
+            vendor = "Zafery-Cosmos"
+
+            linux {
+                iconFile.set(project.file("../art/logo-master.png"))
+                menuGroup = "AudioVideo"
+                debMaintainer = "odilon.hugonnot@gmail.com"
+            }
+            windows {
+                menuGroup = "Lumen"
+                perUserInstall = true
+                // Identifiant fixe : les mises a jour remplacent l installation.
+                upgradeUuid = "9f2c1d84-3e5b-4a77-9c31-6b5f0a2d7e14"
+            }
+            macOS {
+                bundleID = "app.lumen.desktop"
+            }
         }
     }
 }

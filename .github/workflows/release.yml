@@ -1,0 +1,81 @@
+name: Release
+
+# jpackage ne cross-compile pas : chaque format est produit sur SON système.
+# GitHub fournit les trois runners, donc une seule étiquette suffit à tout sortir.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version à produire (ex. 1.0.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: Linux (deb + rpm)
+            task: packageDeb packageRpm
+            artifacts: desktopApp/build/compose/binaries/main/deb/*.deb desktopApp/build/compose/binaries/main/rpm/*.rpm
+          - os: windows-latest
+            label: Windows (msi)
+            task: packageMsi
+            artifacts: desktopApp/build/compose/binaries/main/msi/*.msi
+          - os: macos-latest
+            label: macOS (dmg)
+            task: packageDmg
+            artifacts: desktopApp/build/compose/binaries/main/dmg/*.dmg
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Le .deb et le .rpm exigent les outils d'empaquetage de la distribution.
+      - name: Outils d'empaquetage Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm fakeroot binutils
+
+      # La clé TMDB vit dans les secrets du dépôt, jamais dans le code.
+      - name: Configuration locale
+        shell: bash
+        run: echo "tmdb.api.key=${{ secrets.TMDB_API_KEY }}" > local.properties
+
+      - name: Compiler
+        shell: bash
+        run: ./gradlew ${{ matrix.task }} --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumen-${{ runner.os }}
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error
+
+  release:
+    name: Publier la release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Créer la release GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
