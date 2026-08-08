@@ -33,6 +33,9 @@ private fun alignWindowClass() {
 fun main() {
     // Doit preceder la creation de la fenetre : WM_CLASS est fige a l ouverture.
     alignWindowClass()
+    // Declare le raccourci et les icones de theme, sans quoi le bureau ne sait
+    // pas a quelle application rattacher la fenetre.
+    DesktopEntry.installIfNeeded()
     application {
     Window(
         onCloseRequest = ::exitApplication,

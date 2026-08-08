@@ -45,6 +45,9 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Speed
@@ -87,6 +90,7 @@ import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import androidx.compose.foundation.layout.offset
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -115,6 +119,9 @@ fun PlayerScreen(
     var title by remember { mutableStateOf("") }
     var playSessionId by remember { mutableStateOf<String?>(null) }
     var controlsVisible by remember { mutableStateOf(true) }
+    // URL AMONT du flux : celle qui reste valable hors de Lumen, contrairement
+    // a l adresse 127.0.0.1 du proxy qui meurt avec l application.
+    var streamUrl by remember { mutableStateOf<String?>(null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
     var statsOpen by remember { mutableStateOf(false) }
@@ -162,6 +169,7 @@ fun PlayerScreen(
             else -> "Transcodage"
         }
         val upstream = client.streamUrl(session.baseUrl, itemId, source)
+        streamUrl = upstream
         engine.play(
             if (app.lumen.player.StreamProxy.ensureRunning()) {
                 app.lumen.player.StreamProxy.register(
@@ -181,6 +189,7 @@ fun PlayerScreen(
             // serveur dans la boucle, donc aucun ré-encodage possible.
             title = request.title
             playMethod = "HLS local — Direct Play"
+            streamUrl = "file://${request.hlsMasterPath}"
             engine.play("file://${request.hlsMasterPath}")
             return@LaunchedEffect
         }
@@ -194,6 +203,7 @@ fun PlayerScreen(
                 loadError = "Moteur torrent indisponible — magnet ouvert dans le client système"
                 return@LaunchedEffect
             }
+            streamUrl = app.lumen.player.torrentStreamUrl(request.torrentHash, request.title)
             engine.play(app.lumen.player.torrentStreamUrl(request.torrentHash, request.title))
             return@LaunchedEffect
         }
@@ -216,6 +226,7 @@ fun PlayerScreen(
             // Flux d'addon Stremio : lecture directe, en-têtes côté client (§4).
             title = request.title
             playMethod = if (request.isTrailer) "Bande-annonce" else "Flux direct (addon)"
+            streamUrl = request.url
             engine.play(proxied, request.headers, audioSlaveUrl = proxiedAudio)
             return@LaunchedEffect
         }
@@ -446,6 +457,7 @@ fun PlayerScreen(
                 onSeek = { engine.seekTo(it) },
                 onOpenSettings = { settingsOpen = !settingsOpen },
                 onToggleStats = { statsOpen = !statsOpen },
+                streamUrl = streamUrl,
                 onOpenSources = {
                     sourcesOpen = !sourcesOpen
                     if (sourcesOpen) episodesOpen = false
@@ -843,6 +855,103 @@ private fun <T> ChipRow(
     }
 }
 
+/**
+ * Menu « ⋮ » du lecteur : agir sur le flux en cours.
+ *
+ * Le lien copié est l'adresse AMONT, pas celle du proxy local : c'est la
+ * seule qui reste utilisable dans VLC ou mpv une fois Lumen fermé.
+ */
+@Composable
+private fun StreamActionsMenu(title: String, streamUrl: String?) {
+    var open by remember { mutableStateOf(false) }
+    var feedback by remember { mutableStateOf<String?>(null) }
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val local = streamUrl?.startsWith("file://") == true
+
+    // Le message de confirmation s'efface seul : rien à fermer à la main.
+    LaunchedEffect(feedback) {
+        if (feedback != null) {
+            delay(2_500)
+            feedback = null
+        }
+    }
+
+    Box {
+        RoundControl(Icons.Filled.MoreVert, "Plus d'actions", 22.dp, onClick = { open = true })
+        androidx.compose.material3.DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            modifier = Modifier.background(LumenColors.Surface),
+        ) {
+            androidx.compose.material3.DropdownMenuItem(
+                enabled = streamUrl != null && !local,
+                text = {
+                    Text(
+                        "Télécharger la vidéo",
+                        color = if (streamUrl != null && !local) Color.White else LumenColors.Muted,
+                        fontSize = 14.sp,
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.Download,
+                        contentDescription = null,
+                        tint = if (streamUrl != null && !local) Color.White else LumenColors.Muted,
+                        modifier = Modifier.size(18.dp),
+                    )
+                },
+                onClick = {
+                    open = false
+                    val url = streamUrl ?: return@DropdownMenuItem
+                    val extension = app.lumen.player.guessStreamExtension(url)
+                    val safe = title.replace(Regex("""[/\\:*?"<>|]"""), " ").trim()
+                    feedback = if (app.lumen.platformDownload(url, "$safe.$extension")) {
+                        "Téléchargement lancé"
+                    } else {
+                        "Téléchargement impossible"
+                    }
+                },
+            )
+            androidx.compose.material3.DropdownMenuItem(
+                enabled = streamUrl != null,
+                text = {
+                    Text(
+                        "Copier le lien de stream vidéo",
+                        color = if (streamUrl != null) Color.White else LumenColors.Muted,
+                        fontSize = 14.sp,
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.ContentCopy,
+                        contentDescription = null,
+                        tint = if (streamUrl != null) Color.White else LumenColors.Muted,
+                        modifier = Modifier.size(18.dp),
+                    )
+                },
+                onClick = {
+                    open = false
+                    streamUrl?.let {
+                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(it))
+                        feedback = "Lien copié"
+                    }
+                },
+            )
+        }
+
+        feedback?.let {
+            Text(
+                it,
+                color = Color.White,
+                fontSize = 12.sp,
+                modifier = Modifier.align(Alignment.BottomEnd).offset(y = 42.dp)
+                    .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
+
 @Composable
 private fun ControlsOverlay(
     title: String,
@@ -856,6 +965,7 @@ private fun ControlsOverlay(
     onToggleStats: () -> Unit,
     onOpenSources: () -> Unit,
     onOpenEpisodes: (() -> Unit)?,
+    streamUrl: String?,
     seekBackMs: Long,
     seekFwdMs: Long,
 ) {
@@ -895,6 +1005,8 @@ private fun ControlsOverlay(
             RoundControl(Icons.Filled.Equalizer, "Statistiques du flux", 20.dp, onClick = onToggleStats)
             Spacer(Modifier.width(10.dp))
             RoundControl(Icons.Filled.Tune, "Options", 22.dp, onClick = onOpenSettings)
+            Spacer(Modifier.width(10.dp))
+            StreamActionsMenu(title = title, streamUrl = streamUrl)
         }
 
         // Contrôles centraux : -10 s, lecture/pause, +10 s.
