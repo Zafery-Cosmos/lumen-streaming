@@ -106,7 +106,7 @@ fun DetailScreen(
                 color = LumenColors.Accent,
                 modifier = Modifier.align(Alignment.Center).size(36.dp),
             )
-            is DetailData.Jellyfin -> JellyfinDetail(client, session, d.item, d.seasons, onPlay)
+            is DetailData.Jellyfin -> JellyfinDetail(client, tmdb, session, d.item, d.seasons, onPlay)
             is DetailData.Tmdb -> TmdbDetailBody(d.detail)
             is DetailData.Failed -> Text(
                 "Impossible de charger cette fiche.",
@@ -141,12 +141,16 @@ fun DetailScreen(
 @Composable
 private fun JellyfinDetail(
     client: JellyfinClient,
+    tmdb: TmdbClient,
     session: StoredSession,
     item: BaseItem,
     seasons: List<BaseItem>,
     onPlay: (String) -> Unit,
 ) {
     var selectedSeason by remember(seasons) { mutableStateOf(seasons.firstOrNull()) }
+    // Enrichisseur TMDB partagé entre saisons (cache par série).
+    val enricher = remember(item.id) { app.lumen.domain.EpisodeEnricher(tmdb) }
+    val seriesTmdbId = item.providerIds["Tmdb"]?.toLongOrNull()
 
     LazyColumn(Modifier.fillMaxSize()) {
         item(key = "header") { DetailHeader(client, session, item, onPlay) }
@@ -181,7 +185,14 @@ private fun JellyfinDetail(
             }
             item(key = "episodes") {
                 selectedSeason?.let { season ->
-                    EpisodeList(client, session, seriesId = item.id, season = season, onPlay = onPlay)
+                    EpisodeList(
+                        client, session,
+                        seriesId = item.id,
+                        season = season,
+                        enricher = enricher,
+                        seriesTmdbId = seriesTmdbId,
+                        onPlay = onPlay,
+                    )
                 }
             }
         }
@@ -268,12 +279,28 @@ private fun EpisodeList(
     session: StoredSession,
     seriesId: String,
     season: BaseItem,
+    enricher: app.lumen.domain.EpisodeEnricher,
+    seriesTmdbId: Long?,
     onPlay: (String) -> Unit,
 ) {
-    val episodes by produceState<List<BaseItem>?>(initialValue = null, season.id) {
-        value = runCatching {
+    val episodes by produceState<List<Pair<BaseItem, app.lumen.domain.EpisodeExtra?>>?>(
+        initialValue = null, season.id,
+    ) {
+        val eps = runCatching {
             client.episodes(session.baseUrl, session.userId, seriesId, season.id).items
         }.getOrDefault(emptyList())
+        // Premier affichage immédiat, sans l'enrichissement.
+        value = eps.map { it to null }
+        // Puis TMDB comble les trous (nom générique ou vignette absente).
+        if (seriesTmdbId != null) {
+            enricher.forSeries(seriesTmdbId)
+            value = eps.map { ep ->
+                val generic = ep.name.isBlank() ||
+                    Regex("^[ÉE]pisode\\s*\\d+$", RegexOption.IGNORE_CASE).matches(ep.name.trim())
+                val needs = generic || !ep.imageTags.containsKey("Primary") || ep.overview.isNullOrBlank()
+                ep to if (needs) enricher.enrich(season.indexNumber, ep.indexNumber) else null
+            }
+        }
     }
 
     // Fondu quand on change de saison — la liste ne « saute » pas.
@@ -290,14 +317,20 @@ private fun EpisodeList(
                     color = LumenColors.Accent,
                     modifier = Modifier.size(28.dp),
                 )
-                else -> list.forEach { ep -> EpisodeRow(client, session, ep, onPlay) }
+                else -> list.forEach { (ep, extra) -> EpisodeRow(client, session, ep, extra, onPlay) }
             }
         }
     }
 }
 
 @Composable
-private fun EpisodeRow(client: JellyfinClient, session: StoredSession, ep: BaseItem, onPlay: (String) -> Unit) {
+private fun EpisodeRow(
+    client: JellyfinClient,
+    session: StoredSession,
+    ep: BaseItem,
+    extra: app.lumen.domain.EpisodeExtra?,
+    onPlay: (String) -> Unit,
+) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier
@@ -311,9 +344,15 @@ private fun EpisodeRow(client: JellyfinClient, session: StoredSession, ep: BaseI
             Modifier.width(200.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))
                 .background(LumenColors.SurfaceHigh),
         ) {
-            if (ep.imageTags.containsKey("Primary")) {
+            val imageModel = when {
+                ep.imageTags.containsKey("Primary") ->
+                    client.imageUrl(session.baseUrl, ep.id, "Primary", ep.imageTags["Primary"], maxWidth = 400)
+                extra?.stillUrl != null -> extra.stillUrl
+                else -> null
+            }
+            if (imageModel != null) {
                 AsyncImage(
-                    model = client.imageUrl(session.baseUrl, ep.id, "Primary", ep.imageTags["Primary"], maxWidth = 400),
+                    model = imageModel,
                     contentDescription = ep.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
@@ -341,9 +380,10 @@ private fun EpisodeRow(client: JellyfinClient, session: StoredSession, ep: BaseI
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-            // Évite le doublon « 53. Épisode 53 » quand le nom n'est que le numéro.
+            // Priorité au vrai titre TMDB ; sinon on évite « 53. Épisode 53 ».
             val n = ep.indexNumber
             val label = when {
+                extra?.title != null -> if (n != null) "$n. ${extra.title}" else extra.title
                 n == null -> ep.name
                 Regex("^[ÉE]pisode\\s*0*$n$", RegexOption.IGNORE_CASE).matches(ep.name.trim()) -> "Épisode $n"
                 else -> "$n. ${ep.name}"
@@ -354,10 +394,10 @@ private fun EpisodeRow(client: JellyfinClient, session: StoredSession, ep: BaseI
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
             )
-            ep.runTimeMinutes?.let {
+            (ep.runTimeMinutes ?: extra?.runtimeMinutes)?.let {
                 Text("$it min", color = LumenColors.Muted, fontSize = 12.sp)
             }
-            ep.overview?.let {
+            (ep.overview?.takeIf { it.isNotBlank() } ?: extra?.overview)?.let {
                 Text(
                     it,
                     color = LumenColors.Muted,

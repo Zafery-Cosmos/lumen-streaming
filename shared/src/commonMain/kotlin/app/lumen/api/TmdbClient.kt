@@ -49,10 +49,31 @@ data class TmdbDetail(
     @SerialName("first_air_date") val firstAirDate: String? = null,
     @SerialName("runtime") val runtime: Int? = null,
     @SerialName("number_of_seasons") val numberOfSeasons: Int? = null,
+    @SerialName("seasons") val seasons: List<TmdbSeasonInfo> = emptyList(),
 ) {
     val displayName: String get() = title ?: nameField ?: ""
     val year: Int? get() = (releaseDate ?: firstAirDate)?.take(4)?.toIntOrNull()
 }
+
+@Serializable
+data class TmdbSeasonInfo(
+    @SerialName("season_number") val seasonNumber: Int = 0,
+    @SerialName("episode_count") val episodeCount: Int = 0,
+)
+
+@Serializable
+data class TmdbSeason(
+    @SerialName("episodes") val episodes: List<TmdbEpisode> = emptyList(),
+)
+
+@Serializable
+data class TmdbEpisode(
+    @SerialName("episode_number") val episodeNumber: Int = 0,
+    @SerialName("name") val name: String? = null,
+    @SerialName("overview") val overview: String? = null,
+    @SerialName("still_path") val stillPath: String? = null,
+    @SerialName("runtime") val runtime: Int? = null,
+)
 
 /**
  * Client TMDB (plan §5 ter) : rangées éditoriales de l'accueil — tendances de la
@@ -75,6 +96,10 @@ class TmdbClient(private val http: HttpClient) {
     suspend fun detail(mediaType: String, id: Long): TmdbDetail =
         http.get("$BASE/$mediaType/$id?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR").body()
 
+    /** Une saison complète, avec tous ses épisodes (titres, résumés, vignettes). */
+    suspend fun season(tvId: Long, seasonNumber: Int): TmdbSeason =
+        http.get("$BASE/tv/$tvId/season/$seasonNumber?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR").body()
+
     private suspend fun get(path: String, extra: String = ""): TmdbPaged =
         http.get("$BASE/$path?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR&region=FR$extra").body()
 
@@ -93,5 +118,6 @@ class TmdbClient(private val http: HttpClient) {
 
         fun posterUrl(path: String?): String? = path?.let { "https://image.tmdb.org/t/p/w342$it" }
         fun backdropUrl(path: String?): String? = path?.let { "https://image.tmdb.org/t/p/w1280$it" }
+        fun stillUrl(path: String?): String? = path?.let { "https://image.tmdb.org/t/p/w400$it" }
     }
 }
