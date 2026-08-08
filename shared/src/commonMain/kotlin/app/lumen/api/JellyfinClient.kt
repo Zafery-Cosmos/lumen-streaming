@@ -89,6 +89,15 @@ class JellyfinClient(
     @Serializable
     private data class QuickConnectAuthBody(val Secret: String)
 
+    /** Autorise le code Quick Connect d'UN AUTRE appareil (depuis les réglages). */
+    suspend fun quickConnectAuthorize(baseUrl: String, code: String): Boolean = try {
+        http.post("${baseUrl.trimEnd('/')}/QuickConnect/Authorize?code=${code.encodeURLParameter()}") {
+            header("Authorization", authorizationHeader())
+        }.status.isSuccess()
+    } catch (_: Exception) {
+        false
+    }
+
     /** Échange un Quick Connect validé contre un vrai token de session. */
     suspend fun authenticateWithQuickConnect(baseUrl: String, secret: String): AuthenticationResult {
         val result: AuthenticationResult = http.post("${baseUrl.trimEnd('/')}/Users/AuthenticateWithQuickConnect") {

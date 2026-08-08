@@ -37,13 +37,13 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Cast
-import androidx.compose.material.icons.filled.Forward10
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Audiotrack
@@ -118,7 +118,11 @@ fun PlayerScreen(
     var volume by remember { mutableStateOf(100) }
     var muted by remember { mutableStateOf(false) }
     var fill by remember { mutableStateOf(false) }
-    var maxBitrate by remember { mutableStateOf<Long?>(null) }
+    // Plafond initial : le réglage « Qualité et réseau » (§6.2), 0 = auto.
+    var maxBitrate by remember {
+        mutableStateOf(app.lumen.domain.AppSettings.defaultMaxBitrate.value.takeIf { it > 0 })
+    }
+    val seekStepMs = app.lumen.domain.AppSettings.seekStepSec.value * 1000L
     var audioTracks by remember { mutableStateOf(listOf<MediaTrack>()) }
     var subTracks by remember { mutableStateOf(listOf<MediaTrack>()) }
 
@@ -149,9 +153,12 @@ fun PlayerScreen(
                     "${it.seriesName} — S${it.parentIndexNumber}E${it.indexNumber} · ${it.name}"
                 else -> it.name
             }
-            // Reprise PAR PROFIL (base locale) en priorité, serveur en repli.
-            val localMs = profile?.let { p -> watchRepo?.position(p.id, itemId) }
-            val startMs = localMs ?: (it.userData?.playbackPositionTicks ?: 0L) / 10_000
+            // Reprise PAR PROFIL (base locale) en priorité, serveur en repli —
+            // sauf si le réglage impose de repartir du début.
+            val startMs = if (app.lumen.domain.AppSettings.resumeAlways.value) {
+                profile?.let { p -> watchRepo?.position(p.id, itemId) }
+                    ?: (it.userData?.playbackPositionTicks ?: 0L) / 10_000
+            } else 0L
             startPlayback(startMs)
             client.reportPlaybackStart(session.baseUrl, itemId, playSessionId)
         } catch (e: Exception) {
@@ -159,12 +166,33 @@ fun PlayerScreen(
         }
     }
 
-    // Les pistes n'existent qu'une fois la lecture démarrée.
+    // Les pistes n'existent qu'une fois la lecture démarrée. On applique alors
+    // les langues préférées des réglages « Audio et sous-titres » (§6.2).
     LaunchedEffect(state.playing) {
         if (state.playing && audioTracks.isEmpty()) {
             delay(500)
             audioTracks = engine.audioTracks()
             subTracks = engine.subtitleTracks()
+
+            fun matches(label: String, lang: String): Boolean {
+                val l = label.lowercase()
+                return when (lang) {
+                    "fr" -> listOf("fr", "vf", "french", "français", "francais").any { l.contains(it) }
+                    "en" -> listOf("en", "vo", "english", "anglais").any { l.contains(it) }
+                    else -> false
+                }
+            }
+
+            val prefAudio = app.lumen.domain.AppSettings.preferredAudioLang.value
+            if (prefAudio != "auto") {
+                audioTracks.firstOrNull { matches(it.label, prefAudio) }
+                    ?.let { engine.selectAudioTrack(it.id) }
+            }
+            when (val prefSub = app.lumen.domain.AppSettings.preferredSubLang.value) {
+                "off" -> engine.selectSubtitleTrack(-1)
+                else -> subTracks.firstOrNull { it.id >= 0 && matches(it.label, prefSub) }
+                    ?.let { engine.selectSubtitleTrack(it.id) }
+            }
         }
     }
 
@@ -252,6 +280,7 @@ fun PlayerScreen(
                 onTogglePlay = { if (state.playing) engine.pause() else engine.resume() },
                 onSeek = { engine.seekTo(it) },
                 onOpenSettings = { settingsOpen = !settingsOpen },
+                seekStepMs = seekStepMs,
             )
         }
 
@@ -537,7 +566,9 @@ private fun ControlsOverlay(
     onTogglePlay: () -> Unit,
     onSeek: (Long) -> Unit,
     onOpenSettings: () -> Unit,
+    seekStepMs: Long,
 ) {
+    val stepLabel = "${seekStepMs / 1000} s"
     Box(
         Modifier.fillMaxSize().background(
             Brush.verticalGradient(
@@ -574,8 +605,8 @@ private fun ControlsOverlay(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.align(Alignment.Center),
         ) {
-            RoundControl(Icons.Filled.Replay10, "Reculer de 10 s", 28.dp) {
-                onSeek((positionMs - 10_000).coerceAtLeast(0))
+            RoundControl(Icons.Filled.FastRewind, "Reculer de $stepLabel", 28.dp) {
+                onSeek((positionMs - seekStepMs).coerceAtLeast(0))
             }
             RoundControl(
                 if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -584,8 +615,8 @@ private fun ControlsOverlay(
                 big = true,
                 onClick = onTogglePlay,
             )
-            RoundControl(Icons.Filled.Forward10, "Avancer de 10 s", 28.dp) {
-                onSeek((positionMs + 10_000).coerceAtMost(durationMs))
+            RoundControl(Icons.Filled.FastForward, "Avancer de $stepLabel", 28.dp) {
+                onSeek((positionMs + seekStepMs).coerceAtMost(durationMs))
             }
         }
 

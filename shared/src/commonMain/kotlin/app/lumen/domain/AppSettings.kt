@@ -1,0 +1,78 @@
+package app.lumen.domain
+
+import androidx.compose.runtime.mutableStateOf
+import com.russhwolf.settings.Settings
+
+/**
+ * Réglages de l'app (plan §6) : persistés ET observables — chaque valeur est un
+ * état Compose, donc tout changement se répercute immédiatement dans l'UI.
+ * Aucun réglage décoratif : tout ce qui est ici est branché quelque part.
+ */
+object AppSettings {
+    private val store = Settings()
+
+    class BoolPref internal constructor(private val key: String, default: Boolean) {
+        private val state = mutableStateOf(store.getBoolean(key, default))
+        val value: Boolean get() = state.value
+        fun set(v: Boolean) {
+            state.value = v
+            store.putBoolean(key, v)
+        }
+    }
+
+    class IntPref internal constructor(private val key: String, default: Int) {
+        private val state = mutableStateOf(store.getInt(key, default))
+        val value: Int get() = state.value
+        fun set(v: Int) {
+            state.value = v
+            store.putInt(key, v)
+        }
+    }
+
+    class LongPref internal constructor(private val key: String, default: Long) {
+        private val state = mutableStateOf(store.getLong(key, default))
+        val value: Long get() = state.value
+        fun set(v: Long) {
+            state.value = v
+            store.putLong(key, v)
+        }
+    }
+
+    class StringPref internal constructor(private val key: String, default: String) {
+        private val state = mutableStateOf(store.getString(key, default))
+        val value: String get() = state.value
+        fun set(v: String) {
+            state.value = v
+            store.putString(key, v)
+        }
+    }
+
+    // --- Affichage ---------------------------------------------------------
+    /** Noir pur OLED au lieu du noir bleuté — appliqué par LumenTheme. */
+    val oledBlack = BoolPref("display.oled", false)
+
+    // --- Accueil : visibilité des rangées ----------------------------------
+    val showResume = BoolPref("home.resume", true)
+    val showNextUp = BoolPref("home.nextup", true)
+    val showRecent = BoolPref("home.recent", true)
+    val showTop10 = BoolPref("home.top10", true)
+    val showGenres = BoolPref("home.genres", true)
+
+    // --- Lecture -----------------------------------------------------------
+    /** true → reprendre là où on s'est arrêté ; false → toujours du début. */
+    val resumeAlways = BoolPref("play.resume", true)
+    /** Durée du saut avant/arrière du lecteur, en secondes. */
+    val seekStepSec = IntPref("play.seekstep", 10)
+    /** Lecture auto de l'épisode suivant (branché au L12 — enchaînement). */
+    val autoPlayNext = BoolPref("play.autonext", true)
+
+    // --- Qualité & réseau --------------------------------------------------
+    /** Plafond de bitrate par défaut du lecteur ; 0 = automatique. */
+    val defaultMaxBitrate = LongPref("quality.maxbitrate", 0L)
+
+    // --- Audio & sous-titres -----------------------------------------------
+    /** auto | fr | en — pré-sélection de la piste audio au lancement. */
+    val preferredAudioLang = StringPref("audio.lang", "auto")
+    /** off | fr | en — pré-sélection des sous-titres au lancement. */
+    val preferredSubLang = StringPref("subs.lang", "off")
+}

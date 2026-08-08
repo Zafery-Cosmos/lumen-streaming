@@ -151,17 +151,23 @@ fun Shell(
                     client, session, profile, includeTypes = "Series", title = "Séries",
                     onOpen = openDetail, onPlay = { id -> playingId = id },
                 )
-                else -> when (settingsSub) {
+                else -> when (val sub = settingsSub) {
+                    null -> SettingsScreen(
+                        session,
+                        profileName = profile?.name,
+                        onOpenSub = { settingsSub = it },
+                        onSwitchProfile = onSwitchProfile,
+                    )
                     "profiles" -> app.lumen.ui.profiles.ProfileSettingsScreen(
                         profileRepo,
                         onBack = { settingsSub = null },
                         onProfilesChanged = onProfilesChanged,
                     )
-                    else -> SettingsScreen(
-                        session,
-                        profileName = profile?.name,
-                        onOpenProfiles = { settingsSub = "profiles" },
-                        onSwitchProfile = onSwitchProfile,
+                    else -> app.lumen.ui.settings.SettingsSectionScreen(
+                        sectionKey = sub,
+                        client = client,
+                        session = session,
+                        onBack = { settingsSub = null },
                         onLogout = onLogout,
                     )
                 }

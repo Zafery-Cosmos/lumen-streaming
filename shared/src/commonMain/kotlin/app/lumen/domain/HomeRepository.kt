@@ -82,30 +82,41 @@ class HomeRepository(
 
         // La progression affichée vient de la base locale du profil.
         val localPct = localResume.associate { it.itemId to it.percent }
+        // Les réglages « Accueil » (§6.2) pilotent la présence de chaque rangée.
         val rails = buildList {
-            resume.await().filter { profile.allows(it) }.takeIf { it.isNotEmpty() }?.let { list ->
-                add(
-                    Rail(
-                        "resume", "Reprendre la lecture",
-                        list.map { item ->
-                            val card = item.toCard(client, session, wideThumb = true)
-                            localPct[item.id]?.let { card.copy(progressPercent = it) } ?: card
-                        },
-                        wide = true,
-                    ),
-                )
+            if (AppSettings.showResume.value) {
+                resume.await().filter { profile.allows(it) }.takeIf { it.isNotEmpty() }?.let { list ->
+                    add(
+                        Rail(
+                            "resume", "Reprendre la lecture",
+                            list.map { item ->
+                                val card = item.toCard(client, session, wideThumb = true)
+                                localPct[item.id]?.let { card.copy(progressPercent = it) } ?: card
+                            },
+                            wide = true,
+                        ),
+                    )
+                }
             }
-            nextUp.await().filter { profile.allows(it) }.takeIf { it.isNotEmpty() }?.let { list ->
-                add(Rail("nextup", "À suivre", list.map { it.toCard(client, session, wideThumb = true) }, wide = true))
+            if (AppSettings.showNextUp.value) {
+                nextUp.await().filter { profile.allows(it) }.takeIf { it.isNotEmpty() }?.let { list ->
+                    add(Rail("nextup", "À suivre", list.map { it.toCard(client, session, wideThumb = true) }, wide = true))
+                }
             }
-            recentItems.takeIf { it.isNotEmpty() }?.let { list ->
-                add(Rail("recent", "Nouveautés", list.map { it.toCard(client, session) }))
+            if (AppSettings.showRecent.value) {
+                recentItems.takeIf { it.isNotEmpty() }?.let { list ->
+                    add(Rail("recent", "Nouveautés", list.map { it.toCard(client, session) }))
+                }
             }
-            trending.await().take(10).takeIf { it.isNotEmpty() }?.let { list ->
-                add(Rail("top10", "Top 10 cette semaine", list.mapIndexed { i, it -> it.toCard(rank = i + 1) }))
+            if (AppSettings.showTop10.value) {
+                trending.await().take(10).takeIf { it.isNotEmpty() }?.let { list ->
+                    add(Rail("top10", "Top 10 cette semaine", list.mapIndexed { i, it -> it.toCard(rank = i + 1) }))
+                }
             }
-            genreRails.awaitAll().forEach { (genreId, label, items) ->
-                if (items.isNotEmpty()) add(Rail("genre-$genreId", label, items.map { it.toCard() }))
+            if (AppSettings.showGenres.value) {
+                genreRails.awaitAll().forEach { (genreId, label, items) ->
+                    if (items.isNotEmpty()) add(Rail("genre-$genreId", label, items.map { it.toCard() }))
+                }
             }
         }
 
