@@ -156,6 +156,16 @@ class TmdbClient(private val http: HttpClient) {
     suspend fun tvRow(path: String): List<TmdbItem> =
         get(path).results.map { it.copy(mediaType = it.mediaType ?: "tv") }
 
+    /** Recherche films + séries, pour le rapprochement d'un dossier importé. */
+    suspend fun searchMulti(query: String, year: Int?): List<TmdbItem> {
+        if (query.isBlank()) return emptyList()
+        val extra = year?.let { "&year=$it" }.orEmpty()
+        return get("search/multi", "&query=${query.encodeURLParameter()}$extra")
+            .results
+            .filter { it.mediaType == null || it.mediaType == "movie" || it.mediaType == "tv" }
+            .take(12)
+    }
+
     /** Nouveautés cinéma du moment. */
     suspend fun nowPlaying(): List<TmdbItem> = get("movie/now_playing").results
 

@@ -64,6 +64,8 @@ import kotlinx.coroutines.launch
 fun SettingsSectionScreen(
     sectionKey: String,
     client: JellyfinClient,
+    db: app.lumen.db.LumenDb,
+    onLibraryChanged: () -> Unit,
     session: StoredSession,
     servers: List<StoredSession>,
     onSwitchServer: (StoredSession) -> Unit,
@@ -82,6 +84,7 @@ fun SettingsSectionScreen(
             "addons" -> "Addons Stremio"
             "streaming" -> "Streaming et cache"
             "simkl" -> "Simkl — suivi de visionnage"
+            "advanced" -> "Avancé"
             "quickconnect" -> "Connexion rapide"
             "server" -> "Serveurs"
             else -> "Paramètres"
@@ -97,6 +100,7 @@ fun SettingsSectionScreen(
             "addons" -> AddonsSection(client)
             "streaming" -> StreamingSection()
             "simkl" -> SimklSection(client)
+            "advanced" -> AdvancedSection(client, db, onLibraryChanged)
             "quickconnect" -> QuickConnectSection(client, session)
             "server" -> ServerSection(session, servers, onSwitchServer, onAddServer, onForgetServer, onLogout)
         }
@@ -719,6 +723,27 @@ private fun StreamingSection() {
             Text(if (busy) "Purge…" else "Vider le cache", fontWeight = FontWeight.SemiBold)
         }
     }
+}
+
+@Composable
+private fun AdvancedSection(
+    client: JellyfinClient,
+    db: app.lumen.db.LumenDb,
+    onLibraryChanged: () -> Unit,
+) {
+    val tmdb = remember { app.lumen.api.TmdbClient(client.http) }
+    val hlsRepo = remember(db) { app.lumen.domain.HlsLibraryRepository(db) }
+
+    SubHeader("Dossiers HLS")
+    app.lumen.ui.settings.HlsImportSection(tmdb, hlsRepo, onLibraryChanged)
+
+    SubHeader("Segmentation")
+    Text(
+        "Convertir un fichier vidéo brut en HLS demande FFmpeg. Ce n'est pas " +
+            "encore intégré : pour l'instant Lumen importe des dossiers DÉJÀ " +
+            "segmentés, sans jamais ré-encoder.",
+        color = LumenColors.Muted, fontSize = 12.sp,
+    )
 }
 
 @Composable

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Home
@@ -67,6 +68,7 @@ fun SettingsScreen(
         SettingsGroup("addons", Icons.Filled.Extension, "Addons Stremio", "Sources externes — Torrentio, Frenchio…"),
         SettingsGroup("streaming", Icons.Filled.Storage, "Streaming et cache", "Moteur torrent, taille et purge"),
         SettingsGroup("simkl", Icons.Filled.Sync, "Simkl", "Historique unifié, addons compris"),
+        SettingsGroup("advanced", Icons.Filled.Tune, "Avancé", "Import de dossiers HLS, segmentation"),
         SettingsGroup("quickconnect", Icons.Filled.Key, "Connexion rapide", "Autoriser un autre appareil"),
         SettingsGroup("server", Icons.Filled.Dns, "Serveur", session.serverName.ifEmpty { session.baseUrl }),
     )

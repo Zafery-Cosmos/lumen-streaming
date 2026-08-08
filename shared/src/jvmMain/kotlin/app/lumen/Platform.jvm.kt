@@ -42,3 +42,35 @@ actual fun platformOpenUrl(url: String): Boolean = try {
         true
     }.getOrDefault(false)
 }
+
+actual suspend fun pickDirectory(title: String): String? =
+    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+        runCatching {
+            val chooser = javax.swing.JFileChooser().apply {
+                dialogTitle = title
+                fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
+            }
+            if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) {
+                chooser.selectedFile.absolutePath
+            } else null
+        }.getOrNull()
+    }
+
+actual fun findHlsMaster(directory: String): String? = runCatching {
+    val root = java.io.File(directory)
+    if (!root.isDirectory) return null
+    // On privilégie « master.m3u8 », sinon la première playlist rencontrée.
+    val all = root.walkTopDown().maxDepth(3).filter { it.isFile && it.name.endsWith(".m3u8") }.toList()
+    (all.firstOrNull { it.name.equals("master.m3u8", true) }
+        ?: all.firstOrNull { it.name.equals("index.m3u8", true) }
+        ?: all.firstOrNull())?.absolutePath
+}.getOrNull()
+
+actual fun readLocalText(path: String): String? =
+    runCatching { java.io.File(path).readText() }.getOrNull()
+
+actual fun resolveSibling(masterPath: String, relative: String): String =
+    java.io.File(java.io.File(masterPath).parentFile, relative).absolutePath
+
+actual fun parentFolderName(path: String): String =
+    java.io.File(path).parentFile?.name.orEmpty()

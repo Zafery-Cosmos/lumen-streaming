@@ -12,6 +12,21 @@ CREATE TABLE profile (
     maxAge INTEGER NOT NULL DEFAULT 10
 );
 
+-- Dossiers HLS deja transcodes, importes et indexes : lus SANS re-encodage.
+CREATE TABLE hls_entry (
+    id TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    year INTEGER,
+    masterPath TEXT NOT NULL,
+    posterUrl TEXT,
+    backdropUrl TEXT,
+    overview TEXT,
+    durationSeconds REAL NOT NULL,
+    resolution TEXT,
+    segmentFormat TEXT NOT NULL,
+    importedAt INTEGER NOT NULL
+);
+
 CREATE TABLE watch_state (
     profileId TEXT NOT NULL,
     itemId TEXT NOT NULL,
@@ -56,3 +71,15 @@ SELECT positionMs FROM watch_state WHERE profileId = ? AND itemId = ?;
 
 deleteWatchStateForProfile:
 DELETE FROM watch_state WHERE profileId = ?;
+
+selectHlsEntries:
+SELECT * FROM hls_entry ORDER BY importedAt DESC;
+
+insertHlsEntry:
+INSERT OR REPLACE INTO hls_entry(
+    id, title, year, masterPath, posterUrl, backdropUrl, overview,
+    durationSeconds, resolution, segmentFormat, importedAt
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteHlsEntry:
+DELETE FROM hls_entry WHERE id = ?;

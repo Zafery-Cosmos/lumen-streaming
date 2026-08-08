@@ -165,6 +165,7 @@ fun App() {
                                 profile = activeProfile,
                                 profileRepo = profileRepo,
                                 watchRepo = watchRepo,
+                                db = db,
                                 onLogout = { activeProfile = null; flow.logout() },
                                 onSwitchProfile = { activeProfile = null },
                                 onProfilesChanged = { profiles = profileRepo.list() },

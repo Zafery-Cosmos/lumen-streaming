@@ -176,6 +176,14 @@ fun PlayerScreen(
     // Démarrage : item Jellyfin (PlaybackInfo + session), flux externe direct,
     // OU torrent via le moteur intégré (comme Stremio — sans debrid requis).
     LaunchedEffect(request) {
+        if (request.hlsMasterPath != null) {
+            // Dossier HLS déjà transcodé : lecture directe du fichier, aucun
+            // serveur dans la boucle, donc aucun ré-encodage possible.
+            title = request.title
+            playMethod = "HLS local — Direct Play"
+            engine.play("file://${request.hlsMasterPath}")
+            return@LaunchedEffect
+        }
         if (request.torrentHash != null) {
             title = request.title
             playMethod = "Torrent — moteur intégré"

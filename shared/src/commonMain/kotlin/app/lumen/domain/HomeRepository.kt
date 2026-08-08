@@ -32,6 +32,7 @@ class HomeRepository(
     private val tmdb: TmdbClient,
     private val session: StoredSession,
     private val watchRepo: WatchStateRepository? = null,
+    private val hlsRepo: HlsLibraryRepository? = null,
 ) {
 
     suspend fun load(profile: LocalProfile? = null): HomeContent = coroutineScope {
@@ -118,6 +119,13 @@ class HomeRepository(
                     Rail("nextup", "À suivre", list.map { it.toCard(client, session, wideThumb = true) }, wide = true),
                 )
             }
+        }
+        // Les dossiers HLS importés : une rangée à part, toujours en Direct Play.
+        val hlsEntries = hlsRepo?.list().orEmpty()
+        if (hlsEntries.isNotEmpty()) {
+            railsByKey["hls"] = listOf(
+                Rail("hls", "Mes dossiers HLS", hlsEntries.map { it.toCard() }),
+            )
         }
         if (AppSettings.showRecent.value) {
             recentItems

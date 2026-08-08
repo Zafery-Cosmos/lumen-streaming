@@ -85,6 +85,7 @@ fun Shell(
     profile: app.lumen.domain.LocalProfile?,
     profileRepo: app.lumen.domain.ProfileRepository,
     watchRepo: app.lumen.domain.WatchStateRepository,
+    db: app.lumen.db.LumenDb,
     onLogout: () -> Unit,
     onSwitchProfile: () -> Unit,
     onProfilesChanged: () -> Unit,
@@ -102,7 +103,6 @@ fun Shell(
 
     // Pile des fiches ouvertes : on peut enchaîner fiche → fiche et revenir.
     var detailStack by remember { mutableStateOf(listOf<String>()) }
-    val openDetail: (String) -> Unit = { id -> detailStack = detailStack + id }
 
     // Lecture en cours : le lecteur remplace TOUT l'écran, barre comprise.
     // Un PlayRequest est soit un item Jellyfin, soit un flux externe d'addon.
@@ -118,7 +118,21 @@ fun Shell(
         )
         return
     }
+    val hlsRepo = remember(db) { app.lumen.domain.HlsLibraryRepository(db) }
     val playItem: (String) -> Unit = { id -> playing = app.lumen.domain.PlayRequest(itemId = id) }
+    // Une carte « hls: » pointe un dossier importé : lecture directe du master.
+    val openDetail: (String) -> Unit = { id ->
+        if (id.startsWith("hls:")) {
+            hlsRepo.list().firstOrNull { "hls:${it.id}" == id }?.let { entry ->
+                playing = app.lumen.domain.PlayRequest(
+                    hlsMasterPath = entry.masterPath,
+                    title = entry.title,
+                )
+            }
+        } else {
+            detailStack = detailStack + id
+        }
+    }
 
     // Écran de veille : la moindre interaction (observée en phase initiale,
     // sans rien consommer) réarme le délai.
@@ -196,7 +210,7 @@ fun Shell(
                     },
                 )
                 state == ShellTab.Home.name -> HomeScreen(
-                    client, tmdb, session, profile, watchRepo, refreshKey,
+                    client, tmdb, session, profile, watchRepo, hlsRepo, refreshKey,
                     onOpen = openDetail,
                     onPlay = playItem,
                 )
@@ -239,6 +253,8 @@ fun Shell(
                     else -> app.lumen.ui.settings.SettingsSectionScreen(
                         sectionKey = sub,
                         client = client,
+                        db = db,
+                        onLibraryChanged = { refreshKey++ },
                         session = session,
                         servers = servers,
                         onSwitchServer = onSwitchServer,

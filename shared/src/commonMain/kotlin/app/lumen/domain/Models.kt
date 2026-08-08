@@ -37,6 +37,8 @@ data class PlayRequest(
     val stremioId: String? = null,     // tt1375666 ou tt0903747:2:5
     /** Série d'appartenance : alimente le panneau Épisodes du lecteur. */
     val seriesId: String? = null,
+    /** Chemin d'un master.m3u8 local (dossier HLS importé). */
+    val hlsMasterPath: String? = null,
 )
 
 /** Une entrée du carrousel hero : visuels précalculés, prêts à afficher. */
