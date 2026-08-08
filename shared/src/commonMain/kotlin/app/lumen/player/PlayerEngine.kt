@@ -28,8 +28,18 @@ interface PlayerEngine {
     /** Nom lisible du moteur (affiché dans « Session » du lecteur). */
     val name: String get() = "natif"
 
-    /** Charge et lance une URL (flux direct ou HLS), avec en-têtes optionnels. */
-    fun play(url: String, headers: Map<String, String> = emptyMap(), startMs: Long = 0)
+    /**
+     * Charge et lance une URL (flux direct ou HLS), avec en-têtes optionnels.
+     *
+     * @param audioSlaveUrl piste audio servie séparément (DASH YouTube) ;
+     *   le moteur la synchronise avec la vidéo.
+     */
+    fun play(
+        url: String,
+        headers: Map<String, String> = emptyMap(),
+        startMs: Long = 0,
+        audioSlaveUrl: String? = null,
+    )
     fun pause()
     fun resume()
     fun seekTo(positionMs: Long)

@@ -104,6 +104,9 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(compose.desktop.common)
+            // Fournit Dispatchers.Main sur desktop : sans lui, tout passage sur
+            // le thread UI (sélecteur de dossier…) lève une exception.
+            implementation(libs.kotlinx.coroutines.swing)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.vlcj)
             implementation(libs.sqldelight.jvm)

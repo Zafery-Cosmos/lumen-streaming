@@ -208,8 +208,8 @@ fun PlayerScreen(
             } else request.url
             // Flux d'addon Stremio : lecture directe, en-têtes côté client (§4).
             title = request.title
-            playMethod = "Flux direct (addon)"
-            engine.play(proxied, request.headers)
+            playMethod = if (request.isTrailer) "Bande-annonce" else "Flux direct (addon)"
+            engine.play(proxied, request.headers, audioSlaveUrl = request.audioSlaveUrl)
             return@LaunchedEffect
         }
         if (itemId == null) {
@@ -305,7 +305,8 @@ fun PlayerScreen(
 
         // Simkl : ce qui est vu à plus de 90 % part dans l'historique — y
         // compris les titres lus par addon, que Jellyfin ne connaît pas.
-        val watched = s.durationMs > 0 && s.positionMs * 100 / s.durationMs >= 90
+        val watched = !request.isTrailer &&
+            s.durationMs > 0 && s.positionMs * 100 / s.durationMs >= 90
         val token = app.lumen.domain.AppSettings.simklToken.value
         if (watched && token.isNotBlank() && app.lumen.domain.AppSettings.simklScrobble.value) {
             val simkl = app.lumen.api.SimklClient(client.http)

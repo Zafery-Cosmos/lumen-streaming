@@ -86,6 +86,7 @@ fun DetailScreen(
     onPlayEpisode: (episodeId: String, seriesId: String) -> Unit,
     onPlayExternal: (url: String, title: String, headers: Map<String, String>, type: String?, id: String?) -> Unit,
     onPlayTorrent: (infoHash: String, title: String, type: String?, id: String?) -> Unit,
+    onPlayTrailer: (app.lumen.domain.PlayRequest) -> Unit,
 ) {
     // Sources d'addons Stremio (plan §5) : état du panneau + clients.
     val stremio = remember { app.lumen.api.StremioClient(client.http) }
@@ -117,8 +118,14 @@ fun DetailScreen(
                 client, tmdb, session, d.item, onPlay, onOpen,
                 onPlayEpisode = onPlayEpisode,
                 onSources = { sourcesTarget = it },
+                onPlayTrailer = onPlayTrailer,
             )
-            is DetailData.Tmdb -> TmdbDetailBody(d.detail, onOpen, onSources = { sourcesTarget = it })
+            is DetailData.Tmdb -> TmdbDetailBody(
+                d.detail, onOpen,
+                onSources = { sourcesTarget = it },
+                http = client.http,
+                onPlayTrailer = onPlayTrailer,
+            )
             is DetailData.Failed -> Text(
                 "Impossible de charger cette fiche.",
                 color = LumenColors.Muted,
@@ -185,6 +192,7 @@ private fun JellyfinDetail(
     onOpen: (String) -> Unit,
     onPlayEpisode: (episodeId: String, seriesId: String) -> Unit,
     onSources: (SourcesTarget) -> Unit,
+    onPlayTrailer: (app.lumen.domain.PlayRequest) -> Unit,
 ) {
     val seriesImdb = item.providerIds["Imdb"]
     // Titres similaires proposés par le serveur.
@@ -243,6 +251,7 @@ private fun JellyfinDetail(
         item(key = "header") {
             DetailHeader(
                 client, session, item, onPlay,
+                onPlayTrailer = onPlayTrailer,
                 onSources = if (item.type == "Movie" && seriesImdb != null) {
                     { onSources(SourcesTarget("movie", seriesImdb, item.name)) }
                 } else null,
@@ -354,6 +363,7 @@ private fun DetailHeader(
     session: StoredSession,
     item: BaseItem,
     onPlay: (String) -> Unit,
+    onPlayTrailer: (app.lumen.domain.PlayRequest) -> Unit,
     onSources: (() -> Unit)? = null,
 ) {
     // Fiche d'épisode : nom de fichier parsé + visuels de la SÉRIE en secours,
@@ -458,6 +468,13 @@ private fun DetailHeader(
                         Text("Sources", color = LumenColors.OnBackground, fontSize = 15.sp)
                     }
                 }
+                app.lumen.ui.components.TrailerButton(
+                    http = client.http,
+                    title = item.name,
+                    year = item.productionYear,
+                    isSeries = item.type == "Series",
+                    onPlay = onPlayTrailer,
+                )
             }
         }
     }
@@ -567,7 +584,13 @@ private fun EpisodeRow(
 // --- Fiche TMDB (catalogue, pas encore lisible) ----------------------------
 
 @Composable
-private fun TmdbDetailBody(detail: TmdbDetail, onOpen: (String) -> Unit, onSources: (SourcesTarget) -> Unit) {
+private fun TmdbDetailBody(
+    detail: TmdbDetail,
+    onOpen: (String) -> Unit,
+    onSources: (SourcesTarget) -> Unit,
+    http: io.ktor.client.HttpClient,
+    onPlayTrailer: (app.lumen.domain.PlayRequest) -> Unit,
+) {
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
@@ -629,6 +652,13 @@ private fun TmdbDetailBody(detail: TmdbDetail, onOpen: (String) -> Unit, onSourc
                                 Text("Sources", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             }
                         }
+                        app.lumen.ui.components.TrailerButton(
+                            http = http,
+                            title = detail.displayName,
+                            year = detail.year,
+                            isSeries = detail.numberOfSeasons != null,
+                            onPlay = onPlayTrailer,
+                        )
                         Button(
                             onClick = {},
                             enabled = false,

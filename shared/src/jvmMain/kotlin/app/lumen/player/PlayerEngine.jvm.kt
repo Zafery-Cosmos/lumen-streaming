@@ -121,10 +121,17 @@ class VlcjEngine : PlayerEngine {
         })
     }
 
-    override fun play(url: String, headers: Map<String, String>, startMs: Long) {
+    override fun play(
+        url: String,
+        headers: Map<String, String>,
+        startMs: Long,
+        audioSlaveUrl: String?,
+    ) {
         // libvlc prend les en-têtes via des options de média « :http-… » (plan §4).
         val options = buildList {
             if (startMs > 0) add(":start-time=${startMs / 1000}")
+            // Flux DASH : l'audio est un fichier à part, libvlc le recale seul.
+            audioSlaveUrl?.let { add(":input-slave=$it") }
             headers["Referer"]?.let { add(":http-referrer=$it") }
             headers["User-Agent"]?.let { add(":http-user-agent=$it") }
             // Accélération matérielle — « Profil de transcodage » des réglages.

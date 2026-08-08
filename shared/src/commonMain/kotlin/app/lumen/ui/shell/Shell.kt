@@ -186,6 +186,7 @@ fun Shell(
                             stremioType = type, stremioId = id,
                         )
                     },
+                    onPlayTrailer = { request -> playing = request },
                 )
                 state.startsWith("person:") -> app.lumen.ui.person.PersonScreen(
                     tmdb,

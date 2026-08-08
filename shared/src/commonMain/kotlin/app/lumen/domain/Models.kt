@@ -39,6 +39,13 @@ data class PlayRequest(
     val seriesId: String? = null,
     /** Chemin d'un master.m3u8 local (dossier HLS importé). */
     val hlsMasterPath: String? = null,
+    /** Piste audio séparée (bande-annonce YouTube servie en DASH). */
+    val audioSlaveUrl: String? = null,
+    /**
+     * Bande-annonce : rien n'est remonté à Jellyfin ni à Simkl, et aucune
+     * position n'est mémorisée — ce n'est pas un visionnage.
+     */
+    val isTrailer: Boolean = false,
 )
 
 /** Une entrée du carrousel hero : visuels précalculés, prêts à afficher. */

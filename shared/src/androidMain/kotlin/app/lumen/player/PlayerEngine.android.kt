@@ -69,7 +69,13 @@ class Media3Engine(private val context: Context) : PlayerEngine {
         }
     }
 
-    override fun play(url: String, headers: Map<String, String>, startMs: Long) {
+    override fun play(
+        url: String,
+        headers: Map<String, String>,
+        startMs: Long,
+        // TODO(Android) : recombiner une piste DASH via MergingMediaSource.
+        audioSlaveUrl: String?,
+    ) {
         val httpFactory = DefaultHttpDataSource.Factory()
         if (headers.isNotEmpty()) httpFactory.setDefaultRequestProperties(headers)
         val newPlayer = ExoPlayer.Builder(context)
