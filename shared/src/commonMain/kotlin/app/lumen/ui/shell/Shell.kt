@@ -55,6 +55,7 @@ import app.lumen.auth.StoredSession
 import app.lumen.resources.Res
 import app.lumen.resources.logo
 import app.lumen.ui.browse.BrowseScreen
+import app.lumen.ui.detail.DetailScreen
 import app.lumen.ui.home.HomeScreen
 import app.lumen.ui.search.SearchScreen
 import app.lumen.ui.settings.SettingsScreen
@@ -82,10 +83,14 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
     var refreshKey by remember { mutableStateOf(0) }
     val tmdb = remember { app.lumen.api.TmdbClient(client.http) }
 
+    // Pile des fiches ouvertes : on peut enchaîner fiche → fiche et revenir.
+    var detailStack by remember { mutableStateOf(listOf<String>()) }
+    val openDetail: (String) -> Unit = { id -> detailStack = detailStack + id }
+
     Column(Modifier.fillMaxSize().background(LumenColors.Background)) {
         TopBar(
             current = tab,
-            onTab = { tab = it; searchOpen = false; searchQuery = "" },
+            onTab = { tab = it; searchOpen = false; searchQuery = ""; detailStack = emptyList() },
             searchOpen = searchOpen,
             searchQuery = searchQuery,
             onSearchOpen = { searchOpen = true },
@@ -96,8 +101,9 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
         )
 
         val showSearch = searchOpen && searchQuery.isNotBlank()
+        val target = detailStack.lastOrNull() ?: if (showSearch) "search" else tab.name
         AnimatedContent(
-            targetState = if (showSearch) "search" else tab.name,
+            targetState = target,
             transitionSpec = {
                 (fadeIn(tween(350)) + slideInVertically(tween(350)) { it / 20 })
                     .togetherWith(fadeOut(tween(180)))
@@ -105,10 +111,15 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
             modifier = Modifier.weight(1f),
         ) { state ->
             when {
-                state == "search" -> SearchScreen(client, session, searchQuery)
-                state == ShellTab.Home.name -> HomeScreen(client, tmdb, session, refreshKey)
-                state == ShellTab.Movies.name -> BrowseScreen(client, session, includeTypes = "Movie", title = "Films")
-                state == ShellTab.Series.name -> BrowseScreen(client, session, includeTypes = "Series", title = "Séries")
+                state.startsWith("jf:") || state.startsWith("tmdb:") -> DetailScreen(
+                    client, tmdb, session,
+                    mediaId = state,
+                    onBack = { detailStack = detailStack.dropLast(1) },
+                )
+                state == "search" -> SearchScreen(client, session, searchQuery, onOpen = openDetail)
+                state == ShellTab.Home.name -> HomeScreen(client, tmdb, session, refreshKey, onOpen = openDetail)
+                state == ShellTab.Movies.name -> BrowseScreen(client, session, includeTypes = "Movie", title = "Films", onOpen = openDetail)
+                state == ShellTab.Series.name -> BrowseScreen(client, session, includeTypes = "Series", title = "Séries", onOpen = openDetail)
                 else -> SettingsScreen(session, onLogout)
             }
         }

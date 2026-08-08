@@ -29,6 +29,31 @@ data class TmdbItem(
     val year: Int? get() = (releaseDate ?: firstAirDate)?.take(4)?.toIntOrNull()
 }
 
+@Serializable
+data class TmdbGenre(
+    @SerialName("id") val id: Int = 0,
+    @SerialName("name") val name: String = "",
+)
+
+@Serializable
+data class TmdbDetail(
+    @SerialName("id") val id: Long = 0,
+    @SerialName("title") val title: String? = null,
+    @SerialName("name") val nameField: String? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("backdrop_path") val backdropPath: String? = null,
+    @SerialName("overview") val overview: String? = null,
+    @SerialName("genres") val genres: List<TmdbGenre> = emptyList(),
+    @SerialName("vote_average") val voteAverage: Double? = null,
+    @SerialName("release_date") val releaseDate: String? = null,
+    @SerialName("first_air_date") val firstAirDate: String? = null,
+    @SerialName("runtime") val runtime: Int? = null,
+    @SerialName("number_of_seasons") val numberOfSeasons: Int? = null,
+) {
+    val displayName: String get() = title ?: nameField ?: ""
+    val year: Int? get() = (releaseDate ?: firstAirDate)?.take(4)?.toIntOrNull()
+}
+
 /**
  * Client TMDB (plan §5 ter) : rangées éditoriales de l'accueil — tendances de la
  * semaine et catalogues par genre — en français.
@@ -45,6 +70,10 @@ class TmdbClient(private val http: HttpClient) {
 
     /** Nouveautés cinéma du moment. */
     suspend fun nowPlaying(): List<TmdbItem> = get("movie/now_playing").results
+
+    /** Fiche détaillée d'un film ou d'une série TMDB. */
+    suspend fun detail(mediaType: String, id: Long): TmdbDetail =
+        http.get("$BASE/$mediaType/$id?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR").body()
 
     private suspend fun get(path: String, extra: String = ""): TmdbPaged =
         http.get("$BASE/$path?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR&region=FR$extra").body()

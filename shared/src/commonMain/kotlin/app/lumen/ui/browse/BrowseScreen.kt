@@ -37,6 +37,7 @@ fun BrowseScreen(
     session: StoredSession,
     includeTypes: String,
     title: String,
+    onOpen: (String) -> Unit,
 ) {
     val items by produceState<List<BaseItem>?>(initialValue = null, includeTypes) {
         value = runCatching {
@@ -70,7 +71,8 @@ fun BrowseScreen(
                     )
                 }
                 items(list, key = { it.id }) { item ->
-                    MediaCard(item.toCard(client, session))
+                    val card = item.toCard(client, session)
+                    MediaCard(card, onClick = { onOpen(card.id) })
                 }
                 if (list.isEmpty()) {
                     item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {

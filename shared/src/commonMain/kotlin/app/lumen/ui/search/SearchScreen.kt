@@ -35,7 +35,7 @@ import kotlinx.coroutines.delay
  * avec l'index local du L7 — ici c'est la recherche serveur.
  */
 @Composable
-fun SearchScreen(client: JellyfinClient, session: StoredSession, query: String) {
+fun SearchScreen(client: JellyfinClient, session: StoredSession, query: String, onOpen: (String) -> Unit) {
     val results by produceState<List<BaseItem>?>(initialValue = null, query) {
         value = null           // relance l'indicateur pendant la frappe
         delay(350)             // debounce : on attend que la frappe se calme
@@ -67,7 +67,8 @@ fun SearchScreen(client: JellyfinClient, session: StoredSession, query: String) 
                     )
                 }
                 items(list, key = { it.id }) { item ->
-                    MediaCard(item.toCard(client, session))
+                    val card = item.toCard(client, session)
+                    MediaCard(card, onClick = { onOpen(card.id) })
                 }
             }
         }

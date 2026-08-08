@@ -1,0 +1,408 @@
+package app.lumen.ui.detail
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.lumen.api.BaseItem
+import app.lumen.api.JellyfinClient
+import app.lumen.api.TmdbClient
+import app.lumen.api.TmdbDetail
+import app.lumen.auth.StoredSession
+import app.lumen.ui.theme.LumenColors
+import coil3.compose.AsyncImage
+
+/** Ce que la fiche a réussi à charger. */
+private sealed interface DetailData {
+    data class Jellyfin(val item: BaseItem, val seasons: List<BaseItem>) : DetailData
+    data class Tmdb(val detail: TmdbDetail) : DetailData
+    data object Failed : DetailData
+}
+
+/**
+ * Fiche détail (plan §3). `mediaId` : "jf:<id>" ou "tmdb:<movie|tv>:<id>".
+ * Jellyfin → fiche complète avec saisons/épisodes ; TMDB → métadonnées seules,
+ * la lecture arrivera avec les addons (L8).
+ */
+@Composable
+fun DetailScreen(
+    client: JellyfinClient,
+    tmdb: TmdbClient,
+    session: StoredSession,
+    mediaId: String,
+    onBack: () -> Unit,
+) {
+    val data by produceState<DetailData?>(initialValue = null, mediaId) {
+        value = runCatching {
+            when {
+                mediaId.startsWith("jf:") -> {
+                    val id = mediaId.removePrefix("jf:")
+                    val item = client.item(session.baseUrl, session.userId, id)
+                    val seasons = if (item.type == "Series") {
+                        client.seasons(session.baseUrl, session.userId, id).items
+                    } else emptyList()
+                    DetailData.Jellyfin(item, seasons)
+                }
+                mediaId.startsWith("tmdb:") -> {
+                    val (_, type, id) = mediaId.split(":")
+                    DetailData.Tmdb(tmdb.detail(if (type == "tv") "tv" else "movie", id.toLong()))
+                }
+                else -> DetailData.Failed
+            }
+        }.getOrDefault(DetailData.Failed)
+    }
+
+    Box(Modifier.fillMaxSize().background(LumenColors.Background)) {
+        when (val d = data) {
+            null -> CircularProgressIndicator(
+                color = LumenColors.Accent,
+                modifier = Modifier.align(Alignment.Center).size(36.dp),
+            )
+            is DetailData.Jellyfin -> JellyfinDetail(client, session, d.item, d.seasons)
+            is DetailData.Tmdb -> TmdbDetailBody(d.detail)
+            is DetailData.Failed -> Text(
+                "Impossible de charger cette fiche.",
+                color = LumenColors.Muted,
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
+
+        // Retour — toujours par-dessus, en haut à gauche.
+        Box(
+            Modifier.padding(20.dp).size(42.dp)
+                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onBack,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Retour",
+                tint = Color.White,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+    }
+}
+
+// --- Fiche Jellyfin (lisible) ---------------------------------------------
+
+@Composable
+private fun JellyfinDetail(
+    client: JellyfinClient,
+    session: StoredSession,
+    item: BaseItem,
+    seasons: List<BaseItem>,
+) {
+    var selectedSeason by remember(seasons) { mutableStateOf(seasons.firstOrNull()) }
+
+    LazyColumn(Modifier.fillMaxSize()) {
+        item(key = "header") { DetailHeader(client, session, item) }
+
+        if (item.type == "Series" && seasons.isNotEmpty()) {
+            item(key = "season-picker") {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 48.dp),
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    items(seasons, key = { it.id }) { season ->
+                        val selected = season.id == selectedSeason?.id
+                        Text(
+                            season.name,
+                            color = if (selected) Color.Black else LumenColors.OnBackground,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier
+                                .background(
+                                    if (selected) LumenColors.OnBackground else LumenColors.Surface,
+                                    RoundedCornerShape(20.dp),
+                                )
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) { selectedSeason = season }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+            }
+            item(key = "episodes") {
+                selectedSeason?.let { season ->
+                    EpisodeList(client, session, seriesId = item.id, season = season)
+                }
+            }
+        }
+        item(key = "bottom") { Spacer(Modifier.height(32.dp)) }
+    }
+}
+
+@Composable
+private fun DetailHeader(client: JellyfinClient, session: StoredSession, item: BaseItem) {
+    val backdrop = when {
+        item.backdropImageTags.isNotEmpty() ->
+            client.imageUrl(session.baseUrl, item.id, "Backdrop", item.backdropImageTags.first(), maxWidth = 1920)
+        else -> client.imageUrl(session.baseUrl, item.id, "Primary", item.imageTags["Primary"], maxWidth = 1920)
+    }
+
+    Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
+        AsyncImage(
+            model = backdrop,
+            contentDescription = item.name,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(0f to Color.Transparent, 1f to LumenColors.Background),
+            ),
+        )
+        Column(
+            modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 48.dp, vertical = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            val logoTag = item.imageTags["Logo"]
+            if (logoTag != null) {
+                AsyncImage(
+                    model = client.imageUrl(session.baseUrl, item.id, "Logo", logoTag, maxWidth = 800),
+                    contentDescription = null,
+                    modifier = Modifier.height(80.dp),
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.CenterStart,
+                )
+            } else {
+                Text(item.name, color = LumenColors.OnBackground, fontSize = 38.sp, fontWeight = FontWeight.Black)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                item.productionYear?.let { Meta(it.toString()) }
+                item.runTimeMinutes?.let { Meta("${it / 60}h${(it % 60).toString().padStart(2, '0')}") }
+                item.communityRating?.let { Meta("★ ${(it * 10).toInt() / 10.0}") }
+                if (item.genres.isNotEmpty()) Meta(item.genres.take(3).joinToString(" · "))
+            }
+            item.overview?.let {
+                Text(
+                    it,
+                    color = LumenColors.OnBackground.copy(alpha = 0.85f),
+                    fontSize = 14.sp,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.width(620.dp),
+                )
+            }
+            val resume = (item.userData?.playbackPositionTicks ?: 0L) > 0L
+            Button(
+                onClick = { /* L4 : lecture */ },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                shape = RoundedCornerShape(6.dp),
+            ) {
+                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.Black, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    if (resume) "Reprendre" else "Lire",
+                    color = Color.Black,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EpisodeList(client: JellyfinClient, session: StoredSession, seriesId: String, season: BaseItem) {
+    val episodes by produceState<List<BaseItem>?>(initialValue = null, season.id) {
+        value = runCatching {
+            client.episodes(session.baseUrl, session.userId, seriesId, season.id).items
+        }.getOrDefault(emptyList())
+    }
+
+    // Fondu quand on change de saison — la liste ne « saute » pas.
+    AnimatedContent(
+        targetState = episodes,
+        transitionSpec = { fadeIn(tween(300)).togetherWith(fadeOut(tween(150))) },
+    ) { list ->
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(horizontal = 48.dp, vertical = 16.dp),
+        ) {
+            when {
+                list == null -> CircularProgressIndicator(
+                    color = LumenColors.Accent,
+                    modifier = Modifier.size(28.dp),
+                )
+                else -> list.forEach { ep -> EpisodeRow(client, session, ep) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EpisodeRow(client: JellyfinClient, session: StoredSession, ep: BaseItem) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { /* L4 : lecture de l'épisode */ }
+            .background(LumenColors.Surface)
+            .padding(10.dp),
+    ) {
+        Box(Modifier.width(200.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
+            AsyncImage(
+                model = client.imageUrl(session.baseUrl, ep.id, "Primary", ep.imageTags["Primary"], maxWidth = 400),
+                contentDescription = ep.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            val progress = ep.userData?.playedPercentage
+            if (progress != null && progress > 0) {
+                Box(
+                    Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp)
+                        .background(Color.Black.copy(alpha = 0.55f)),
+                ) {
+                    Box(
+                        Modifier.fillMaxHeight().fillMaxWidth((progress / 100).toFloat())
+                            .background(LumenColors.Accent),
+                    )
+                }
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+            Text(
+                "${ep.indexNumber ?: "?"}. ${ep.name}",
+                color = LumenColors.OnBackground,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            ep.runTimeMinutes?.let {
+                Text("$it min", color = LumenColors.Muted, fontSize = 12.sp)
+            }
+            ep.overview?.let {
+                Text(
+                    it,
+                    color = LumenColors.Muted,
+                    fontSize = 13.sp,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+// --- Fiche TMDB (catalogue, pas encore lisible) ----------------------------
+
+@Composable
+private fun TmdbDetailBody(detail: TmdbDetail) {
+    LazyColumn(Modifier.fillMaxSize()) {
+        item {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
+                AsyncImage(
+                    model = TmdbClient.backdropUrl(detail.backdropPath) ?: TmdbClient.posterUrl(detail.posterPath),
+                    contentDescription = detail.displayName,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(
+                    Modifier.fillMaxSize().background(
+                        Brush.verticalGradient(0f to Color.Transparent, 1f to LumenColors.Background),
+                    ),
+                )
+                Column(
+                    modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 48.dp, vertical = 28.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        detail.displayName,
+                        color = LumenColors.OnBackground,
+                        fontSize = 38.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        detail.year?.let { Meta(it.toString()) }
+                        detail.runtime?.let { Meta("${it / 60}h${(it % 60).toString().padStart(2, '0')}") }
+                        detail.numberOfSeasons?.let { Meta("$it saison${if (it > 1) "s" else ""}") }
+                        detail.voteAverage?.let { Meta("★ ${(it * 10).toInt() / 10.0}") }
+                        if (detail.genres.isNotEmpty()) Meta(detail.genres.take(3).joinToString(" · ") { it.name })
+                    }
+                    detail.overview?.takeIf { it.isNotBlank() }?.let {
+                        Text(
+                            it,
+                            color = LumenColors.OnBackground.copy(alpha = 0.85f),
+                            fontSize = 14.sp,
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.width(620.dp),
+                        )
+                    }
+                    // Pas dans la médiathèque : la lecture viendra des addons (L8).
+                    Button(
+                        onClick = {},
+                        enabled = false,
+                        colors = ButtonDefaults.buttonColors(
+                            disabledContainerColor = LumenColors.SurfaceHigh,
+                        ),
+                        shape = RoundedCornerShape(6.dp),
+                    ) {
+                        Text("Pas encore dans votre médiathèque", color = LumenColors.Muted, fontSize = 14.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Meta(text: String) {
+    Text(text, color = LumenColors.Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+}

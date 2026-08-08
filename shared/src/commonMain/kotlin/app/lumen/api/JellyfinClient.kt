@@ -147,6 +147,21 @@ class JellyfinClient(
         },
     )
 
+    /** Détail complet d'un item (fiche film/série/épisode). */
+    suspend fun item(baseUrl: String, userId: String, itemId: String): BaseItem =
+        authedGet(baseUrl, "/Items/$itemId?userId=$userId&fields=$DEFAULT_FIELDS")
+
+    /** Saisons d'une série. */
+    suspend fun seasons(baseUrl: String, userId: String, seriesId: String): ItemsResult =
+        authedGet(baseUrl, "/Shows/$seriesId/Seasons?userId=$userId")
+
+    /** Épisodes d'une saison (avec résumé et progression). */
+    suspend fun episodes(baseUrl: String, userId: String, seriesId: String, seasonId: String): ItemsResult =
+        authedGet(
+            baseUrl,
+            "/Shows/$seriesId/Episodes?userId=$userId&seasonId=$seasonId&fields=Overview",
+        )
+
     /** Recherche dynamique — appelée à chaque frappe (débouncée côté UI). */
     suspend fun search(baseUrl: String, userId: String, term: String, limit: Int = 40): ItemsResult =
         authedGet(

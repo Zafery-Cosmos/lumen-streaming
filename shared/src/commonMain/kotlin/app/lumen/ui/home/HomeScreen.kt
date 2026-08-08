@@ -59,7 +59,6 @@ import app.lumen.domain.HomeContent
 import app.lumen.domain.HomeRepository
 import app.lumen.domain.Rail
 import app.lumen.ui.components.MediaCard
-import app.lumen.ui.components.StaggeredReveal
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
@@ -70,7 +69,13 @@ import kotlinx.coroutines.delay
  * `refreshKey` change quand l'utilisateur presse « Synchroniser » → tout recharge.
  */
 @Composable
-fun HomeScreen(client: JellyfinClient, tmdb: TmdbClient, session: StoredSession, refreshKey: Int) {
+fun HomeScreen(
+    client: JellyfinClient,
+    tmdb: TmdbClient,
+    session: StoredSession,
+    refreshKey: Int,
+    onOpen: (String) -> Unit,
+) {
     val repo = remember { HomeRepository(client, tmdb, session) }
     val content by produceState<HomeContent?>(initialValue = null, refreshKey) {
         value = null
@@ -83,24 +88,24 @@ fun HomeScreen(client: JellyfinClient, tmdb: TmdbClient, session: StoredSession,
                 color = LumenColors.Accent,
                 modifier = Modifier.align(Alignment.Center).size(36.dp),
             )
-            else -> HomeBody(c)
+            else -> HomeBody(c, onOpen)
         }
     }
 }
 
 @Composable
-private fun HomeBody(content: HomeContent) {
+private fun HomeBody(content: HomeContent, onOpen: (String) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
         if (content.heroes.isNotEmpty()) {
-            item(key = "hero") { HeroCarousel(content.heroes) }
+            item(key = "hero") { HeroCarousel(content.heroes, onOpen) }
         }
+        // Pas d'apparition différée ici : les rangées doivent TOUJOURS être là
+        // quand on scrolle — aucun trou, aucun arrêt de glisse.
         items(content.rails.size, key = { content.rails[it].id }) { index ->
-            StaggeredReveal(index) {
-                RailRow(content.rails[index])
-            }
+            RailRow(content.rails[index], onOpen)
         }
         item(key = "bottom-spacer") { Spacer(Modifier.height(24.dp)) }
     }
@@ -111,7 +116,7 @@ private fun HomeBody(content: HomeContent) {
  * de position cliquables en bas à droite.
  */
 @Composable
-private fun HeroCarousel(heroes: List<HeroItem>) {
+private fun HeroCarousel(heroes: List<HeroItem>, onOpen: (String) -> Unit) {
     var index by remember { mutableStateOf(0) }
 
     // Rotation automatique — le clic sur un point repart de ce titre.
@@ -127,7 +132,7 @@ private fun HeroCarousel(heroes: List<HeroItem>) {
             targetState = index,
             transitionSpec = { fadeIn(tween(700)).togetherWith(fadeOut(tween(700))) },
         ) { i ->
-            HeroSlide(heroes[i])
+            HeroSlide(heroes[i], onOpen)
         }
 
         // Indicateurs de position — vecteurs purs, pas de glyphes.
@@ -156,7 +161,7 @@ private fun HeroCarousel(heroes: List<HeroItem>) {
 }
 
 @Composable
-private fun HeroSlide(hero: HeroItem) {
+private fun HeroSlide(hero: HeroItem, onOpen: (String) -> Unit) {
     Box(Modifier.fillMaxSize()) {
         AsyncImage(
             model = hero.backdropUrl,
@@ -228,7 +233,7 @@ private fun HeroSlide(hero: HeroItem) {
                     Text("Lire", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
                 Button(
-                    onClick = { /* L3 : fiche détail */ },
+                    onClick = { onOpen("jf:${hero.id}") },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = LumenColors.SurfaceHigh.copy(alpha = 0.7f),
                     ),
@@ -254,7 +259,7 @@ private fun MetaChip(text: String) {
 }
 
 @Composable
-private fun RailRow(rail: Rail) {
+private fun RailRow(rail: Rail, onOpen: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             rail.title,
@@ -268,7 +273,7 @@ private fun RailRow(rail: Rail) {
             contentPadding = PaddingValues(horizontal = 48.dp),
         ) {
             items(rail.items, key = { it.id }) { card ->
-                MediaCard(card, wide = rail.wide)
+                MediaCard(card, wide = rail.wide, onClick = { onOpen(card.id) })
             }
         }
     }
