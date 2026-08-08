@@ -285,7 +285,10 @@ private fun JellyfinDetail(
             }
         }
         if (similar.isNotEmpty()) {
-            item(key = "similar") { SimilarSection(similar, onOpen) }
+            item(key = "similar") {
+                val ctx = remember { app.lumen.ui.components.CardContext(client, session, onPlay) }
+                SimilarSection(similar, onOpen, ctx)
+            }
         }
         item(key = "bottom") { Spacer(Modifier.height(32.dp)) }
     }
@@ -538,7 +541,7 @@ private fun TmdbDetailBody(detail: TmdbDetail, onOpen: (String) -> Unit) {
         }
         val similar = detail.similar?.results.orEmpty().take(12).map { it.toCard() }
         if (similar.isNotEmpty()) {
-            item(key = "similar") { SimilarSection(similar, onOpen) }
+            item(key = "similar") { SimilarSection(similar, onOpen, ctx = null) }
         }
         item(key = "bottom") { Spacer(Modifier.height(32.dp)) }
     }
@@ -645,7 +648,11 @@ private fun PersonCard(person: PersonCardData, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SimilarSection(cards: List<app.lumen.domain.CardItem>, onOpen: (String) -> Unit) {
+private fun SimilarSection(
+    cards: List<app.lumen.domain.CardItem>,
+    onOpen: (String) -> Unit,
+    ctx: app.lumen.ui.components.CardContext?,
+) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.padding(top = 26.dp),
@@ -662,7 +669,7 @@ private fun SimilarSection(cards: List<app.lumen.domain.CardItem>, onOpen: (Stri
             contentPadding = PaddingValues(horizontal = 48.dp),
         ) {
             items(cards.size) { i ->
-                MediaCard(cards[i], onClick = { onOpen(cards[i].id) })
+                MediaCard(cards[i], onClick = { onOpen(cards[i].id) }, ctx = ctx)
             }
         }
     }

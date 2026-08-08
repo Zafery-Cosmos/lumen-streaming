@@ -42,6 +42,7 @@ fun SearchScreen(
     profile: app.lumen.domain.LocalProfile?,
     query: String,
     onOpen: (String) -> Unit,
+    onPlay: (String) -> Unit,
 ) {
     val results by produceState<List<BaseItem>?>(initialValue = null, query, profile) {
         value = null           // relance l'indicateur pendant la frappe
@@ -77,7 +78,13 @@ fun SearchScreen(
                 }
                 items(list, key = { it.id }) { item ->
                     val card = item.toCard(client, session)
-                    MediaCard(card, onClick = { onOpen(card.id) })
+                    MediaCard(
+                        card,
+                        onClick = { onOpen(card.id) },
+                        ctx = androidx.compose.runtime.remember {
+                            app.lumen.ui.components.CardContext(client, session, onPlay)
+                        },
+                    )
                 }
             }
         }

@@ -328,6 +328,10 @@ class JellyfinClient(
                 "&Recursive=true&includeItemTypes=Movie,Series&limit=$limit&fields=$DEFAULT_FIELDS",
         )
 
+    /** URL de téléchargement du fichier original. */
+    fun downloadUrl(baseUrl: String, itemId: String): String =
+        "${baseUrl.trimEnd('/')}/Items/$itemId/Download?api_key=$accessToken"
+
     /** URL d'une image d'item (Primary, Backdrop, Logo, Thumb). */
     fun imageUrl(
         baseUrl: String,

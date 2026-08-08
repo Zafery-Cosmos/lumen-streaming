@@ -159,7 +159,11 @@ fun Shell(
                     personName = state.removePrefix("person:"),
                     onOpen = openDetail,
                 )
-                state == "search" -> SearchScreen(client, session, profile, searchQuery, onOpen = openDetail)
+                state == "search" -> SearchScreen(
+                    client, session, profile, searchQuery,
+                    onOpen = openDetail,
+                    onPlay = { id -> playingId = id },
+                )
                 state == ShellTab.Home.name -> HomeScreen(
                     client, tmdb, session, profile, watchRepo, refreshKey,
                     onOpen = openDetail,

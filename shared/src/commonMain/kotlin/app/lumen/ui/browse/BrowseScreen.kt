@@ -100,7 +100,13 @@ fun BrowseScreen(
                 }
                 items(list, key = { it.id }) { item ->
                     val card = item.toCard(client, session)
-                    MediaCard(card, onClick = { onOpen(card.id) })
+                    MediaCard(
+                        card,
+                        onClick = { onOpen(card.id) },
+                        ctx = androidx.compose.runtime.remember {
+                            app.lumen.ui.components.CardContext(client, session, onPlay)
+                        },
+                    )
                 }
                 if (list.isEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) {

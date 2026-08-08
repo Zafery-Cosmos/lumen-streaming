@@ -62,13 +62,21 @@ fun HomeScreen(
                 color = LumenColors.Accent,
                 modifier = Modifier.align(Alignment.Center).size(36.dp),
             )
-            else -> HomeBody(c, onOpen, onPlay)
+            else -> {
+                val ctx = remember { app.lumen.ui.components.CardContext(client, session, onPlay) }
+                HomeBody(c, onOpen, onPlay, ctx)
+            }
         }
     }
 }
 
 @Composable
-private fun HomeBody(content: HomeContent, onOpen: (String) -> Unit, onPlay: (String) -> Unit) {
+private fun HomeBody(
+    content: HomeContent,
+    onOpen: (String) -> Unit,
+    onPlay: (String) -> Unit,
+    ctx: app.lumen.ui.components.CardContext,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(28.dp),
@@ -79,14 +87,14 @@ private fun HomeBody(content: HomeContent, onOpen: (String) -> Unit, onPlay: (St
         // Pas d'apparition différée ici : les rangées doivent TOUJOURS être là
         // quand on scrolle — aucun trou, aucun arrêt de glisse.
         items(content.rails.size, key = { content.rails[it].id }) { index ->
-            RailRow(content.rails[index], onOpen)
+            RailRow(content.rails[index], onOpen, ctx)
         }
         item(key = "bottom-spacer") { Spacer(Modifier.height(24.dp)) }
     }
 }
 
 @Composable
-private fun RailRow(rail: Rail, onOpen: (String) -> Unit) {
+private fun RailRow(rail: Rail, onOpen: (String) -> Unit, ctx: app.lumen.ui.components.CardContext) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             rail.title,
@@ -100,7 +108,7 @@ private fun RailRow(rail: Rail, onOpen: (String) -> Unit) {
             contentPadding = PaddingValues(horizontal = 48.dp),
         ) {
             items(rail.items, key = { it.id }) { card ->
-                MediaCard(card, wide = rail.wide, onClick = { onOpen(card.id) })
+                MediaCard(card, wide = rail.wide, onClick = { onOpen(card.id) }, ctx = ctx)
             }
         }
     }

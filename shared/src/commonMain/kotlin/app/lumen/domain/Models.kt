@@ -17,6 +17,8 @@ data class CardItem(
     val progressPercent: Double? = null,   // Jellyfin uniquement
     val rank: Int? = null,                 // rangée Top 10
     val inLibrary: Boolean,
+    val played: Boolean = false,
+    val favorite: Boolean = false,
 )
 
 /** Une entrée du carrousel hero : visuels précalculés, prêts à afficher. */
@@ -54,6 +56,8 @@ fun BaseItem.toCard(client: JellyfinClient, session: StoredSession, wideThumb: B
         posterUrl = client.imageUrl(session.baseUrl, id, type, imageTags[type], maxWidth = 500),
         progressPercent = userData?.playedPercentage,
         inLibrary = true,
+        played = userData?.played ?: false,
+        favorite = userData?.isFavorite ?: false,
     )
 }
 
