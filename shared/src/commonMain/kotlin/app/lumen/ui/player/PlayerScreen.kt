@@ -315,7 +315,14 @@ fun PlayerScreen(
                 fill = fill,
                 onFill = { fill = it },
                 onSnapshot = { engine.snapshot() },
-                playMethod = playMethod,
+                playMethod = buildString {
+                    append(playMethod)
+                    append(" · ")
+                    append(engine.name)
+                    if (app.lumen.domain.AppSettings.playerEngine.value == "mpv") {
+                        append(" (libmpv indisponible — repli)")
+                    }
+                },
             )
         }
     }

@@ -32,6 +32,18 @@ data class HeroItem(
 )
 
 fun BaseItem.toCard(client: JellyfinClient, session: StoredSession, wideThumb: Boolean = false): CardItem {
+    // Réglage « image de l'épisode » (parité Jellyfin) : sur les cartes larges,
+    // affiche de la SÉRIE au lieu de la vignette d'épisode quand désactivé.
+    if (wideThumb && this.type == "Episode" && !AppSettings.useEpisodeImages.value && seriesId != null) {
+        val label = "${seriesName ?: name} — S${parentIndexNumber ?: "?"}E${indexNumber ?: "?"}"
+        return CardItem(
+            id = "jf:$id",
+            title = label,
+            posterUrl = client.imageUrl(session.baseUrl, seriesId, "Thumb", null, maxWidth = 500),
+            progressPercent = userData?.playedPercentage,
+            inLibrary = true,
+        )
+    }
     val type = if (wideThumb && imageTags.containsKey("Thumb")) "Thumb" else "Primary"
     val label = if (this.type == "Episode") {
         "${seriesName ?: name} — S${parentIndexNumber ?: "?"}E${indexNumber ?: "?"}"

@@ -50,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import app.lumen.api.JellyfinClient
 import app.lumen.auth.StoredSession
 import app.lumen.resources.Res
@@ -114,9 +116,25 @@ fun Shell(
         return
     }
 
+    // Écran de veille : la moindre interaction (observée en phase initiale,
+    // sans rien consommer) réarme le délai.
+    var lastActivity by remember { mutableStateOf(app.lumen.db.epochMillis()) }
+    var screensaverOn by remember { mutableStateOf(false) }
+    LaunchedEffect(app.lumen.domain.AppSettings.screensaverEnabled.value) {
+        while (app.lumen.domain.AppSettings.screensaverEnabled.value) {
+            kotlinx.coroutines.delay(5_000)
+            val delayMs = app.lumen.domain.AppSettings.screensaverDelayMin.value * 60_000L
+            screensaverOn = app.lumen.db.epochMillis() - lastActivity > delayMs
+        }
+        screensaverOn = false
+    }
+
     // La barre est TRANSPARENTE et flotte au-dessus du contenu (style Netflix) :
     // le hero passe dessous, un dégradé assure la lisibilité des onglets.
-    Box(Modifier.fillMaxSize().background(LumenColors.Background)) {
+    Box(
+        Modifier.fillMaxSize().background(LumenColors.Background)
+            .pointerInputObserve { lastActivity = app.lumen.db.epochMillis(); screensaverOn = false },
+    ) {
         val showSearch = searchOpen && searchQuery.isNotBlank()
         val target = detailStack.lastOrNull()
             ?: if (showSearch) "search" else if (tab == ShellTab.Settings && settingsSub != null) "settings-${settingsSub}" else tab.name
@@ -193,8 +211,38 @@ fun Shell(
             refreshKey = refreshKey,
             onSync = { refreshKey++ },
         )
+
+        // L'écran de veille par-dessus tout — n'existe que lorsqu'il est actif,
+        // donc il ne bloque jamais les interactions en temps normal.
+        androidx.compose.animation.AnimatedVisibility(
+            visible = screensaverOn,
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(900)),
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(400)),
+        ) {
+            Box(
+                Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(Res.drawable.logo),
+                    contentDescription = null,
+                    modifier = Modifier.size(140.dp),
+                )
+            }
+        }
     }
 }
+
+/** Observe les événements pointeur en phase initiale, sans les consommer. */
+private fun Modifier.pointerInputObserve(onEvent: () -> Unit): Modifier =
+    pointerInput(Unit) {
+        awaitPointerEventScope {
+            while (true) {
+                awaitPointerEvent(PointerEventPass.Initial)
+                onEvent()
+            }
+        }
+    }
 
 @Composable
 private fun TopBar(

@@ -145,6 +145,26 @@ private fun DisplaySection() {
         range = 20..2000,
         onValue = { AppSettings.browsePageSize.set(it) },
     )
+    SwitchRow(
+        title = "Utiliser l'image de l'épisode dans « À suivre » et « Reprendre »",
+        description = "Sinon, la vignette de la série est utilisée.",
+        checked = AppSettings.useEpisodeImages.value,
+        onChecked = { AppSettings.useEpisodeImages.set(it) },
+    )
+    SubHeader("Écran de veille")
+    SwitchRow(
+        title = "Écran de veille",
+        description = "S'affiche après une période d'inactivité, n'importe où dans l'app.",
+        checked = AppSettings.screensaverEnabled.value,
+        onChecked = { AppSettings.screensaverEnabled.set(it) },
+    )
+    NumberRow(
+        title = "Délai de l'écran de veille",
+        suffix = "minutes d'inactivité",
+        value = AppSettings.screensaverDelayMin.value,
+        range = 1..120,
+        onValue = { AppSettings.screensaverDelayMin.set(it) },
+    )
 }
 
 private val HOME_SECTIONS = listOf(
@@ -253,6 +273,19 @@ private fun HomeSection(client: JellyfinClient, session: StoredSession) {
             checked = cfg.displayMissingEpisodes,
             onChecked = { saveConfig(cfg.copy(displayMissingEpisodes = it)) },
         )
+        SwitchRow(
+            title = "Autoriser le contenu déjà vu dans « À suivre »",
+            description = "Inclut les épisodes déjà vus dans la section À suivre.",
+            checked = cfg.enableRewatchingInNextUp,
+            onChecked = { saveConfig(cfg.copy(enableRewatchingInNextUp = it)) },
+        )
+        NumberRow(
+            title = "Délai d'expiration dans « À suivre »",
+            suffix = "jours d'inactivité avant retrait d'une série",
+            value = cfg.maxDaysForNextUp,
+            range = 1..3650,
+            onValue = { saveConfig(cfg.copy(maxDaysForNextUp = it)) },
+        )
     }
 }
 
@@ -286,6 +319,47 @@ private fun PlaybackSection(client: JellyfinClient, session: StoredSession) {
         value = AppSettings.defaultRatePct.value,
         range = 25..400,
         onValue = { AppSettings.defaultRatePct.set(it) },
+    )
+
+    ChoiceRow(
+        title = "Lecteur vidéo préféré",
+        options = listOf("Automatique" to "auto", "libVLC (natif)" to "vlc", "libmpv" to "mpv"),
+        selected = AppSettings.playerEngine.value,
+        onSelect = { AppSettings.playerEngine.set(it) },
+    )
+    Text(
+        "libmpv sera utilisé dès qu'il est installé (mpv-libs) ; en attendant, " +
+            "repli automatique sur libVLC — le moteur actif est affiché dans " +
+            "« Session » des options du lecteur.",
+        color = LumenColors.Muted, fontSize = 12.sp,
+    )
+    ChoiceRow(
+        title = "Normalisation du volume",
+        options = listOf("Désactivée" to "none", "Gain de piste" to "track", "Gain d'album" to "album"),
+        selected = AppSettings.audioNormalization.value,
+        onSelect = { AppSettings.audioNormalization.set(it) },
+    )
+
+    SubHeader("Vidéo et audio avancé")
+    Text(
+        "Utilisés par le profil de capacités envoyé au serveur pour négocier le" +
+            " Direct Play (finalisé au lot L5).",
+        color = LumenColors.Muted, fontSize = 12.sp,
+    )
+    SwitchRow("Préférer le conteneur fMP4 pour le HLS", null, AppSettings.preferFmp4.value) { AppSettings.preferFmp4.set(it) }
+    SwitchRow("Activer le DTS (DCA)", null, AppSettings.enableDts.value) { AppSettings.enableDts.set(it) }
+    SwitchRow("Activer le TrueHD", null, AppSettings.enableTrueHd.value) { AppSettings.enableTrueHd.set(it) }
+    ChoiceRow(
+        title = "Codec vidéo de transcodage préféré",
+        options = listOf("Auto" to "auto", "H.264" to "h264", "HEVC" to "hevc", "AV1" to "av1"),
+        selected = AppSettings.preferredVideoCodec.value,
+        onSelect = { AppSettings.preferredVideoCodec.set(it) },
+    )
+    ChoiceRow(
+        title = "Codec audio de transcodage préféré",
+        options = listOf("Auto" to "auto", "AAC" to "aac", "AC3" to "ac3", "Opus" to "opus"),
+        selected = AppSettings.preferredAudioCodec.value,
+        onSelect = { AppSettings.preferredAudioCodec.set(it) },
     )
 
     SubHeader("Segments de média")

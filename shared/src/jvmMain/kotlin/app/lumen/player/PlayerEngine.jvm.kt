@@ -37,6 +37,7 @@ import java.nio.ByteOrder
  * inutilisable sur Linux), et on évite les artefacts de la surface X11.
  */
 class VlcjEngine : PlayerEngine {
+    override val name: String = "libVLC"
     private val factory = MediaPlayerFactory()
     private val player = factory.mediaPlayers().newEmbeddedMediaPlayer()
 
@@ -135,6 +136,11 @@ class VlcjEngine : PlayerEngine {
                 "yellow" -> add(":freetype-color=16776960")   // 0xFFFF00
                 "cyan" -> add(":freetype-color=65535")        // 0x00FFFF
                 "green" -> add(":freetype-color=65280")       // 0x00FF00
+            }
+            // Normalisation du volume (réglage « Audio avancé », comme Jellyfin).
+            when (app.lumen.domain.AppSettings.audioNormalization.value) {
+                "track" -> add(":audio-replay-gain-mode=track")
+                "album" -> add(":audio-replay-gain-mode=album")
             }
         }.toTypedArray()
         player.media().play(url, *options)

@@ -91,6 +91,24 @@ object AppSettings {
     /** Miroir local de HidePlayedInLatest (aussi synchronisé côté serveur). */
     val hidePlayedInRecent = BoolPref("home.hideplayed", false)
 
+    // --- Lecteur & audio avancé --------------------------------------------
+    /** Moteur de lecture préféré : auto | vlc | mpv (repli si indisponible). */
+    val playerEngine = StringPref("play.engine", "auto")
+    /** Normalisation du volume (replay-gain libvlc) : none | track | album. */
+    val audioNormalization = StringPref("audio.normalization", "none")
+    // Consommés par le profil de capacités envoyé au serveur (L5).
+    val preferFmp4 = BoolPref("adv.fmp4", true)
+    val enableDts = BoolPref("adv.dts", false)
+    val enableTrueHd = BoolPref("adv.truehd", false)
+    val preferredVideoCodec = StringPref("adv.videocodec", "auto")
+    val preferredAudioCodec = StringPref("adv.audiocodec", "auto")
+
+    // --- Affichage : écran de veille + vignettes ---------------------------
+    val screensaverEnabled = BoolPref("display.screensaver", false)
+    val screensaverDelayMin = IntPref("display.screensaverdelay", 3)
+    /** Vignette d'épisode (true) ou affiche de la série dans À suivre/Reprendre. */
+    val useEpisodeImages = BoolPref("display.episodeimages", true)
+
     // --- Segments de média (actions, comme Jellyfin) -----------------------
     // Valeurs : none | ask | auto. Consommés par le lecteur quand le serveur
     // fournit des segments (plugin) — déjà stockés et modifiables.

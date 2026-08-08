@@ -103,6 +103,8 @@ data class UserConfig(
     @SerialName("HidePlayedInLatest") val hidePlayedInLatest: Boolean = true,
     @SerialName("DisplayMissingEpisodes") val displayMissingEpisodes: Boolean = false,
     @SerialName("EnableNextEpisodeAutoPlay") val enableNextEpisodeAutoPlay: Boolean = true,
+    @SerialName("EnableRewatchingInNextUp") val enableRewatchingInNextUp: Boolean = false,
+    @SerialName("MaxDaysForNextUp") val maxDaysForNextUp: Int = 365,
 )
 
 @Serializable

@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 
 /** Moteur Android : Media3/ExoPlayer, en-têtes par flux via la DataSource (plan §4). */
 class Media3Engine(private val context: Context) : PlayerEngine {
+    override val name: String = "ExoPlayer"
     private val _state = MutableStateFlow(PlayerState())
     override val state: StateFlow<PlayerState> = _state
 

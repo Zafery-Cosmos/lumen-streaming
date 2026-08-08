@@ -25,6 +25,9 @@ data class MediaTrack(val id: Int, val label: String)
 interface PlayerEngine {
     val state: StateFlow<PlayerState>
 
+    /** Nom lisible du moteur (affiché dans « Session » du lecteur). */
+    val name: String get() = "natif"
+
     /** Charge et lance une URL (flux direct ou HLS), avec en-têtes optionnels. */
     fun play(url: String, headers: Map<String, String> = emptyMap(), startMs: Long = 0)
     fun pause()
