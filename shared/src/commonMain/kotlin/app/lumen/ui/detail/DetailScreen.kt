@@ -260,8 +260,8 @@ private fun JellyfinDetail(
                 }
             } else if (groups.isNotEmpty()) {
                 item(key = "season-picker") {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    app.lumen.ui.components.ScrollableRow(
+                        spacing = 8.dp,
                         contentPadding = PaddingValues(horizontal = 48.dp),
                         modifier = Modifier.padding(top = 8.dp),
                     ) {
@@ -697,8 +697,8 @@ private fun PeopleSection(directors: List<String>, cast: List<PersonCardData>, o
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 48.dp),
             )
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            app.lumen.ui.components.ScrollableRow(
+                spacing = 16.dp,
                 contentPadding = PaddingValues(horizontal = 48.dp),
             ) {
                 items(cast.size) { i -> PersonCard(cast[i], onClick = { onPerson(cast[i].name) }) }
@@ -777,8 +777,8 @@ private fun SimilarSection(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 48.dp),
         )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        app.lumen.ui.components.ScrollableRow(
+            spacing = 10.dp,
             contentPadding = PaddingValues(horizontal = 48.dp),
         ) {
             items(cards.size) { i ->

@@ -111,7 +111,13 @@ fun EpisodesPanel(
             null -> CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(24.dp))
             else -> {
                 // Saisons.
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                app.lumen.ui.components.ScrollableRow(
+                    spacing = 8.dp,
+                    contentPadding = PaddingValues(horizontal = 0.dp),
+                    arrowWidth = 34.dp,
+                    iconSize = 22.dp,
+                    scrimColor = Color(0xFF0D0D12),
+                ) {
                     items(g.keys.toList()) { s ->
                         val selected = s == season
                         Text(

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -78,7 +79,12 @@ fun AvatarPicker(
         )
 
         // Collections (Général, Crunchyroll, Disney, Marvel…).
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        app.lumen.ui.components.ScrollableRow(
+            spacing = 8.dp,
+            contentPadding = PaddingValues(horizontal = 0.dp),
+            arrowWidth = 34.dp,
+            iconSize = 22.dp,
+        ) {
             items(collections) { c ->
                 Chip(c, c == collection) { collection = c }
             }
@@ -86,7 +92,12 @@ fun AvatarPicker(
 
         // Œuvres de la collection choisie.
         if (works.size > 1) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            app.lumen.ui.components.ScrollableRow(
+                spacing = 8.dp,
+                contentPadding = PaddingValues(horizontal = 0.dp),
+                arrowWidth = 34.dp,
+                iconSize = 22.dp,
+            ) {
                 items(works) { w ->
                     Chip(w.work, w.id == group?.id, small = true) { workId = w.id }
                 }

@@ -90,27 +90,6 @@ fun HeroCarousel(
             HeroSlide(heroes[i], onOpen, onPlay)
         }
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.align(Alignment.BottomEnd).padding(horizontal = 48.dp, vertical = 24.dp),
-        ) {
-            heroes.forEachIndexed { i, _ ->
-                val active = i == index
-                val width by animateFloatAsState(if (active) 22f else 8f, tween(250))
-                Box(
-                    Modifier
-                        .size(width = width.dp, height = 8.dp)
-                        .background(
-                            if (active) LumenColors.Accent else LumenColors.Muted.copy(alpha = 0.45f),
-                            CircleShape,
-                        )
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { index = i },
-                )
-            }
-        }
     }
 }
 

@@ -95,7 +95,9 @@ fun BrowseScreen(
                 }
             }
             BrowseContent(
-                heroes = libItems.mapNotNull { it.toHero(client, session) }.take(6),
+                // Hero tiré au sort dans toute la catégorie, renouvelé à chaque
+                // ouverture — pas les 6 premiers titres, toujours les mêmes.
+                heroes = libItems.mapNotNull { it.toHero(client, session) }.shuffled().take(40),
                 rails = rails,
             )
         }

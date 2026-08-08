@@ -152,8 +152,8 @@ private fun FilmographyRail(title: String, cards: List<app.lumen.domain.CardItem
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 48.dp),
         )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        app.lumen.ui.components.ScrollableRow(
+            spacing = 10.dp,
             contentPadding = PaddingValues(horizontal = 48.dp),
         ) {
             items(cards, key = { it.id }) { card ->

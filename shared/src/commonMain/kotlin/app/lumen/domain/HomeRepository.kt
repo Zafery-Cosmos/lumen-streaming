@@ -64,6 +64,19 @@ class HomeRepository(
             }.getOrDefault(emptyList())
         }
 
+        // Hero : tiré au sort dans TOUT le catalogue, pas seulement les ajouts
+        // récents — et le tirage change à chaque lancement.
+        val heroPool = async {
+            runCatching {
+                client.items(
+                    base, uid,
+                    includeTypes = "Movie,Series",
+                    sortBy = "Random",
+                    limit = 200,
+                ).items
+            }.getOrDefault(emptyList())
+        }
+
         // --- TMDB (éditorial) ----------------------------------------------
         // Profil enfant : pas de Top 10 tout-venant, et uniquement les genres
         // adaptés (Animation, Familial). Le contenu Jellyfin est filtré par âge.
@@ -129,8 +142,14 @@ class HomeRepository(
         val orderedKeys = order + railsByKey.keys.filterNot { order.contains(it) }
         val rails = orderedKeys.flatMap { railsByKey[it].orEmpty() }
 
-        // Carrousel hero : films et séries Jellyfin, du plus récent au plus ancien.
-        val heroes = recentItems.mapNotNull { it.toHero(client, session) }.take(8)
+        // Carrousel hero : 40 titres au hasard dans tout le catalogue, filtrés
+        // par le profil et retenus seulement s'ils ont un visuel large.
+        val heroes = heroPool.await()
+            .filter { profile.allows(it) }
+            .mapNotNull { it.toHero(client, session) }
+            .shuffled()
+            .take(40)
+            .ifEmpty { recentItems.mapNotNull { it.toHero(client, session) } }
 
         HomeContent(heroes = heroes, rails = rails)
     }
