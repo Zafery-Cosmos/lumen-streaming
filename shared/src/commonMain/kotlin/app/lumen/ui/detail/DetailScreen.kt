@@ -175,7 +175,7 @@ private fun JellyfinDetail(
         }
             .groupBy { it.season }
             .mapValues { (_, list) -> list.sortedBy { it.number } }
-            .toSortedMap()
+            .toList().sortedBy { it.first }.toMap()   // LinkedHashMap : get(null) sans NPE, contrairement à TreeMap
     }
 
     var selectedSeason by remember(organized) { mutableStateOf(organized?.keys?.firstOrNull { it > 0 } ?: organized?.keys?.firstOrNull()) }
@@ -230,7 +230,7 @@ private fun JellyfinDetail(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.padding(horizontal = 48.dp, vertical = 16.dp),
                         ) {
-                            groups[seasonNum].orEmpty().forEach { org ->
+                            seasonNum?.let { groups[it] }.orEmpty().forEach { org ->
                                 EpisodeRow(client, session, org, onPlay)
                             }
                         }
