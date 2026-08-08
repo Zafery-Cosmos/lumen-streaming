@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Home
@@ -63,6 +64,7 @@ fun SettingsScreen(
         SettingsGroup("quality", Icons.Filled.HighQuality, "Qualité et réseau", "Plafond de débit"),
         SettingsGroup("audio", Icons.AutoMirrored.Filled.VolumeUp, "Audio et sous-titres", "Langues préférées"),
         SettingsGroup("addons", Icons.Filled.Extension, "Addons Stremio", "Sources externes — Torrentio, Frenchio…"),
+        SettingsGroup("streaming", Icons.Filled.Storage, "Streaming et cache", "Moteur torrent, taille et purge"),
         SettingsGroup("quickconnect", Icons.Filled.Key, "Connexion rapide", "Autoriser un autre appareil"),
         SettingsGroup("server", Icons.Filled.Dns, "Serveur", session.serverName.ifEmpty { session.baseUrl }),
     )

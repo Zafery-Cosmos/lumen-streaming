@@ -32,6 +32,11 @@ data class PlayRequest(
     val torrentHash: String? = null,
     val title: String = "",
     val headers: Map<String, String> = emptyMap(),
+    /** Contexte addon : permet de CHANGER de source sans quitter le lecteur. */
+    val stremioType: String? = null,   // movie | series
+    val stremioId: String? = null,     // tt1375666 ou tt0903747:2:5
+    /** Série d'appartenance : alimente le panneau Épisodes du lecteur. */
+    val seriesId: String? = null,
 )
 
 /** Une entrée du carrousel hero : visuels précalculés, prêts à afficher. */

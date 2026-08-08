@@ -128,3 +128,6 @@ actual fun VideoSurface(engine: PlayerEngine, modifier: Modifier, fill: Boolean)
         modifier = modifier,
     )
 }
+
+// Android decode en materiel par defaut via MediaCodec : rien a choisir.
+actual fun availableTranscodeProfiles(): List<String> = emptyList()

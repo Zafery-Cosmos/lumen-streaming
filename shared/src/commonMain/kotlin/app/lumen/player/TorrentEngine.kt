@@ -20,3 +20,16 @@ expect fun torrentStreamUrl(infoHash: String, title: String): String
 
 /** Stats du torrent en cours ; null si indisponibles. */
 expect suspend fun torrentStats(infoHash: String): TorrentStats?
+
+/** État du moteur : joignable ou non, et poids réel du cache sur le disque. */
+data class TorrentEngineStatus(
+    val running: Boolean,
+    val endpoint: String,
+    val cacheBytes: Long,
+    val cacheDir: String,
+)
+
+expect suspend fun torrentEngineStatus(): TorrentEngineStatus
+
+/** Vide le cache du moteur ; renvoie le nombre d'octets libérés. */
+expect suspend fun purgeTorrentCache(): Long

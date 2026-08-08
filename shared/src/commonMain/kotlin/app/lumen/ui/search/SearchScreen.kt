@@ -60,8 +60,8 @@ fun SearchScreen(
     query: String,
     onOpen: (String) -> Unit,
     onPlay: (String) -> Unit,
-    onPlayExternal: (url: String, title: String, headers: Map<String, String>) -> Unit,
-    onPlayTorrent: (infoHash: String, title: String) -> Unit,
+    onPlayExternal: (url: String, title: String, headers: Map<String, String>, type: String?, id: String?) -> Unit,
+    onPlayTorrent: (infoHash: String, title: String, type: String?, id: String?) -> Unit,
 ) {
     val stremio = remember { StremioClient(client.http) }
     val store = remember { AddonStore() }
@@ -186,11 +186,11 @@ fun SearchScreen(
                 onDismiss = { sourcesTarget = null },
                 onPlay = { url, headers ->
                     sourcesTarget = null
-                    onPlayExternal(url, target.title, headers)
+                    onPlayExternal(url, target.title, headers, target.type, target.mediaId)
                 },
                 onPlayTorrent = { hash ->
                     sourcesTarget = null
-                    onPlayTorrent(hash, target.title)
+                    onPlayTorrent(hash, target.title, target.type, target.mediaId)
                 },
             )
         }

@@ -79,6 +79,7 @@ fun SettingsSectionScreen(
             "quality" -> "Qualité et réseau"
             "audio" -> "Audio et sous-titres"
             "addons" -> "Addons Stremio"
+            "streaming" -> "Streaming et cache"
             "quickconnect" -> "Connexion rapide"
             "server" -> "Serveurs"
             else -> "Paramètres"
@@ -92,6 +93,7 @@ fun SettingsSectionScreen(
             "quality" -> QualitySection()
             "audio" -> AudioSection(client, session)
             "addons" -> AddonsSection(client)
+            "streaming" -> StreamingSection()
             "quickconnect" -> QuickConnectSection(client, session)
             "server" -> ServerSection(session, servers, onSwitchServer, onAddServer, onForgetServer, onLogout)
         }
@@ -591,6 +593,128 @@ private fun AddonsSection(client: JellyfinClient) {
     }
     if (addons.isEmpty()) {
         Text("Aucun addon installé pour l'instant.", color = LumenColors.Muted, fontSize = 13.sp)
+    }
+}
+
+@Composable
+private fun StreamingSection() {
+    val scope = rememberCoroutineScope()
+    var status by remember { mutableStateOf<app.lumen.player.TorrentEngineStatus?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var freed by remember { mutableStateOf<Long?>(null) }
+
+    suspend fun refresh() { status = app.lumen.player.torrentEngineStatus() }
+    LaunchedEffect(Unit) { refresh() }
+
+    Text(
+        "Le moteur de streaming lit les torrents des addons pendant leur " +
+            "téléchargement. Ces réglages pilotent son cache disque.",
+        color = LumenColors.Muted, fontSize = 13.sp,
+    )
+
+    // État du moteur, façon « URL / Statut » de Stremio.
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().background(LumenColors.Surface, RoundedCornerShape(10.dp))
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Serveur de streaming", color = LumenColors.OnBackground, fontSize = 15.sp)
+            Text(
+                status?.endpoint?.ifBlank { "non démarré" } ?: "vérification…",
+                color = LumenColors.Muted, fontSize = 12.sp,
+            )
+        }
+        Text(
+            when (status?.running) {
+                true -> "En ligne"
+                false -> "Hors ligne"
+                null -> "…"
+            },
+            color = if (status?.running == true) Color(0xFF3ECF6B) else LumenColors.Muted,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+
+    NumberRow(
+        title = "Taille du cache",
+        suffix = "Gio (appliqué au prochain démarrage du moteur)",
+        value = AppSettings.torrentCacheGib.value,
+        range = 1..500,
+        onValue = { AppSettings.torrentCacheGib.set(it) },
+    )
+    ChoiceRow(
+        title = "Profil de torrent",
+        options = listOf("Par défaut" to "default", "Mémoire vive" to "ram"),
+        selected = AppSettings.torrentProfile.value,
+        onSelect = { AppSettings.torrentProfile.set(it) },
+    )
+    Text(
+        "« Mémoire vive » n'écrit rien sur le disque — idéal pour un SSD, " +
+            "au prix de la RAM consommée.",
+        color = LumenColors.Muted, fontSize = 12.sp,
+    )
+    TextFieldRow(
+        title = "Dossier du cache (vide = ~/.local/share/lumen)",
+        value = AppSettings.torrentCacheDir.value,
+        onValue = { AppSettings.torrentCacheDir.set(it) },
+    )
+    TextFieldRow(
+        title = "Dossier de téléchargement (vide = ~/Téléchargements)",
+        value = AppSettings.downloadDir.value,
+        onValue = { AppSettings.downloadDir.set(it) },
+    )
+
+    // Profil de transcodage : uniquement les périphériques réellement présents.
+    val hw = remember { app.lumen.player.availableTranscodeProfiles() }
+    ChoiceRow(
+        title = "Profil de transcodage",
+        options = listOf("Désactivé" to "none") + hw.map { it to it },
+        selected = AppSettings.transcodeProfile.value,
+        onSelect = { AppSettings.transcodeProfile.set(it) },
+    )
+    Text(
+        if (hw.isEmpty()) {
+            "Aucune accélération matérielle détectée sur cette machine."
+        } else {
+            "Décodage matériel : soulage le processeur sur les flux 4K et HEVC."
+        },
+        color = LumenColors.Muted, fontSize = 12.sp,
+    )
+
+    // Poids réel occupé + purge.
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().background(LumenColors.Surface, RoundedCornerShape(10.dp))
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Cache occupé", color = LumenColors.OnBackground, fontSize = 15.sp)
+            Text(
+                status?.let { app.lumen.update.formatSize(it.cacheBytes) + " dans " + it.cacheDir }
+                    ?: "calcul…",
+                color = LumenColors.Muted, fontSize = 12.sp,
+            )
+            freed?.let {
+                Text("${app.lumen.update.formatSize(it)} libérés", color = LumenColors.Accent, fontSize = 12.sp)
+            }
+        }
+        Button(
+            onClick = {
+                busy = true
+                scope.launch {
+                    freed = app.lumen.player.purgeTorrentCache()
+                    refresh()
+                    busy = false
+                }
+            },
+            enabled = !busy,
+            colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
+            shape = RoundedCornerShape(8.dp),
+        ) {
+            Text(if (busy) "Purge…" else "Vider le cache", fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 

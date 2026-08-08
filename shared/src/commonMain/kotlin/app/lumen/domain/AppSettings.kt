@@ -109,6 +109,18 @@ object AppSettings {
     /** Vignette d'épisode (true) ou affiche de la série dans À suivre/Reprendre. */
     val useEpisodeImages = BoolPref("display.episodeimages", true)
 
+    // --- Streaming (moteur torrent) — équivalent de la page Stremio --------
+    /** Taille max du cache torrent, en Gio. */
+    val torrentCacheGib = IntPref("stream.cachegib", 10)
+    /** Profil de torrent : default | fast | ram — arbitre débit et écriture disque. */
+    val torrentProfile = StringPref("stream.profile", "default")
+    /** Dossier du cache torrent ; vide = emplacement par défaut. */
+    val torrentCacheDir = StringPref("stream.cachedir", "")
+    /** Dossier des téléchargements ; vide = ~/Téléchargements. */
+    val downloadDir = StringPref("stream.downloaddir", "")
+    /** Profil de transcodage : « none » ou un périphérique détecté (vaapi-renderD128…). */
+    val transcodeProfile = StringPref("stream.transcode", "none")
+
     // --- Segments de média (actions, comme Jellyfin) -----------------------
     // Valeurs : none | ask | auto. Consommés par le lecteur quand le serveur
     // fournit des segments (plugin) — déjà stockés et modifiables.

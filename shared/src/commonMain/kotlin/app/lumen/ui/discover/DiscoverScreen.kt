@@ -64,8 +64,8 @@ fun DiscoverScreen(
     client: JellyfinClient,
     tmdb: TmdbClient,
     onOpen: (String) -> Unit,
-    onPlayExternal: (url: String, title: String, headers: Map<String, String>) -> Unit,
-    onPlayTorrent: (infoHash: String, title: String) -> Unit,
+    onPlayExternal: (url: String, title: String, headers: Map<String, String>, type: String?, id: String?) -> Unit,
+    onPlayTorrent: (infoHash: String, title: String, type: String?, id: String?) -> Unit,
 ) {
     val stremio = remember { StremioClient(client.http) }
     val store = remember { AddonStore() }
@@ -164,9 +164,9 @@ fun DiscoverScreen(
                                         val direct = streams.firstOrNull { it.playable }
                                         when {
                                             direct?.url != null ->
-                                                onPlayExternal(direct.url, meta.name, direct.requestHeaders)
+                                                onPlayExternal(direct.url, meta.name, direct.requestHeaders, catalog.type, meta.id)
                                             streams.firstOrNull()?.infoHash != null ->
-                                                onPlayTorrent(streams.first().infoHash!!, meta.name)
+                                                onPlayTorrent(streams.first().infoHash!!, meta.name, catalog.type, meta.id)
                                             else -> sourcesTarget = SourcesTarget(catalog.type, meta.id, meta.name)
                                         }
                                     }
@@ -197,11 +197,11 @@ fun DiscoverScreen(
                 onDismiss = { sourcesTarget = null },
                 onPlay = { url, headers ->
                     sourcesTarget = null
-                    onPlayExternal(url, target.title, headers)
+                    onPlayExternal(url, target.title, headers, target.type, target.mediaId)
                 },
                 onPlayTorrent = { hash ->
                     sourcesTarget = null
-                    onPlayTorrent(hash, target.title)
+                    onPlayTorrent(hash, target.title, target.type, target.mediaId)
                 },
             )
         }

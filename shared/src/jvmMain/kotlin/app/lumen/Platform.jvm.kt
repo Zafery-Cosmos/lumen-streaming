@@ -11,9 +11,14 @@ actual fun platformDeviceName(): String = try {
 /** Téléchargement direct dans ~/Téléchargements (ou ~/Downloads), en tâche de fond. */
 actual fun platformDownload(url: String, fileName: String): Boolean = try {
     val home = System.getProperty("user.home")
-    val dir = listOf("Téléchargements", "Downloads")
-        .map { java.io.File(home, it) }
-        .firstOrNull { it.isDirectory } ?: java.io.File(home)
+    val configured = app.lumen.domain.AppSettings.downloadDir.value
+    val dir = if (configured.isNotBlank()) {
+        java.io.File(configured).apply { mkdirs() }
+    } else {
+        listOf("Téléchargements", "Downloads")
+            .map { java.io.File(home, it) }
+            .firstOrNull { it.isDirectory } ?: java.io.File(home)
+    }
     val target = java.io.File(dir, fileName)
     Thread {
         runCatching {

@@ -67,3 +67,9 @@ expect fun rememberPlayerEngine(): PlayerEngine
  *  fill=true → l'image remplit l'écran (recadrée), sinon ajustée. */
 @Composable
 expect fun VideoSurface(engine: PlayerEngine, modifier: Modifier, fill: Boolean = false)
+
+/**
+ * Profils de transcodage matériel disponibles sur la machine, en plus de
+ * « Désactivé » — on n'affiche que ce qui existe réellement.
+ */
+expect fun availableTranscodeProfiles(): List<String>

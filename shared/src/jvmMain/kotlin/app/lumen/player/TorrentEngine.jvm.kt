@@ -21,8 +21,13 @@ private const val BINARY_URL =
 
 private val json = Json { ignoreUnknownKeys = true }
 
-private fun engineDir(): File =
-    File(System.getProperty("user.home"), ".local/share/lumen").apply { mkdirs() }
+private fun engineDir(): File {
+    val custom = app.lumen.domain.AppSettings.torrentCacheDir.value
+    val dir = if (custom.isNotBlank()) File(custom) else {
+        File(System.getProperty("user.home"), ".local/share/lumen")
+    }
+    return dir.apply { mkdirs() }
+}
 
 private fun httpGet(url: String, timeoutMs: Int = 3000): String? = runCatching {
     val conn = URI(url).toURL().openConnection() as HttpURLConnection
@@ -61,10 +66,18 @@ actual suspend fun ensureTorrentEngine(): Boolean = withContext(Dispatchers.Defa
     }
 
     runCatching {
+        val cacheMib = app.lumen.domain.AppSettings.torrentCacheGib.value * 1024
         ProcessBuilder(
-            binary.absolutePath,
-            "--port", PORT.toString(),
-            "--path", engineDir().absolutePath,
+            buildList {
+                add(binary.absolutePath)
+                add("--port"); add(PORT.toString())
+                add("--path"); add(engineDir().absolutePath)
+                // Taille du cache et profil, comme la page Streaming de Stremio.
+                when (app.lumen.domain.AppSettings.torrentProfile.value) {
+                    "ram" -> { add("--ram-cache"); add("--cache-size"); add(cacheMib.toString()) }
+                    else -> { add("--cache-size"); add(cacheMib.toString()) }
+                }
+            },
         )
             .redirectOutput(File(engineDir(), "torrserver.log"))
             .redirectErrorStream(true)
@@ -103,4 +116,33 @@ actual suspend fun torrentStats(infoHash: String): TorrentStats? = withContext(D
             downloadedPercent = if (size > 0) loaded * 100.0 / size else 0.0,
         )
     }.getOrNull()
+}
+
+actual suspend fun torrentEngineStatus(): TorrentEngineStatus = withContext(Dispatchers.Default) {
+    val dir = engineDir()
+    val cache = runCatching {
+        dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+    }.getOrDefault(0L)
+    TorrentEngineStatus(
+        running = httpGet("$BASE/echo", timeoutMs = 1200) != null,
+        endpoint = BASE,
+        cacheBytes = cache,
+        cacheDir = dir.absolutePath,
+    )
+}
+
+actual suspend fun purgeTorrentCache(): Long = withContext(Dispatchers.Default) {
+    val dir = engineDir()
+    val before = runCatching {
+        dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+    }.getOrDefault(0L)
+    // On demande d abord au moteur de tout lacher, puis on efface ses caches.
+    httpPost("$BASE/torrents", """{"action":"drop"}""")
+    listOf("cache", "torrents").forEach { name ->
+        runCatching { File(dir, name).deleteRecursively() }
+    }
+    val after = runCatching {
+        dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+    }.getOrDefault(0L)
+    (before - after).coerceAtLeast(0L)
 }

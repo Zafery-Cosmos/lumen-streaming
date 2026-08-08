@@ -42,6 +42,8 @@ import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PlayArrow
@@ -96,10 +98,12 @@ import kotlinx.coroutines.launch
 @Composable
 fun PlayerScreen(
     client: JellyfinClient,
+    tmdb: app.lumen.api.TmdbClient,
     session: StoredSession,
     request: app.lumen.domain.PlayRequest,
     profile: app.lumen.domain.LocalProfile?,
     watchRepo: app.lumen.domain.WatchStateRepository?,
+    onPlayOther: (app.lumen.domain.PlayRequest) -> Unit,
     onBack: () -> Unit,
 ) {
     val itemId = request.itemId
@@ -114,6 +118,11 @@ fun PlayerScreen(
     var loadError by remember { mutableStateOf<String?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
     var statsOpen by remember { mutableStateOf(false) }
+    // Deux panneaux DISTINCTS : « avec quelle source » et « quoi regarder ».
+    var sourcesOpen by remember { mutableStateOf(false) }
+    var episodesOpen by remember { mutableStateOf(false) }
+    val stremioClient = remember { app.lumen.api.StremioClient(client.http) }
+    val addonStore = remember { app.lumen.domain.AddonStore() }
     var stats by remember { mutableStateOf<app.lumen.player.PlayerStats?>(null) }
     var playMethod by remember { mutableStateOf("…") }
 
@@ -266,7 +275,7 @@ fun PlayerScreen(
         }
     }
 
-    fun leave() {
+    fun leave(navigateBack: Boolean = true) {
         val s = engine.state.value
         if (itemId != null) {
             profile?.let { p -> watchRepo?.record(p.id, itemId, s.positionMs, s.durationMs) }
@@ -276,7 +285,29 @@ fun PlayerScreen(
                 runCatching { client.reportPlaybackStopped(session.baseUrl, itemId, pos, psid) }
             }
         }
-        onBack()
+        if (navigateBack) onBack()
+    }
+
+    /**
+     * Bascule vers une autre source EN COURS DE LECTURE, en reprenant à la
+     * même seconde — c'est tout l'intérêt : un torrent qui rame se remplace
+     * sans repartir du début.
+     */
+    suspend fun switchSource(url: String?, headers: Map<String, String>, hash: String?, resumeMs: Long) {
+        when {
+            hash != null -> {
+                playMethod = "Torrent — moteur intégré"
+                if (app.lumen.player.ensureTorrentEngine()) {
+                    engine.play(app.lumen.player.torrentStreamUrl(hash, title), startMs = resumeMs)
+                } else {
+                    loadError = "Moteur torrent indisponible"
+                }
+            }
+            url != null -> {
+                playMethod = "Flux direct (addon)"
+                engine.play(url, headers, startMs = resumeMs)
+            }
+        }
     }
 
     Box(
@@ -328,6 +359,16 @@ fun PlayerScreen(
                 onSeek = { engine.seekTo(it) },
                 onOpenSettings = { settingsOpen = !settingsOpen },
                 onToggleStats = { statsOpen = !statsOpen },
+                onOpenSources = {
+                    sourcesOpen = !sourcesOpen
+                    if (sourcesOpen) episodesOpen = false
+                },
+                onOpenEpisodes = if (request.seriesId != null) {
+                    {
+                        episodesOpen = !episodesOpen
+                        if (episodesOpen) sourcesOpen = false
+                    }
+                } else null,
                 seekBackMs = seekBackMs,
                 seekFwdMs = seekFwdMs,
             )
@@ -380,6 +421,58 @@ fun PlayerScreen(
                     StatLine("Téléchargé", "— (flux HTTP direct)")
                 }
             }
+        }
+
+        // Panneau ÉPISODES — se déploie en animation sur un TIERS de l'écran.
+        AnimatedVisibility(
+            visible = episodesOpen && request.seriesId != null,
+            enter = fadeIn(tween(200)) + slideInHorizontally(tween(320)) { it },
+            exit = fadeOut(tween(180)) + slideOutHorizontally(tween(260)) { it },
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().fillMaxWidth(0.34f),
+        ) {
+            EpisodesPanel(
+                client = client,
+                tmdb = tmdb,
+                session = session,
+                seriesId = request.seriesId.orEmpty(),
+                currentEpisodeId = itemId,
+                onPlayEpisode = { id ->
+                    episodesOpen = false
+                    // On quitte proprement (progression enregistrée) puis on
+                    // relance sur le nouvel épisode de la même série.
+                    leave(navigateBack = false)
+                    onPlayOther(
+                        app.lumen.domain.PlayRequest(itemId = id, seriesId = request.seriesId),
+                    )
+                },
+                onDismiss = { episodesOpen = false },
+            )
+        }
+
+        // Panneau SOURCES — changer de torrent/flux SANS quitter la lecture.
+        AnimatedVisibility(
+            visible = sourcesOpen,
+            enter = fadeIn(tween(200)) + slideInHorizontally(tween(320)) { it },
+            exit = fadeOut(tween(180)) + slideOutHorizontally(tween(260)) { it },
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().fillMaxWidth(0.34f),
+        ) {
+            PlayerSourcesPanel(
+                stremio = stremioClient,
+                addons = addonStore.list(),
+                type = request.stremioType,
+                mediaId = request.stremioId,
+                title = title,
+                currentLabel = playMethod,
+                onDismiss = { sourcesOpen = false },
+                onPick = { url, headers, hash ->
+                    sourcesOpen = false
+                    // La position est CONSERVÉE : on reprend là où on en était.
+                    val resumeMs = engine.state.value.positionMs
+                    scope.launch {
+                        switchSource(url, headers, hash, resumeMs)
+                    }
+                },
+            )
         }
 
         // Panneau d'options — glisse depuis la droite.
@@ -674,6 +767,8 @@ private fun ControlsOverlay(
     onSeek: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onToggleStats: () -> Unit,
+    onOpenSources: () -> Unit,
+    onOpenEpisodes: (() -> Unit)?,
     seekBackMs: Long,
     seekFwdMs: Long,
 ) {
@@ -704,6 +799,12 @@ private fun ControlsOverlay(
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.width(16.dp))
+            onOpenEpisodes?.let {
+                RoundControl(Icons.Filled.Subscriptions, "Épisodes", 20.dp, onClick = it)
+                Spacer(Modifier.width(10.dp))
+            }
+            RoundControl(Icons.Filled.Layers, "Changer de source", 20.dp, onClick = onOpenSources)
+            Spacer(Modifier.width(10.dp))
             RoundControl(Icons.Filled.Equalizer, "Statistiques du flux", 20.dp, onClick = onToggleStats)
             Spacer(Modifier.width(10.dp))
             RoundControl(Icons.Filled.Tune, "Options", 22.dp, onClick = onOpenSettings)

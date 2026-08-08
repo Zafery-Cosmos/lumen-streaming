@@ -109,10 +109,11 @@ fun Shell(
     var playing by remember { mutableStateOf<app.lumen.domain.PlayRequest?>(null) }
     playing?.let { req ->
         app.lumen.ui.player.PlayerScreen(
-            client, session,
+            client, tmdb, session,
             request = req,
             profile = profile,
             watchRepo = watchRepo,
+            onPlayOther = { next -> playing = next },   // changement d'épisode
             onBack = { playing = null; refreshKey++ },  // refresh → « Reprendre » à jour
         )
         return
@@ -156,11 +157,20 @@ fun Shell(
                     onBack = { detailStack = detailStack.dropLast(1) },
                     onPlay = playItem,
                     onOpen = openDetail,
-                    onPlayExternal = { url, title, headers ->
-                        playing = app.lumen.domain.PlayRequest(url = url, title = title, headers = headers)
+                    onPlayEpisode = { epId, serieId ->
+                        playing = app.lumen.domain.PlayRequest(itemId = epId, seriesId = serieId)
                     },
-                    onPlayTorrent = { hash, title ->
-                        playing = app.lumen.domain.PlayRequest(torrentHash = hash, title = title)
+                    onPlayExternal = { url, title, headers, type, id ->
+                        playing = app.lumen.domain.PlayRequest(
+                            url = url, title = title, headers = headers,
+                            stremioType = type, stremioId = id,
+                        )
+                    },
+                    onPlayTorrent = { hash, title, type, id ->
+                        playing = app.lumen.domain.PlayRequest(
+                            torrentHash = hash, title = title,
+                            stremioType = type, stremioId = id,
+                        )
                     },
                 )
                 state.startsWith("person:") -> app.lumen.ui.person.PersonScreen(
@@ -172,11 +182,17 @@ fun Shell(
                     client, tmdb, session, profile, searchQuery,
                     onOpen = openDetail,
                     onPlay = playItem,
-                    onPlayExternal = { url, title, headers ->
-                        playing = app.lumen.domain.PlayRequest(url = url, title = title, headers = headers)
+                    onPlayExternal = { url, title, headers, type, id ->
+                        playing = app.lumen.domain.PlayRequest(
+                            url = url, title = title, headers = headers,
+                            stremioType = type, stremioId = id,
+                        )
                     },
-                    onPlayTorrent = { hash, title ->
-                        playing = app.lumen.domain.PlayRequest(torrentHash = hash, title = title)
+                    onPlayTorrent = { hash, title, type, id ->
+                        playing = app.lumen.domain.PlayRequest(
+                            torrentHash = hash, title = title,
+                            stremioType = type, stremioId = id,
+                        )
                     },
                 )
                 state == ShellTab.Home.name -> HomeScreen(
@@ -195,11 +211,17 @@ fun Shell(
                 state == ShellTab.Discover.name -> app.lumen.ui.discover.DiscoverScreen(
                     client, tmdb,
                     onOpen = openDetail,
-                    onPlayExternal = { url, title, headers ->
-                        playing = app.lumen.domain.PlayRequest(url = url, title = title, headers = headers)
+                    onPlayExternal = { url, title, headers, type, id ->
+                        playing = app.lumen.domain.PlayRequest(
+                            url = url, title = title, headers = headers,
+                            stremioType = type, stremioId = id,
+                        )
                     },
-                    onPlayTorrent = { hash, title ->
-                        playing = app.lumen.domain.PlayRequest(torrentHash = hash, title = title)
+                    onPlayTorrent = { hash, title, type, id ->
+                        playing = app.lumen.domain.PlayRequest(
+                            torrentHash = hash, title = title,
+                            stremioType = type, stremioId = id,
+                        )
                     },
                 )
                 else -> when (val sub = settingsSub) {

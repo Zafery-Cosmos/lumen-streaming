@@ -127,6 +127,14 @@ class VlcjEngine : PlayerEngine {
             if (startMs > 0) add(":start-time=${startMs / 1000}")
             headers["Referer"]?.let { add(":http-referrer=$it") }
             headers["User-Agent"]?.let { add(":http-user-agent=$it") }
+            // Accélération matérielle — « Profil de transcodage » des réglages.
+            val profile = app.lumen.domain.AppSettings.transcodeProfile.value
+            if (profile.startsWith("vaapi")) {
+                add(":avcodec-hw=vaapi")
+                add(":vaapi-device=/dev/dri/${profile.removePrefix("vaapi-")}")
+            } else {
+                add(":avcodec-hw=none")
+            }
             // Apparence des sous-titres — réglages « Audio et sous-titres » (§6.2).
             val scale = app.lumen.domain.AppSettings.subtitleScalePct.value
             if (scale != 100) add(":sub-text-scale=$scale")
@@ -220,3 +228,12 @@ actual fun VideoSurface(engine: PlayerEngine, modifier: Modifier, fill: Boolean)
         }
     }
 }
+
+/** Détecte les cartes de rendu DRM (/dev/dri/renderD*) exploitables par VAAPI. */
+actual fun availableTranscodeProfiles(): List<String> = runCatching {
+    java.io.File("/dev/dri").listFiles()
+        ?.filter { it.name.startsWith("renderD") }
+        ?.map { "vaapi-${it.name}" }
+        ?.sorted()
+        .orEmpty()
+}.getOrDefault(emptyList())

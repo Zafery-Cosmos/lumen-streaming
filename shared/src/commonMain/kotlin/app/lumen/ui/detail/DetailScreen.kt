@@ -83,8 +83,9 @@ fun DetailScreen(
     onBack: () -> Unit,
     onPlay: (String) -> Unit,
     onOpen: (String) -> Unit,
-    onPlayExternal: (url: String, title: String, headers: Map<String, String>) -> Unit,
-    onPlayTorrent: (infoHash: String, title: String) -> Unit,
+    onPlayEpisode: (episodeId: String, seriesId: String) -> Unit,
+    onPlayExternal: (url: String, title: String, headers: Map<String, String>, type: String?, id: String?) -> Unit,
+    onPlayTorrent: (infoHash: String, title: String, type: String?, id: String?) -> Unit,
 ) {
     // Sources d'addons Stremio (plan §5) : état du panneau + clients.
     val stremio = remember { app.lumen.api.StremioClient(client.http) }
@@ -114,6 +115,7 @@ fun DetailScreen(
             )
             is DetailData.Jellyfin -> JellyfinDetail(
                 client, tmdb, session, d.item, onPlay, onOpen,
+                onPlayEpisode = onPlayEpisode,
                 onSources = { sourcesTarget = it },
             )
             is DetailData.Tmdb -> TmdbDetailBody(d.detail, onOpen, onSources = { sourcesTarget = it })
@@ -152,11 +154,11 @@ fun DetailScreen(
                 onDismiss = { sourcesTarget = null },
                 onPlay = { url, headers ->
                     sourcesTarget = null
-                    onPlayExternal(url, target.title, headers)
+                    onPlayExternal(url, target.title, headers, target.type, target.mediaId)
                 },
                 onPlayTorrent = { hash ->
                     sourcesTarget = null
-                    onPlayTorrent(hash, target.title)
+                    onPlayTorrent(hash, target.title, target.type, target.mediaId)
                 },
             )
         }
@@ -181,6 +183,7 @@ private fun JellyfinDetail(
     item: BaseItem,
     onPlay: (String) -> Unit,
     onOpen: (String) -> Unit,
+    onPlayEpisode: (episodeId: String, seriesId: String) -> Unit,
     onSources: (SourcesTarget) -> Unit,
 ) {
     val seriesImdb = item.providerIds["Imdb"]
@@ -295,7 +298,8 @@ private fun JellyfinDetail(
                         ) {
                             seasonNum?.let { groups[it] }.orEmpty().forEach { org ->
                                 EpisodeRow(
-                                    client, session, org, onPlay,
+                                    client, session, org,
+                                    onPlay = { epId -> onPlayEpisode(epId, item.id) },
                                     onSources = if (seriesImdb != null) {
                                         {
                                             onSources(
