@@ -28,6 +28,8 @@ data class CardItem(
 data class PlayRequest(
     val itemId: String? = null,
     val url: String? = null,
+    /** infoHash d'un torrent → lu via le moteur torrent intégré (TorrServer). */
+    val torrentHash: String? = null,
     val title: String = "",
     val headers: Map<String, String> = emptyMap(),
 )

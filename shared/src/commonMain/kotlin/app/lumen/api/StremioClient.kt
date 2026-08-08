@@ -3,6 +3,7 @@ package app.lumen.api
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.http.encodeURLParameter
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -84,6 +85,13 @@ class StremioClient(private val http: HttpClient) {
     suspend fun streams(manifestUrl: String, type: String, mediaId: String): List<StremioStream> {
         val base = normalizeManifestUrl(manifestUrl).removeSuffix("/manifest.json")
         return http.get("$base/stream/$type/$mediaId.json").body<StremioStreamsResponse>().streams
+    }
+
+    /** Recherche dans un catalogue d'addon (la plupart la supportent). */
+    suspend fun searchCatalog(manifestUrl: String, type: String, id: String, query: String): List<StremioMeta> {
+        val base = normalizeManifestUrl(manifestUrl).removeSuffix("/manifest.json")
+        val q = query.encodeURLParameter()
+        return http.get("$base/catalog/$type/$id/search=$q.json").body<StremioCatalogResponse>().metas
     }
 
     /** Un catalogue d'addon (rangées de l'onglet Découvrir). */

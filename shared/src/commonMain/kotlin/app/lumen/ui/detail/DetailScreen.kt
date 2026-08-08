@@ -84,6 +84,7 @@ fun DetailScreen(
     onPlay: (String) -> Unit,
     onOpen: (String) -> Unit,
     onPlayExternal: (url: String, title: String, headers: Map<String, String>) -> Unit,
+    onPlayTorrent: (infoHash: String, title: String) -> Unit,
 ) {
     // Sources d'addons Stremio (plan §5) : état du panneau + clients.
     val stremio = remember { app.lumen.api.StremioClient(client.http) }
@@ -152,6 +153,10 @@ fun DetailScreen(
                 onPlay = { url, headers ->
                     sourcesTarget = null
                     onPlayExternal(url, target.title, headers)
+                },
+                onPlayTorrent = { hash ->
+                    sourcesTarget = null
+                    onPlayTorrent(hash, target.title)
                 },
             )
         }

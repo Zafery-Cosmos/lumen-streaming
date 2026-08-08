@@ -159,6 +159,9 @@ fun Shell(
                     onPlayExternal = { url, title, headers ->
                         playing = app.lumen.domain.PlayRequest(url = url, title = title, headers = headers)
                     },
+                    onPlayTorrent = { hash, title ->
+                        playing = app.lumen.domain.PlayRequest(torrentHash = hash, title = title)
+                    },
                 )
                 state.startsWith("person:") -> app.lumen.ui.person.PersonScreen(
                     tmdb,
@@ -166,9 +169,15 @@ fun Shell(
                     onOpen = openDetail,
                 )
                 state == "search" -> SearchScreen(
-                    client, session, profile, searchQuery,
+                    client, tmdb, session, profile, searchQuery,
                     onOpen = openDetail,
                     onPlay = playItem,
+                    onPlayExternal = { url, title, headers ->
+                        playing = app.lumen.domain.PlayRequest(url = url, title = title, headers = headers)
+                    },
+                    onPlayTorrent = { hash, title ->
+                        playing = app.lumen.domain.PlayRequest(torrentHash = hash, title = title)
+                    },
                 )
                 state == ShellTab.Home.name -> HomeScreen(
                     client, tmdb, session, profile, watchRepo, refreshKey,
@@ -188,6 +197,9 @@ fun Shell(
                     onOpen = openDetail,
                     onPlayExternal = { url, title, headers ->
                         playing = app.lumen.domain.PlayRequest(url = url, title = title, headers = headers)
+                    },
+                    onPlayTorrent = { hash, title ->
+                        playing = app.lumen.domain.PlayRequest(torrentHash = hash, title = title)
                     },
                 )
                 else -> when (val sub = settingsSub) {

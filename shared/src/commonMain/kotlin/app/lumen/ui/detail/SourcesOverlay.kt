@@ -64,6 +64,7 @@ fun SourcesOverlay(
     target: SourcesTarget,
     onDismiss: () -> Unit,
     onPlay: (url: String, headers: Map<String, String>) -> Unit,
+    onPlayTorrent: (infoHash: String) -> Unit,
 ) {
     val enabled = addons.filter { it.enabled }
     val results by produceState<List<Pair<AddonEntry, List<StremioStream>?>>?>(
@@ -151,7 +152,11 @@ fun SourcesOverlay(
                                 streams == null -> Text("Erreur d'interrogation", color = LumenColors.Muted, fontSize = 12.sp)
                                 streams.isEmpty() -> Text("Aucune source", color = LumenColors.Muted, fontSize = 12.sp)
                                 else -> streams.take(25).forEach { stream ->
-                                    StreamRow(stream) { url -> onPlay(url, stream.requestHeaders) }
+                                    StreamRow(
+                                        stream,
+                                        onPlay = { url -> onPlay(url, stream.requestHeaders) },
+                                        onPlayTorrent = onPlayTorrent,
+                                    )
                                 }
                             }
                         }
@@ -163,9 +168,13 @@ fun SourcesOverlay(
 }
 
 @Composable
-private fun StreamRow(stream: StremioStream, onPlay: (String) -> Unit) {
+private fun StreamRow(
+    stream: StremioStream,
+    onPlay: (String) -> Unit,
+    onPlayTorrent: (String) -> Unit,
+) {
     val playable = stream.playable
-    val magnet = stream.infoHash?.let { "magnet:?xt=urn:btih:$it" }
+    val infoHash = stream.infoHash
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -173,22 +182,22 @@ private fun StreamRow(stream: StremioStream, onPlay: (String) -> Unit) {
             .clip(RoundedCornerShape(8.dp))
             .background(LumenColors.SurfaceHigh)
             .clickable(
-                enabled = playable || magnet != null,
+                enabled = playable || infoHash != null,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
             ) {
                 when {
                     // Flux direct → lecture dans Lumen.
                     playable -> stream.url?.let(onPlay)
-                    // Torrent nu → PAS une impasse : magnet ouvert dans le client
-                    // torrent du système, en attendant le moteur intégré.
-                    magnet != null -> app.lumen.platformOpenUrl(magnet)
+                    // Torrent → lecture dans Lumen via le moteur intégré,
+                    // exactement comme Stremio le fait sans debrid.
+                    infoHash != null -> onPlayTorrent(infoHash)
                 }
             }
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Icon(
-            if (playable) Icons.Filled.PlayArrow else Icons.AutoMirrored.Filled.OpenInNew,
+            Icons.Filled.PlayArrow,
             contentDescription = null,
             tint = LumenColors.OnBackground,
             modifier = Modifier.size(16.dp),
@@ -205,9 +214,9 @@ private fun StreamRow(stream: StremioStream, onPlay: (String) -> Unit) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (!playable && magnet != null) {
+            if (!playable && infoHash != null) {
                 Text(
-                    "Torrent — s'ouvre dans votre client torrent (lecture intégrée à venir ; instantané avec un debrid)",
+                    "Torrent — lu par le moteur intégré (démarrage selon les pairs)",
                     color = LumenColors.Muted.copy(alpha = 0.8f),
                     fontSize = 10.sp,
                 )

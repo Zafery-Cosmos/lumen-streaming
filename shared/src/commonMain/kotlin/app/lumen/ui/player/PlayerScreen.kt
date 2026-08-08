@@ -117,10 +117,13 @@ fun PlayerScreen(
     var stats by remember { mutableStateOf<app.lumen.player.PlayerStats?>(null) }
     var playMethod by remember { mutableStateOf("…") }
 
+    var torrentStats by remember { mutableStateOf<app.lumen.player.TorrentStats?>(null) }
+
     // Rafraîchit les statistiques du flux chaque seconde quand le panneau est ouvert.
     LaunchedEffect(statsOpen) {
         while (statsOpen) {
             stats = engine.stats()
+            request.torrentHash?.let { torrentStats = app.lumen.player.torrentStats(it) }
             delay(1_000)
         }
     }
@@ -152,8 +155,22 @@ fun PlayerScreen(
         engine.play(client.streamUrl(session.baseUrl, itemId, source), startMs = startMs)
     }
 
-    // Démarrage : item Jellyfin (PlaybackInfo + session) OU flux externe direct.
+    // Démarrage : item Jellyfin (PlaybackInfo + session), flux externe direct,
+    // OU torrent via le moteur intégré (comme Stremio — sans debrid requis).
     LaunchedEffect(request) {
+        if (request.torrentHash != null) {
+            title = request.title
+            playMethod = "Torrent — moteur intégré"
+            val ok = app.lumen.player.ensureTorrentEngine()
+            if (!ok) {
+                // Repli honnête : magnet remis au client torrent du système.
+                app.lumen.platformOpenUrl("magnet:?xt=urn:btih:${request.torrentHash}")
+                loadError = "Moteur torrent indisponible — magnet ouvert dans le client système"
+                return@LaunchedEffect
+            }
+            engine.play(app.lumen.player.torrentStreamUrl(request.torrentHash, request.title))
+            return@LaunchedEffect
+        }
         if (request.url != null) {
             // Flux d'addon Stremio : lecture directe, en-têtes côté client (§4).
             title = request.title
@@ -346,10 +363,22 @@ fun PlayerScreen(
                     s?.let { "${(it.demuxKbps / 100) / 10.0} Mb/s" } ?: "—",
                 )
                 StatLine("Images perdues", s?.picturesLost?.toString() ?: "—")
-                // Honnête : pairs et % n'existent que pour un moteur torrent —
-                // les flux d'addons lisibles ici sont du HTTP direct (debrid/HTTP).
-                StatLine("Pairs", "— (flux HTTP direct)")
-                StatLine("Téléchargé", "— (flux HTTP direct)")
+                // Torrent via le moteur intégré : pairs, débit et % RÉELS.
+                val t = torrentStats
+                if (request.torrentHash != null) {
+                    StatLine("Pairs", t?.let { "${it.connectedPeers} / ${it.totalPeers}" } ?: "connexion…")
+                    StatLine(
+                        "Débit torrent",
+                        t?.let { "${(it.downloadSpeedBps * 8 / 100_000) / 10.0} Mb/s" } ?: "—",
+                    )
+                    StatLine(
+                        "Téléchargé",
+                        t?.let { "${(it.downloadedPercent * 10).toInt() / 10.0} %" } ?: "—",
+                    )
+                } else {
+                    StatLine("Pairs", "— (flux HTTP direct)")
+                    StatLine("Téléchargé", "— (flux HTTP direct)")
+                }
             }
         }
 

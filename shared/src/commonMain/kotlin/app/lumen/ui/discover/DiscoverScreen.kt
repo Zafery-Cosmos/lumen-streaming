@@ -65,6 +65,7 @@ fun DiscoverScreen(
     tmdb: TmdbClient,
     onOpen: (String) -> Unit,
     onPlayExternal: (url: String, title: String, headers: Map<String, String>) -> Unit,
+    onPlayTorrent: (infoHash: String, title: String) -> Unit,
 ) {
     val stremio = remember { StremioClient(client.http) }
     val store = remember { AddonStore() }
@@ -151,11 +152,24 @@ fun DiscoverScreen(
                             type = catalog.type,
                             catalogId = catalog.id,
                             title = "${catalog.name.ifBlank { catalog.id }} — ${addon.name}",
+                            grid = catalog.type in listOf("tv", "channel"),
                             onClick = { meta ->
                                 when {
-                                    // Chaîne TV / live : directement les flux.
-                                    catalog.type in listOf("tv", "channel") ->
-                                        sourcesTarget = SourcesTarget(catalog.type, meta.id, meta.name)
+                                    // Chaîne TV : lecture DIRECTE — c'est l'addon
+                                    // de la chaîne, pas besoin de choisir la source.
+                                    catalog.type in listOf("tv", "channel") -> scope.launch {
+                                        val streams = runCatching {
+                                            stremio.streams(addon.manifestUrl, catalog.type, meta.id)
+                                        }.getOrDefault(emptyList())
+                                        val direct = streams.firstOrNull { it.playable }
+                                        when {
+                                            direct?.url != null ->
+                                                onPlayExternal(direct.url, meta.name, direct.requestHeaders)
+                                            streams.firstOrNull()?.infoHash != null ->
+                                                onPlayTorrent(streams.first().infoHash!!, meta.name)
+                                            else -> sourcesTarget = SourcesTarget(catalog.type, meta.id, meta.name)
+                                        }
+                                    }
                                     // Film/série IMDb → fiche TMDB complète.
                                     meta.id.startsWith("tt") -> scope.launch {
                                         val found = runCatching { tmdb.findByImdb(meta.id) }.getOrNull()
@@ -185,6 +199,10 @@ fun DiscoverScreen(
                     sourcesTarget = null
                     onPlayExternal(url, target.title, headers)
                 },
+                onPlayTorrent = { hash ->
+                    sourcesTarget = null
+                    onPlayTorrent(hash, target.title)
+                },
             )
         }
     }
@@ -197,6 +215,7 @@ private fun CatalogRail(
     type: String,
     catalogId: String,
     title: String,
+    grid: Boolean = false,
     onClick: (StremioMeta) -> Unit,
 ) {
     val metas by produceState<List<StremioMeta>?>(initialValue = null, addon.manifestUrl, type, catalogId) {
@@ -216,7 +235,30 @@ private fun CatalogRail(
                 color = LumenColors.Accent,
                 modifier = Modifier.padding(horizontal = 48.dp).size(22.dp),
             )
-            else -> LazyRow(
+            else -> if (grid) {
+                // Chaînes TV : GRILLE verticale — tout est atteignable au scroll,
+                // pas coincé au bout d'une rangée horizontale.
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.padding(horizontal = 48.dp),
+                ) {
+                    list.chunked(7).forEach { rowMetas ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            rowMetas.forEach { meta ->
+                                MediaCard(
+                                    CardItem(
+                                        id = "strem:${meta.type}:${meta.id}",
+                                        title = meta.name,
+                                        posterUrl = meta.poster,
+                                        inLibrary = false,
+                                    ),
+                                    onClick = { onClick(meta) },
+                                )
+                            }
+                        }
+                    }
+                }
+            } else LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(horizontal = 48.dp),
             ) {
