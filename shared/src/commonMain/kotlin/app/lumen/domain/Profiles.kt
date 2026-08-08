@@ -24,9 +24,18 @@ data class LocalProfile(
 }
 
 /** Profils stockés dans la base locale SQLite. */
-class ProfileRepository(private val db: LumenDb) {
+/**
+ * Les profils appartiennent à UN serveur : ceux du NAS ne sont pas ceux
+ * d'anime-sanctuary. Le dépôt est donc lié au serveur courant.
+ */
+class ProfileRepository(private val db: LumenDb, private val serverUrl: String) {
 
-    fun list(): List<LocalProfile> = db.lumenQueries.selectProfiles().executeAsList().map {
+    /** Rattache au serveur courant les profils créés avant la séparation. */
+    fun adoptOrphans() {
+        db.lumenQueries.adoptOrphanProfiles(serverUrl)
+    }
+
+    fun list(): List<LocalProfile> = db.lumenQueries.selectProfiles(serverUrl).executeAsList().map {
         LocalProfile(
             id = it.id,
             name = it.name,
@@ -49,7 +58,7 @@ class ProfileRepository(private val db: LumenDb) {
             maxAge = maxAge,
         )
         db.lumenQueries.insertProfile(
-            profile.id, profile.name, profile.colorIndex.toLong(), profile.avatar,
+            profile.id, serverUrl, profile.name, profile.colorIndex.toLong(), profile.avatar,
             profile.pinHash, if (profile.child) 1 else 0, profile.maxAge.toLong(),
         )
         return profile

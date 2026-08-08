@@ -3,6 +3,7 @@
 
 CREATE TABLE profile (
     id TEXT NOT NULL PRIMARY KEY,
+    serverUrl TEXT NOT NULL DEFAULT '',   -- chaque serveur a SES profils
     name TEXT NOT NULL,
     colorIndex INTEGER NOT NULL DEFAULT 0,
     avatar TEXT,                -- nom de ressource (avatar_01…) ou NULL → initiale
@@ -21,11 +22,15 @@ CREATE TABLE watch_state (
 );
 
 selectProfiles:
-SELECT * FROM profile;
+SELECT * FROM profile WHERE serverUrl = ?;
+
+-- Reprise des profils crees avant la separation par serveur.
+adoptOrphanProfiles:
+UPDATE profile SET serverUrl = ? WHERE serverUrl = '';
 
 insertProfile:
-INSERT INTO profile(id, name, colorIndex, avatar, pinHash, child, maxAge)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT INTO profile(id, serverUrl, name, colorIndex, avatar, pinHash, child, maxAge)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 updateProfile:
 UPDATE profile SET name = ?, colorIndex = ?, avatar = ?, pinHash = ?, child = ?, maxAge = ?

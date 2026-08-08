@@ -54,10 +54,23 @@ fun App() {
     val client = remember { JellyfinClient(deviceId = store.deviceId, deviceName = platformDeviceName()) }
     val flow = remember { ConnectFlow(client, ServerResolver(client), store) }
     val db = app.lumen.db.rememberLumenDb()
-    val profileRepo = remember(db) { app.lumen.domain.ProfileRepository(db) }
     val watchRepo = remember(db) { app.lumen.domain.WatchStateRepository(db) }
-    var profiles by remember { mutableStateOf(profileRepo.list()) }
+    // Les profils sont PROPRES AU SERVEUR : changer de serveur change de foyer.
+    val currentServerUrl = (flow.step.collectAsState().value as? ConnectStep.Done)
+        ?.session?.baseUrl.orEmpty()
+    val profileRepo = remember(db, currentServerUrl) {
+        app.lumen.domain.ProfileRepository(db, currentServerUrl)
+    }
+    var profiles by remember(currentServerUrl) { mutableStateOf(emptyList<app.lumen.domain.LocalProfile>()) }
     var activeProfile by remember { mutableStateOf<app.lumen.domain.LocalProfile?>(null) }
+    LaunchedEffect(currentServerUrl) {
+        if (currentServerUrl.isNotBlank()) {
+            // Les profils d'avant la séparation rejoignent le premier serveur ouvert.
+            profileRepo.adoptOrphans()
+            profiles = profileRepo.list()
+            activeProfile = null   // on redemande « qui regarde ? » au changement
+        }
+    }
     var gateMode by remember { mutableStateOf<String?>(null) }  // null | add | manage
     var serverList by remember { mutableStateOf(store.listServers()) }
     val appScope = androidx.compose.runtime.rememberCoroutineScope()
