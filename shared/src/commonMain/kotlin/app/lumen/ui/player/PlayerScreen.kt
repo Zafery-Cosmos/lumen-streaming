@@ -206,10 +206,17 @@ fun PlayerScreen(
                     app.lumen.player.guessStreamExtension(request.url),
                 )
             } else request.url
+            // La piste audio séparée passe par le MÊME proxy : une seule pile
+            // HTTP pour les deux flux, donc une seule IP vue par la source.
+            val proxiedAudio = request.audioSlaveUrl?.let { audio ->
+                if (app.lumen.player.StreamProxy.ensureRunning()) {
+                    app.lumen.player.StreamProxy.register(audio, request.headers, "m4a")
+                } else audio
+            }
             // Flux d'addon Stremio : lecture directe, en-têtes côté client (§4).
             title = request.title
             playMethod = if (request.isTrailer) "Bande-annonce" else "Flux direct (addon)"
-            engine.play(proxied, request.headers, audioSlaveUrl = request.audioSlaveUrl)
+            engine.play(proxied, request.headers, audioSlaveUrl = proxiedAudio)
             return@LaunchedEffect
         }
         if (itemId == null) {

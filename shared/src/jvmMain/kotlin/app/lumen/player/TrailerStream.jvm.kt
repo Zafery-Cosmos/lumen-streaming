@@ -22,6 +22,10 @@ actual suspend fun resolveYouTubeStream(videoId: String): TrailerStream? =
 private fun ytDlp(watchUrl: String): TrailerStream? = runCatching {
     val process = ProcessBuilder(
         "yt-dlp", "-g", "--no-warnings", "--no-playlist",
+        // Google verrouille ses URLs sur l'IP du client qui les a demandées.
+        // yt-dlp sortant en IPv6 et la JVM en IPv4, le lecteur récoltait un
+        // 403 sur un flux pourtant valide : on aligne les deux sur IPv4.
+        "--force-ipv4",
         // On force du H.264 : c'est le seul codec que toutes les cartes
         // décodent en matériel. Les replis couvrent les vidéos sans DASH.
         "-f", "bv*[height<=1080][vcodec^=avc1]+ba[ext=m4a]/b[ext=mp4]/b",
