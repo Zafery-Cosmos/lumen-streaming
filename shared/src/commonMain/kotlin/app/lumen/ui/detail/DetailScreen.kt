@@ -165,13 +165,28 @@ private fun JellyfinDetail(
         if (tmdbId != null) enricher.forSeries(tmdbId)
 
         value = eps.map { ep ->
-            val resolved = if (tmdbId != null) enricher.resolve(ep.parentIndexNumber, ep.indexNumber) else null
-            OrganizedEpisode(
-                ep = ep,
-                season = resolved?.season ?: ep.parentIndexNumber ?: 0,
-                number = resolved?.episode ?: ep.indexNumber ?: 0,
-                extra = resolved?.extra,
-            )
+            // 1) Le NOM DE FICHIER d'abord — « 053 - FL - 01-01 - Titre.mkv » dit
+            //    la vérité là où les IndexNumber de Jellyfin sont faux.
+            val parsed = app.lumen.domain.parseEpisodeFileName(ep.path)
+            if (parsed != null) {
+                val resolved = if (tmdbId != null) enricher.resolve(parsed.season, parsed.episode) else null
+                OrganizedEpisode(
+                    ep = ep,
+                    season = parsed.season,
+                    number = parsed.episode,
+                    extra = resolved?.extra
+                        ?: parsed.title?.let { app.lumen.domain.EpisodeExtra(it, null, null, null) },
+                )
+            } else {
+                // 2) Sinon : S/E déclarés, réinterprétés en absolu si besoin.
+                val resolved = if (tmdbId != null) enricher.resolve(ep.parentIndexNumber, ep.indexNumber) else null
+                OrganizedEpisode(
+                    ep = ep,
+                    season = resolved?.season ?: ep.parentIndexNumber ?: 0,
+                    number = resolved?.episode ?: ep.indexNumber ?: 0,
+                    extra = resolved?.extra,
+                )
+            }
         }
             .groupBy { it.season }
             .mapValues { (_, list) -> list.sortedBy { it.number } }

@@ -59,6 +59,7 @@ data class BaseItem(
     @SerialName("UserData") val userData: UserData? = null,
     @SerialName("Genres") val genres: List<String> = emptyList(),
     // Champs spécifiques aux épisodes / saisons
+    @SerialName("Path") val path: String? = null,
     @SerialName("SeriesId") val seriesId: String? = null,
     @SerialName("SeriesName") val seriesName: String? = null,
     @SerialName("SeasonName") val seasonName: String? = null,

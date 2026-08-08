@@ -11,6 +11,29 @@ data class EpisodeExtra(
     val runtimeMinutes: Int?,
 )
 
+/** Saison/épisode/titre extraits du NOM DE FICHIER — la source la plus fiable. */
+data class ParsedFileName(val season: Int, val episode: Int, val title: String?)
+
+/**
+ * Parse « 053 - FL - 01-01 - Frappé par la foudre.mkv », « S03E07 »,
+ * « FL.2014.08-06 » et variantes. Les IndexNumber de Jellyfin sont souvent
+ * faux sur ce genre de fichiers ; le nom, lui, dit la vérité.
+ */
+fun parseEpisodeFileName(path: String?): ParsedFileName? {
+    val name = path?.substringAfterLast('/')?.substringBeforeLast('.') ?: return null
+    val regex = Regex("""(?i)(?:s(\d{1,2})\s*e(\d{1,3}))|(?:\b(\d{1,2})[x-](\d{1,3})\b)""")
+    val m = regex.find(name) ?: return null
+    val g = m.groupValues
+    val season = (g[1].ifEmpty { g[3] }).toIntOrNull() ?: return null
+    val episode = (g[2].ifEmpty { g[4] }).toIntOrNull() ?: return null
+    if (season !in 0..99 || episode !in 1..999) return null
+    // Le titre suit souvent le marqueur SxE : « … 01-01 - Frappé par la foudre ».
+    val title = name.substring(m.range.last + 1)
+        .trim(' ', '-', '.', '_')
+        .takeIf { it.length >= 3 }
+    return ParsedFileName(season, episode, title)
+}
+
 /**
  * Enrichit les épisodes sans métadonnées (exigence utilisateur) : les fichiers
  * type « FL.2014.E53 » donnent un numéro ABSOLU côté Jellyfin. On le convertit

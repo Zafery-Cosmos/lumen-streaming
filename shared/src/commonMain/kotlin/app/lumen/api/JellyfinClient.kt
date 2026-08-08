@@ -222,7 +222,7 @@ class JellyfinClient(
         authedGet(
             baseUrl,
             buildString {
-                append("/Shows/$seriesId/Episodes?userId=$userId&fields=Overview")
+                append("/Shows/$seriesId/Episodes?userId=$userId&fields=Overview,Path")
                 seasonId?.let { append("&seasonId=$it") }
             },
         )

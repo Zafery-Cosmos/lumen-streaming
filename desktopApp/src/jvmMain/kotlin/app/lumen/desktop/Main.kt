@@ -10,9 +10,6 @@ import app.lumen.resources.logo
 import org.jetbrains.compose.resources.painterResource
 
 fun main() {
-    // Sans ce flag, la surface vidéo AWT (VLCJ) passerait AU-DESSUS des
-    // contrôles Compose du lecteur — l'overlay maison serait invisible.
-    System.setProperty("compose.interop.blending", "true")
     application {
     Window(
         onCloseRequest = ::exitApplication,
