@@ -89,12 +89,22 @@ fun MediaCard(card: CardItem, wide: Boolean = false, onClick: () -> Unit = {}) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(Modifier.height(height).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(LumenColors.Surface)) {
-            AsyncImage(
-                model = card.posterUrl,
-                contentDescription = card.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
+            if (card.posterUrl != null) {
+                AsyncImage(
+                    model = card.posterUrl,
+                    contentDescription = card.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                // Pas de visuel : placeholder vectoriel discret plutôt qu'un pavé vide.
+                Icon(
+                    Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    tint = LumenColors.Muted.copy(alpha = 0.4f),
+                    modifier = Modifier.size(30.dp).align(Alignment.Center),
+                )
+            }
             // Numéro de classement (Top 10) — cartouche sombre en haut à gauche.
             card.rank?.let { rank ->
                 Box(

@@ -297,13 +297,26 @@ private fun EpisodeRow(client: JellyfinClient, session: StoredSession, ep: BaseI
             .background(LumenColors.Surface)
             .padding(10.dp),
     ) {
-        Box(Modifier.width(200.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))) {
-            AsyncImage(
-                model = client.imageUrl(session.baseUrl, ep.id, "Primary", ep.imageTags["Primary"], maxWidth = 400),
-                contentDescription = ep.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
+        Box(
+            Modifier.width(200.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(8.dp))
+                .background(LumenColors.SurfaceHigh),
+        ) {
+            if (ep.imageTags.containsKey("Primary")) {
+                AsyncImage(
+                    model = client.imageUrl(session.baseUrl, ep.id, "Primary", ep.imageTags["Primary"], maxWidth = 400),
+                    contentDescription = ep.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                // Pas de vignette côté serveur : placeholder vectoriel, pas un trou noir.
+                Icon(
+                    Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    tint = LumenColors.Muted.copy(alpha = 0.5f),
+                    modifier = Modifier.size(34.dp).align(Alignment.Center),
+                )
+            }
             val progress = ep.userData?.playedPercentage
             if (progress != null && progress > 0) {
                 Box(
@@ -318,8 +331,15 @@ private fun EpisodeRow(client: JellyfinClient, session: StoredSession, ep: BaseI
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+            // Évite le doublon « 53. Épisode 53 » quand le nom n'est que le numéro.
+            val n = ep.indexNumber
+            val label = when {
+                n == null -> ep.name
+                Regex("^[ÉE]pisode\\s*0*$n$", RegexOption.IGNORE_CASE).matches(ep.name.trim()) -> "Épisode $n"
+                else -> "$n. ${ep.name}"
+            }
             Text(
-                "${ep.indexNumber ?: "?"}. ${ep.name}",
+                label,
                 color = LumenColors.OnBackground,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
