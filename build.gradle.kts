@@ -1,0 +1,10 @@
+// Racine : ne fait que déclarer les plugins pour que les sous-modules les appliquent.
+plugins {
+    alias(libs.plugins.kotlin.multiplatform) apply false
+    alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.kotlin.compose.compiler) apply false
+    alias(libs.plugins.compose.multiplatform) apply false
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.android.kmp.library) apply false
+    alias(libs.plugins.sqldelight) apply false
+}
