@@ -87,29 +87,16 @@ private fun HomeBody(
         // Pas d'apparition différée ici : les rangées doivent TOUJOURS être là
         // quand on scrolle — aucun trou, aucun arrêt de glisse.
         items(content.rails.size, key = { content.rails[it].id }) { index ->
-            RailRow(content.rails[index], onOpen, ctx)
+            val rail = content.rails[index]
+            app.lumen.ui.components.MediaRail(
+                title = rail.title,
+                cards = rail.items,
+                wide = rail.wide,
+                ranked = rail.id == "top10",   // Top 10 : gros chiffres Netflix
+                ctx = ctx,
+                onOpen = onOpen,
+            )
         }
         item(key = "bottom-spacer") { Spacer(Modifier.height(24.dp)) }
-    }
-}
-
-@Composable
-private fun RailRow(rail: Rail, onOpen: (String) -> Unit, ctx: app.lumen.ui.components.CardContext) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            rail.title,
-            color = LumenColors.OnBackground,
-            fontSize = 19.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 48.dp),
-        )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(horizontal = 48.dp),
-        ) {
-            items(rail.items, key = { it.id }) { card ->
-                MediaCard(card, wide = rail.wide, onClick = { onOpen(card.id) }, ctx = ctx)
-            }
-        }
     }
 }

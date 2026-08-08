@@ -152,6 +152,10 @@ class TmdbClient(private val http: HttpClient) {
     suspend fun moviesByGenre(genreId: Int): List<TmdbItem> =
         get("discover/movie", "&with_genres=$genreId&sort_by=popularity.desc").results
 
+    /** Une rangée séries par chemin TMDB (tv/popular, trending/tv/week…). */
+    suspend fun tvRow(path: String): List<TmdbItem> =
+        get(path).results.map { it.copy(mediaType = it.mediaType ?: "tv") }
+
     /** Nouveautés cinéma du moment. */
     suspend fun nowPlaying(): List<TmdbItem> = get("movie/now_playing").results
 
@@ -195,6 +199,14 @@ class TmdbClient(private val http: HttpClient) {
 
     companion object {
         private const val BASE = "https://api.themoviedb.org/3"
+
+        /** Rangées éditoriales de la page Séries. */
+        val TV_ROWS = listOf(
+            "tv/popular" to "Séries populaires",
+            "tv/top_rated" to "Séries les mieux notées",
+            "tv/on_the_air" to "En cours de diffusion",
+            "trending/tv/week" to "Tendances de la semaine",
+        )
 
         /** Genres TMDB affichés sur l'accueil, dans cet ordre. */
         val HOME_GENRES = listOf(

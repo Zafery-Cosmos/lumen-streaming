@@ -116,6 +116,7 @@ fun App() {
                             when {
                             // Premier lancement : la création d'un profil est OBLIGATOIRE.
                             hs == "first" -> FirstProfileScreen(
+                                client = client,
                                 onCreate = { name, avatar, child, maxAge, pin ->
                                     val created = profileRepo.add(name, avatar, child, maxAge, pin)
                                     profiles = profileRepo.list()
@@ -125,6 +126,7 @@ fun App() {
                             // Puis, à CHAQUE lancement : « Qui regarde ? »,
                             // avec ajout et gestion des profils sur place.
                             hs == "add" -> FirstProfileScreen(
+                                client = client,
                                 onCreate = { name, avatar, child, maxAge, pin ->
                                     profileRepo.add(name, avatar, child, maxAge, pin)
                                     profiles = profileRepo.list()
@@ -132,7 +134,7 @@ fun App() {
                                 },
                             )
                             hs == "manage" -> app.lumen.ui.profiles.ProfileSettingsScreen(
-                                profileRepo,
+                                client, profileRepo,
                                 onBack = { gateMode = null },
                                 onProfilesChanged = { profiles = profileRepo.list() },
                             )
@@ -184,6 +186,7 @@ fun App() {
 /** Premier lancement : création obligatoire du premier profil du foyer. */
 @Composable
 private fun FirstProfileScreen(
+    client: app.lumen.api.JellyfinClient,
     onCreate: (name: String, avatar: String?, child: Boolean, maxAge: Int, pin: String?) -> Unit,
 ) {
     Box(Modifier.fillMaxSize().background(LumenColors.Background), contentAlignment = Alignment.Center) {
@@ -207,6 +210,7 @@ private fun FirstProfileScreen(
                 fontSize = 14.sp,
             )
             app.lumen.ui.profiles.ProfileEditor(
+                client = client,
                 initial = null,
                 onSave = { name, avatar, child, maxAge, newPin, _ ->
                     onCreate(name, avatar, child, maxAge, newPin)

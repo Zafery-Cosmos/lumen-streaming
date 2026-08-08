@@ -79,13 +79,25 @@ fun ProfileAvatar(
     cornerRadius: Int = 16,
 ) {
     val res = avatarResource(avatar)
+    // Un avatar de la banque NAS est un chemin « /avatars/... » ; les anciens
+    // profils pointent encore sur une ressource embarquée.
+    val remote = avatar?.takeIf { it.startsWith("/avatars/") || it.startsWith("http") }
     Box(
         Modifier.size(size.dp).clip(RoundedCornerShape(cornerRadius.dp)).background(
-            if (res == null) ProfileColors[colorIndex % ProfileColors.size] else Color.Transparent,
+            if (res == null && remote == null) {
+                ProfileColors[colorIndex % ProfileColors.size]
+            } else Color.Transparent,
         ),
         contentAlignment = Alignment.Center,
     ) {
-        if (res != null) {
+        if (remote != null) {
+            coil3.compose.AsyncImage(
+                model = if (remote.startsWith("http")) remote else "${app.lumen.update.UPDATE_SERVER}$remote",
+                contentDescription = name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else if (res != null) {
             Image(
                 painter = painterResource(res),
                 contentDescription = name,

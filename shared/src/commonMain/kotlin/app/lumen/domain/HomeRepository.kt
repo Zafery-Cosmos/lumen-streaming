@@ -110,7 +110,7 @@ class HomeRepository(
             recentItems
                 .let { l -> if (AppSettings.hidePlayedInRecent.value) l.filterNot { it.userData?.played == true } else l }
                 .takeIf { it.isNotEmpty() }?.let { list ->
-                    railsByKey["recent"] = listOf(Rail("recent", "Nouveautés", list.map { it.toCard(client, session) }))
+                    railsByKey["recent"] = listOf(Rail("recent", "Ma médiathèque", list.map { it.toCard(client, session) }))
                 }
         }
         if (AppSettings.showTop10.value) {

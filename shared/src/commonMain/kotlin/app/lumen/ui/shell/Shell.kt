@@ -185,11 +185,11 @@ fun Shell(
                     onPlay = playItem,
                 )
                 state == ShellTab.Movies.name -> BrowseScreen(
-                    client, session, profile, includeTypes = "Movie", title = "Films",
+                    client, tmdb, session, profile, includeTypes = "Movie", title = "Films",
                     onOpen = openDetail, onPlay = playItem,
                 )
                 state == ShellTab.Series.name -> BrowseScreen(
-                    client, session, profile, includeTypes = "Series", title = "Séries",
+                    client, tmdb, session, profile, includeTypes = "Series", title = "Séries",
                     onOpen = openDetail, onPlay = playItem,
                 )
                 state == ShellTab.Discover.name -> app.lumen.ui.discover.DiscoverScreen(
@@ -210,7 +210,7 @@ fun Shell(
                         onSwitchProfile = onSwitchProfile,
                     )
                     "profiles" -> app.lumen.ui.profiles.ProfileSettingsScreen(
-                        profileRepo,
+                        client, profileRepo,
                         onBack = { settingsSub = null },
                         onProfilesChanged = onProfilesChanged,
                     )

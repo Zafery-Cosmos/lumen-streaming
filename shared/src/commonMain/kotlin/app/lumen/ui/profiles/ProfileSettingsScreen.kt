@@ -53,7 +53,7 @@ import org.jetbrains.compose.resources.painterResource
 
 /** Gestion des profils du foyer — création, avatar, PIN (haché), enfant. */
 @Composable
-fun ProfileSettingsScreen(repo: ProfileRepository, onBack: () -> Unit, onProfilesChanged: () -> Unit) {
+fun ProfileSettingsScreen(client: app.lumen.api.JellyfinClient, repo: ProfileRepository, onBack: () -> Unit, onProfilesChanged: () -> Unit) {
     var profiles by remember { mutableStateOf(repo.list()) }
     var editing by remember { mutableStateOf<LocalProfile?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -87,6 +87,7 @@ fun ProfileSettingsScreen(repo: ProfileRepository, onBack: () -> Unit, onProfile
 
         when {
             creating || editing != null -> ProfileEditor(
+                client = client,
                 initial = editing,
                 onSave = { name, avatar, child, maxAge, newPin, removePin ->
                     val current = editing
@@ -171,6 +172,7 @@ fun ProfileSettingsScreen(repo: ProfileRepository, onBack: () -> Unit, onProfile
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProfileEditor(
+    client: app.lumen.api.JellyfinClient,
     initial: LocalProfile?,
     onSave: (name: String, avatar: String?, child: Boolean, maxAge: Int, newPin: String?, removePin: Boolean) -> Unit,
     onDelete: (() -> Unit)?,
@@ -202,37 +204,7 @@ fun ProfileEditor(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        // Choix de l'avatar dans la banque embarquée.
-        Text("Avatar", color = LumenColors.OnBackground, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Avatars.forEach { (resName, res) ->
-                val selected = avatar == resName
-                Box(
-                    Modifier
-                        .size(56.dp)
-                        .alpha(if (selected || avatar == null) 1f else 0.55f)
-                        .background(
-                            if (selected) LumenColors.Accent else Color.Transparent,
-                            RoundedCornerShape(14.dp),
-                        )
-                        .padding(if (selected) 3.dp else 0.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                        ) { avatar = if (selected) null else resName },
-                ) {
-                    androidx.compose.foundation.Image(
-                        painter = painterResource(res),
-                        contentDescription = resName,
-                        modifier = Modifier.fillMaxSize()
-                            .background(LumenColors.SurfaceHigh, RoundedCornerShape(12.dp)),
-                    )
-                }
-            }
-        }
+        AvatarPicker(client, avatar) { avatar = it }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

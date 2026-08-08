@@ -1,0 +1,5 @@
+# Copiez ce fichier en local.properties et complétez.
+# Clé API TMDB — métadonnées, logos, réorganisation des séries.
+tmdb.api.key=VOTRE_CLE_TMDB
+# Uniquement pour compiler l'APK Android.
+sdk.dir=/chemin/vers/Android/Sdk
