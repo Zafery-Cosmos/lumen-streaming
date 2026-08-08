@@ -6,6 +6,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,27 +38,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumen.domain.LocalProfile
-import app.lumen.domain.ProfileStore
+import app.lumen.domain.ProfileRepository
+import app.lumen.db.sha256Hex
+import app.lumen.ui.components.Avatars
+import app.lumen.ui.components.ProfileAvatar
 import app.lumen.ui.theme.LumenColors
+import org.jetbrains.compose.resources.painterResource
 
-/**
- * Gestion des profils du foyer (création, PIN, profil enfant, suppression).
- * Le reste de l'arborescence Paramètres arrive au L10 — cette page est déjà
- * réellement fonctionnelle, pas décorative.
- */
+/** Gestion des profils du foyer — création, avatar, PIN (haché), enfant. */
 @Composable
-fun ProfileSettingsScreen(store: ProfileStore, onBack: () -> Unit, onProfilesChanged: () -> Unit) {
-    var profiles by remember { mutableStateOf(store.list()) }
+fun ProfileSettingsScreen(repo: ProfileRepository, onBack: () -> Unit, onProfilesChanged: () -> Unit) {
+    var profiles by remember { mutableStateOf(repo.list()) }
     var editing by remember { mutableStateOf<LocalProfile?>(null) }
     var creating by remember { mutableStateOf(false) }
 
     fun refresh() {
-        profiles = store.list()
+        profiles = repo.list()
         onProfilesChanged()
     }
 
@@ -83,33 +86,36 @@ fun ProfileSettingsScreen(store: ProfileStore, onBack: () -> Unit, onProfilesCha
         when {
             creating || editing != null -> ProfileEditor(
                 initial = editing,
-                onSave = { name, child, maxAge, pin ->
+                onSave = { name, avatar, child, maxAge, newPin, removePin ->
                     val current = editing
                     if (current == null) {
-                        store.add(name, child, maxAge, pin)
+                        repo.add(name, avatar, child, maxAge, newPin)
                     } else {
-                        store.update(current.copy(name = name, child = child, maxAge = maxAge, pin = pin))
+                        repo.update(
+                            current.copy(
+                                name = name,
+                                avatar = avatar,
+                                child = child,
+                                maxAge = maxAge,
+                                pinHash = when {
+                                    removePin -> null
+                                    newPin != null -> sha256Hex(newPin)
+                                    else -> current.pinHash   // inchangé
+                                },
+                            ),
+                        )
                     }
                     creating = false; editing = null; refresh()
                 },
                 onDelete = editing?.let { p ->
                     {
-                        store.remove(p.id)
+                        repo.remove(p.id)
                         creating = false; editing = null; refresh()
                     }
                 },
                 onCancel = { creating = false; editing = null },
             )
             else -> {
-                if (profiles.isEmpty()) {
-                    Text(
-                        "Aucun profil : l'app s'ouvre sans restriction. Crée des profils pour" +
-                            " avoir l'écran « Qui regarde ? », les codes PIN et les profils enfant.",
-                        color = LumenColors.Muted,
-                        fontSize = 14.sp,
-                        modifier = Modifier.widthIn(max = 560.dp),
-                    )
-                }
                 profiles.forEach { profile ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -123,22 +129,14 @@ fun ProfileSettingsScreen(store: ProfileStore, onBack: () -> Unit, onProfilesCha
                             ) { editing = profile }
                             .padding(horizontal = 18.dp, vertical = 12.dp),
                     ) {
-                        Box(
-                            Modifier.size(38.dp).background(
-                                ProfileColors[profile.colorIndex % ProfileColors.size],
-                                RoundedCornerShape(8.dp),
-                            ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(profile.name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
-                        }
+                        ProfileAvatar(profile.name, profile.avatar, profile.colorIndex, 40, cornerRadius = 8)
                         Spacer(Modifier.width(14.dp))
                         Column {
                             Text(profile.name, color = LumenColors.OnBackground, fontSize = 15.sp)
                             Text(
                                 buildList {
                                     if (profile.child) add("Enfant ${profile.maxAge}+ max")
-                                    if (profile.pin != null) add("PIN")
+                                    if (profile.hasPin) add("PIN")
                                 }.joinToString(" · ").ifEmpty { "Standard" },
                                 color = LumenColors.Muted,
                                 fontSize = 12.sp,
@@ -164,21 +162,28 @@ fun ProfileSettingsScreen(store: ProfileStore, onBack: () -> Unit, onProfilesCha
     }
 }
 
+/**
+ * Éditeur de profil. Sémantique du PIN à l'édition : champ vide → PIN
+ * inchangé ; 4 chiffres → nouveau PIN ; « Retirer le PIN » → déverrouillé.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ProfileEditor(
+fun ProfileEditor(
     initial: LocalProfile?,
-    onSave: (name: String, child: Boolean, maxAge: Int, pin: String?) -> Unit,
+    onSave: (name: String, avatar: String?, child: Boolean, maxAge: Int, newPin: String?, removePin: Boolean) -> Unit,
     onDelete: (() -> Unit)?,
     onCancel: () -> Unit,
 ) {
     var name by remember { mutableStateOf(initial?.name ?: "") }
+    var avatar by remember { mutableStateOf(initial?.avatar) }
     var child by remember { mutableStateOf(initial?.child ?: false) }
     var maxAge by remember { mutableStateOf(initial?.maxAge ?: 10) }
-    var pin by remember { mutableStateOf(initial?.pin ?: "") }
+    var pin by remember { mutableStateOf("") }
+    var removePin by remember { mutableStateOf(false) }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.widthIn(max = 560.dp),
+        modifier = Modifier.widthIn(max = 640.dp),
     ) {
         OutlinedTextField(
             value = name,
@@ -194,6 +199,38 @@ private fun ProfileEditor(
             ),
             modifier = Modifier.fillMaxWidth(),
         )
+
+        // Choix de l'avatar dans la banque embarquée.
+        Text("Avatar", color = LumenColors.OnBackground, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Avatars.forEach { (resName, res) ->
+                val selected = avatar == resName
+                Box(
+                    Modifier
+                        .size(56.dp)
+                        .alpha(if (selected || avatar == null) 1f else 0.55f)
+                        .background(
+                            if (selected) LumenColors.Accent else Color.Transparent,
+                            RoundedCornerShape(14.dp),
+                        )
+                        .padding(if (selected) 3.dp else 0.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { avatar = if (selected) null else resName },
+                ) {
+                    androidx.compose.foundation.Image(
+                        painter = painterResource(res),
+                        contentDescription = resName,
+                        modifier = Modifier.fillMaxSize()
+                            .background(LumenColors.SurfaceHigh, RoundedCornerShape(12.dp)),
+                    )
+                }
+            }
+        }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -235,24 +272,42 @@ private fun ProfileEditor(
             }
         }
 
-        OutlinedTextField(
-            value = pin,
-            onValueChange = { v -> if (v.length <= 4 && v.all { it.isDigit() }) pin = v },
-            label = { Text("Code PIN (4 chiffres, vide = aucun)", color = LumenColors.Muted) },
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = LumenColors.Accent,
-                unfocusedBorderColor = LumenColors.SurfaceHigh,
-                focusedTextColor = LumenColors.OnBackground,
-                unfocusedTextColor = LumenColors.OnBackground,
-                cursorColor = LumenColors.Accent,
-            ),
-            modifier = Modifier.width(280.dp),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            OutlinedTextField(
+                value = pin,
+                onValueChange = { v -> if (v.length <= 4 && v.all { it.isDigit() }) { pin = v; removePin = false } },
+                label = {
+                    Text(
+                        if (initial?.hasPin == true) "Nouveau PIN (vide = inchangé)" else "Code PIN (4 chiffres, vide = aucun)",
+                        color = LumenColors.Muted,
+                    )
+                },
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = LumenColors.Accent,
+                    unfocusedBorderColor = LumenColors.SurfaceHigh,
+                    focusedTextColor = LumenColors.OnBackground,
+                    unfocusedTextColor = LumenColors.OnBackground,
+                    cursorColor = LumenColors.Accent,
+                ),
+                modifier = Modifier.width(300.dp),
+            )
+            if (initial?.hasPin == true) {
+                Text(
+                    if (removePin) "PIN sera retiré" else "Retirer le PIN",
+                    color = if (removePin) LumenColors.Muted else LumenColors.Accent,
+                    fontSize = 13.sp,
+                    modifier = Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { removePin = !removePin; if (removePin) pin = "" },
+                )
+            }
+        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
-                onClick = { onSave(name.trim(), child, maxAge, pin.takeIf { it.length == 4 }) },
+                onClick = { onSave(name.trim(), avatar, child, maxAge, pin.takeIf { it.length == 4 }, removePin) },
                 enabled = name.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
                 shape = RoundedCornerShape(8.dp),

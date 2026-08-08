@@ -31,6 +31,7 @@ class HomeRepository(
     private val client: JellyfinClient,
     private val tmdb: TmdbClient,
     private val session: StoredSession,
+    private val watchRepo: WatchStateRepository? = null,
 ) {
 
     suspend fun load(profile: LocalProfile? = null): HomeContent = coroutineScope {
@@ -38,7 +39,19 @@ class HomeRepository(
         val uid = session.userId
 
         // --- Jellyfin -------------------------------------------------------
-        val resume = async { runCatching { client.resumeItems(base, uid).items }.getOrDefault(emptyList()) }
+        // « Reprendre » est PAR PROFIL (base locale) : la bibliothèque est
+        // partagée, pas la progression. Sans profil, repli sur le serveur.
+        val localResume = profile?.let { p -> watchRepo?.resume(p.id) }.orEmpty()
+        val resume = async {
+            if (localResume.isNotEmpty()) {
+                val byId = runCatching {
+                    client.itemsByIds(base, uid, localResume.map { it.itemId }).items
+                }.getOrDefault(emptyList()).associateBy { it.id }
+                localResume.mapNotNull { byId[it.itemId] }
+            } else if (profile == null) {
+                runCatching { client.resumeItems(base, uid).items }.getOrDefault(emptyList())
+            } else emptyList()
+        }
         val nextUp = async { runCatching { client.nextUp(base, uid).items }.getOrDefault(emptyList()) }
         val recent = async {
             runCatching {
@@ -67,9 +80,20 @@ class HomeRepository(
 
         val recentItems = recent.await().filter { profile.allows(it) }
 
+        // La progression affichée vient de la base locale du profil.
+        val localPct = localResume.associate { it.itemId to it.percent }
         val rails = buildList {
             resume.await().filter { profile.allows(it) }.takeIf { it.isNotEmpty() }?.let { list ->
-                add(Rail("resume", "Reprendre la lecture", list.map { it.toCard(client, session, wideThumb = true) }, wide = true))
+                add(
+                    Rail(
+                        "resume", "Reprendre la lecture",
+                        list.map { item ->
+                            val card = item.toCard(client, session, wideThumb = true)
+                            localPct[item.id]?.let { card.copy(progressPercent = it) } ?: card
+                        },
+                        wide = true,
+                    ),
+                )
             }
             nextUp.await().filter { profile.allows(it) }.takeIf { it.isNotEmpty() }?.let { list ->
                 add(Rail("nextup", "À suivre", list.map { it.toCard(client, session, wideThumb = true) }, wide = true))

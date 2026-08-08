@@ -1,66 +1,96 @@
 package app.lumen.domain
 
 import app.lumen.api.BaseItem
-import com.russhwolf.settings.Settings
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import app.lumen.db.LumenDb
+import app.lumen.db.epochMillis
+import app.lumen.db.sha256Hex
 import kotlin.random.Random
 
 /**
- * Profil LOCAL (plan §6.2) : indépendant des utilisateurs Jellyfin — plusieurs
- * personnes du foyer partagent le même compte serveur mais chacun a son
- * profil, son éventuel code PIN et sa restriction d'âge (profil enfant).
+ * Profil LOCAL du foyer (plan §6.2) : indépendant des utilisateurs Jellyfin —
+ * la bibliothèque est partagée, mais chacun a son profil, sa reprise de
+ * lecture, son éventuel code PIN (haché en base) et sa restriction d'âge.
  */
-@Serializable
 data class LocalProfile(
     val id: String,
     val name: String,
     val colorIndex: Int = 0,
-    /** Code PIN à 4 chiffres, null si non verrouillé. TODO(L10b) : hacher. */
-    val pin: String? = null,
+    val avatar: String? = null,      // nom de ressource (avatar_01…), null → initiale
+    val pinHash: String? = null,
     val child: Boolean = false,
-    /** Âge maximal autorisé pour un profil enfant (ex. 10 → rien au-dessus de 10+). */
     val maxAge: Int = 10,
-)
+) {
+    val hasPin: Boolean get() = pinHash != null
+}
 
-class ProfileStore(private val settings: Settings = Settings()) {
-    private val json = Json { ignoreUnknownKeys = true }
+/** Profils stockés dans la base locale SQLite. */
+class ProfileRepository(private val db: LumenDb) {
 
-    fun list(): List<LocalProfile> =
-        settings.getStringOrNull(KEY)?.let {
-            runCatching { json.decodeFromString<List<LocalProfile>>(it) }.getOrDefault(emptyList())
-        } ?: emptyList()
-
-    fun save(profiles: List<LocalProfile>) {
-        settings.putString(KEY, json.encodeToString(profiles))
+    fun list(): List<LocalProfile> = db.lumenQueries.selectProfiles().executeAsList().map {
+        LocalProfile(
+            id = it.id,
+            name = it.name,
+            colorIndex = it.colorIndex.toInt(),
+            avatar = it.avatar,
+            pinHash = it.pinHash,
+            child = it.child != 0L,
+            maxAge = it.maxAge.toInt(),
+        )
     }
 
-    fun add(name: String, child: Boolean, maxAge: Int, pin: String?): LocalProfile {
+    fun add(name: String, avatar: String?, child: Boolean, maxAge: Int, pin: String?): LocalProfile {
         val profile = LocalProfile(
             id = buildString { repeat(8) { append("0123456789abcdef"[Random.nextInt(16)]) } },
             name = name,
-            colorIndex = list().size % PROFILE_COLORS_COUNT,
-            pin = pin?.takeIf { it.isNotBlank() },
+            colorIndex = list().size % 6,
+            avatar = avatar,
+            pinHash = pin?.takeIf { it.isNotBlank() }?.let(::sha256Hex),
             child = child,
             maxAge = maxAge,
         )
-        save(list() + profile)
+        db.lumenQueries.insertProfile(
+            profile.id, profile.name, profile.colorIndex.toLong(), profile.avatar,
+            profile.pinHash, if (profile.child) 1 else 0, profile.maxAge.toLong(),
+        )
         return profile
     }
 
     fun update(profile: LocalProfile) {
-        save(list().map { if (it.id == profile.id) profile else it })
+        db.lumenQueries.updateProfile(
+            profile.name, profile.colorIndex.toLong(), profile.avatar, profile.pinHash,
+            if (profile.child) 1 else 0, profile.maxAge.toLong(), profile.id,
+        )
     }
 
     fun remove(id: String) {
-        save(list().filterNot { it.id == id })
+        db.lumenQueries.deleteProfile(id)
+        db.lumenQueries.deleteWatchStateForProfile(id)
     }
 
-    companion object {
-        private const val KEY = "profiles.v1"
-        const val PROFILE_COLORS_COUNT = 6
+    /** Vérifie un PIN saisi contre le hash stocké — jamais de clair en base. */
+    fun verifyPin(profile: LocalProfile, entered: String): Boolean =
+        profile.pinHash != null && sha256Hex(entered) == profile.pinHash
+}
+
+/** Reprise de lecture PAR PROFIL — la bibliothèque est commune, pas la reprise. */
+class WatchStateRepository(private val db: LumenDb) {
+
+    data class Entry(val itemId: String, val positionMs: Long, val durationMs: Long) {
+        val percent: Double get() = if (durationMs > 0) positionMs * 100.0 / durationMs else 0.0
     }
+
+    fun record(profileId: String, itemId: String, positionMs: Long, durationMs: Long) {
+        if (durationMs <= 0) return
+        db.lumenQueries.upsertWatchState(profileId, itemId, positionMs, durationMs, epochMillis())
+    }
+
+    fun resume(profileId: String): List<Entry> =
+        db.lumenQueries.resumeForProfile(profileId).executeAsList().map {
+            Entry(it.itemId, it.positionMs, it.durationMs)
+        }
+
+    fun position(profileId: String, itemId: String): Long? =
+        db.lumenQueries.positionFor(profileId, itemId).executeAsOneOrNull()
 }
 
 /**

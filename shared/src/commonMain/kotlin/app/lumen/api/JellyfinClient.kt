@@ -221,6 +221,11 @@ class JellyfinClient(
     suspend fun item(baseUrl: String, userId: String, itemId: String): BaseItem =
         authedGet(baseUrl, "/Items/$itemId?userId=$userId&fields=$DEFAULT_FIELDS,People,Path")
 
+    /** Items par identifiants — pour la rangée « Reprendre » par profil. */
+    suspend fun itemsByIds(baseUrl: String, userId: String, ids: List<String>): ItemsResult =
+        if (ids.isEmpty()) ItemsResult()
+        else authedGet(baseUrl, "/Items?userId=$userId&ids=${ids.joinToString(",")}&fields=$DEFAULT_FIELDS")
+
     /** Titres similaires proposés par le serveur. */
     suspend fun similar(baseUrl: String, userId: String, itemId: String, limit: Int = 12): ItemsResult =
         authedGet(baseUrl, "/Items/$itemId/Similar?userId=$userId&limit=$limit&fields=$DEFAULT_FIELDS")

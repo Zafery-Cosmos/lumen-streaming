@@ -80,7 +80,8 @@ fun Shell(
     client: JellyfinClient,
     session: StoredSession,
     profile: app.lumen.domain.LocalProfile?,
-    profileStore: app.lumen.domain.ProfileStore,
+    profileRepo: app.lumen.domain.ProfileRepository,
+    watchRepo: app.lumen.domain.WatchStateRepository,
     onLogout: () -> Unit,
     onSwitchProfile: () -> Unit,
     onProfilesChanged: () -> Unit,
@@ -102,6 +103,8 @@ fun Shell(
         app.lumen.ui.player.PlayerScreen(
             client, session,
             itemId = id,
+            profile = profile,
+            watchRepo = watchRepo,
             onBack = { playingId = null; refreshKey++ },  // refresh → « Reprendre » à jour
         )
         return
@@ -136,7 +139,7 @@ fun Shell(
                 )
                 state == "search" -> SearchScreen(client, session, profile, searchQuery, onOpen = openDetail)
                 state == ShellTab.Home.name -> HomeScreen(
-                    client, tmdb, session, profile, refreshKey,
+                    client, tmdb, session, profile, watchRepo, refreshKey,
                     onOpen = openDetail,
                     onPlay = { id -> playingId = id },
                 )
@@ -150,7 +153,7 @@ fun Shell(
                 )
                 else -> when (settingsSub) {
                     "profiles" -> app.lumen.ui.profiles.ProfileSettingsScreen(
-                        profileStore,
+                        profileRepo,
                         onBack = { settingsSub = null },
                         onProfilesChanged = onProfilesChanged,
                     )

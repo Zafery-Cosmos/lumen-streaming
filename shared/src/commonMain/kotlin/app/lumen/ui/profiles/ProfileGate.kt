@@ -1,9 +1,5 @@
 package app.lumen.ui.profiles
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -15,9 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -33,20 +28,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumen.domain.LocalProfile
+import app.lumen.ui.components.ProfileAvatar
 import app.lumen.ui.theme.LumenColors
-
-/** Couleurs des pastilles de profil — vecteurs purs, pas d'images requises. */
-val ProfileColors = listOf(
-    Color(0xFFE8443A), Color(0xFF3A7BE8), Color(0xFF2FA96B),
-    Color(0xFFE89A3A), Color(0xFF9A55D6), Color(0xFF2AA6B5),
-)
 
 /**
  * « Qui regarde ? » — sélection du profil local au lancement, avec saisie du
- * code PIN quand le profil est verrouillé (parent) ou protégé.
+ * code PIN quand le profil est verrouillé. La vérification passe par la base
+ * (hash), jamais par une comparaison en clair.
  */
 @Composable
-fun ProfileGate(profiles: List<LocalProfile>, onSelect: (LocalProfile) -> Unit) {
+fun ProfileGate(
+    profiles: List<LocalProfile>,
+    verifyPin: (LocalProfile, String) -> Boolean,
+    onSelect: (LocalProfile) -> Unit,
+) {
     var pinFor by remember { mutableStateOf<LocalProfile?>(null) }
 
     Box(Modifier.fillMaxSize().background(LumenColors.Background), contentAlignment = Alignment.Center) {
@@ -64,7 +59,7 @@ fun ProfileGate(profiles: List<LocalProfile>, onSelect: (LocalProfile) -> Unit) 
                 Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                     profiles.forEach { profile ->
                         ProfileBadge(profile) {
-                            if (profile.pin != null) pinFor = profile else onSelect(profile)
+                            if (profile.hasPin) pinFor = profile else onSelect(profile)
                         }
                     }
                 }
@@ -73,7 +68,7 @@ fun ProfileGate(profiles: List<LocalProfile>, onSelect: (LocalProfile) -> Unit) 
                 title = "Code de ${p.name}",
                 onCancel = { pinFor = null },
                 onSubmit = { entered ->
-                    if (entered == p.pin) {
+                    if (verifyPin(p, entered)) {
                         pinFor = null
                         onSelect(p)
                         true
@@ -95,25 +90,14 @@ fun ProfileBadge(profile: LocalProfile, size: Int = 104, onClick: () -> Unit) {
             onClick = onClick,
         ),
     ) {
-        Box(
-            Modifier.size(size.dp).background(
-                ProfileColors[profile.colorIndex % ProfileColors.size],
-                RoundedCornerShape(16.dp),
-            ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                profile.name.take(1).uppercase(),
-                color = Color.White,
-                fontSize = (size * 0.42).sp,
-                fontWeight = FontWeight.Black,
-            )
-            if (profile.pin != null) {
+        Box {
+            ProfileAvatar(profile.name, profile.avatar, profile.colorIndex, size)
+            if (profile.hasPin) {
                 Icon(
                     Icons.Filled.Lock,
                     contentDescription = "Verrouillé",
-                    tint = Color.White.copy(alpha = 0.9f),
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(18.dp),
+                    tint = Color.White.copy(alpha = 0.95f),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(18.dp),
                 )
             }
         }
@@ -126,7 +110,7 @@ fun ProfileBadge(profile: LocalProfile, size: Int = 104, onClick: () -> Unit) {
     }
 }
 
-/** Pavé numérique de saisie de PIN — vibre visuellement en cas d'erreur. */
+/** Pavé numérique de saisie de PIN. */
 @Composable
 fun PinPad(title: String, onCancel: () -> Unit, onSubmit: (String) -> Boolean) {
     var entered by remember { mutableStateOf("") }
@@ -138,7 +122,6 @@ fun PinPad(title: String, onCancel: () -> Unit, onSubmit: (String) -> Boolean) {
     ) {
         Text(title, color = LumenColors.OnBackground, fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
-        // Les 4 points du code.
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             repeat(4) { i ->
                 Box(
@@ -157,7 +140,8 @@ fun PinPad(title: String, onCancel: () -> Unit, onSubmit: (String) -> Boolean) {
             Text("Code incorrect", color = LumenColors.Accent, fontSize = 13.sp)
         }
 
-        listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("", "0", "⌫")).forEach { row ->
+        // "DEL" est un sentinel interne — rendu en icône vectorielle, jamais en texte.
+        listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("", "0", "DEL")).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 row.forEach { key ->
                     Box(
@@ -171,7 +155,7 @@ fun PinPad(title: String, onCancel: () -> Unit, onSubmit: (String) -> Boolean) {
                         ) {
                             error = false
                             when (key) {
-                                "⌫" -> entered = entered.dropLast(1)
+                                "DEL" -> entered = entered.dropLast(1)
                                 else -> if (entered.length < 4) {
                                     entered += key
                                     if (entered.length == 4 && !onSubmit(entered)) {
@@ -183,9 +167,9 @@ fun PinPad(title: String, onCancel: () -> Unit, onSubmit: (String) -> Boolean) {
                         },
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (key == "⌫") {
+                        if (key == "DEL") {
                             Icon(
-                                Icons.Filled.Backspace,
+                                Icons.AutoMirrored.Filled.Backspace,
                                 contentDescription = "Effacer",
                                 tint = LumenColors.Muted,
                                 modifier = Modifier.size(22.dp),

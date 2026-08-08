@@ -7,8 +7,18 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,8 +52,10 @@ fun App() {
     val store = remember { SessionStore() }
     val client = remember { JellyfinClient(deviceId = store.deviceId, deviceName = platformDeviceName()) }
     val flow = remember { ConnectFlow(client, ServerResolver(client), store) }
-    val profileStore = remember { app.lumen.domain.ProfileStore() }
-    var profiles by remember { mutableStateOf(profileStore.list()) }
+    val db = app.lumen.db.rememberLumenDb()
+    val profileRepo = remember(db) { app.lumen.domain.ProfileRepository(db) }
+    val watchRepo = remember(db) { app.lumen.domain.WatchStateRepository(db) }
+    var profiles by remember { mutableStateOf(profileRepo.list()) }
     var activeProfile by remember { mutableStateOf<app.lumen.domain.LocalProfile?>(null) }
 
     // Coil : toutes les AsyncImage passent par Ktor, avec crossfade systématique.
@@ -82,22 +94,71 @@ fun App() {
                 RootState.Home -> {
                     val session = (flow.step.value as? ConnectStep.Done)?.session
                     if (session != null) {
-                        if (profiles.isNotEmpty() && activeProfile == null) {
-                            // « Qui regarde ? » — seulement si des profils existent.
-                            app.lumen.ui.profiles.ProfileGate(profiles) { activeProfile = it }
-                        } else {
-                            Shell(
+                        when {
+                            // Premier lancement : la création d'un profil est OBLIGATOIRE.
+                            profiles.isEmpty() -> FirstProfileScreen(
+                                onCreate = { name, avatar, child, maxAge, pin ->
+                                    val created = profileRepo.add(name, avatar, child, maxAge, pin)
+                                    profiles = profileRepo.list()
+                                    activeProfile = created
+                                },
+                            )
+                            // Puis, à CHAQUE lancement : « Qui regarde ? ».
+                            activeProfile == null -> app.lumen.ui.profiles.ProfileGate(
+                                profiles,
+                                verifyPin = profileRepo::verifyPin,
+                                onSelect = { activeProfile = it },
+                            )
+                            else -> Shell(
                                 client, session,
                                 profile = activeProfile,
-                                profileStore = profileStore,
+                                profileRepo = profileRepo,
+                                watchRepo = watchRepo,
                                 onLogout = { activeProfile = null; flow.logout() },
                                 onSwitchProfile = { activeProfile = null },
-                                onProfilesChanged = { profiles = profileStore.list() },
+                                onProfilesChanged = { profiles = profileRepo.list() },
                             )
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/** Premier lancement : création obligatoire du premier profil du foyer. */
+@Composable
+private fun FirstProfileScreen(
+    onCreate: (name: String, avatar: String?, child: Boolean, maxAge: Int, pin: String?) -> Unit,
+) {
+    Box(Modifier.fillMaxSize().background(LumenColors.Background), contentAlignment = Alignment.Center) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier
+                .widthIn(max = 680.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(32.dp),
+        ) {
+            Text(
+                "Crée ton profil",
+                color = LumenColors.OnBackground,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                "Chacun a le sien : sa reprise de lecture, son avatar, et au besoin" +
+                    " un code PIN ou une limite d'âge.",
+                color = LumenColors.Muted,
+                fontSize = 14.sp,
+            )
+            app.lumen.ui.profiles.ProfileEditor(
+                initial = null,
+                onSave = { name, avatar, child, maxAge, newPin, _ ->
+                    onCreate(name, avatar, child, maxAge, newPin)
+                },
+                onDelete = null,
+                onCancel = {},
+            )
         }
     }
 }

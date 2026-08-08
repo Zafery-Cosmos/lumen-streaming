@@ -1,0 +1,53 @@
+-- Base locale Lumen : profils du foyer et progression PAR PROFIL.
+-- La bibliothèque est partagée (un seul compte Jellyfin) ; la reprise, non.
+
+CREATE TABLE profile (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    colorIndex INTEGER NOT NULL DEFAULT 0,
+    avatar TEXT,                -- nom de ressource (avatar_01…) ou NULL → initiale
+    pinHash TEXT,               -- SHA-256 du PIN, NULL si non verrouillé
+    child INTEGER NOT NULL DEFAULT 0,
+    maxAge INTEGER NOT NULL DEFAULT 10
+);
+
+CREATE TABLE watch_state (
+    profileId TEXT NOT NULL,
+    itemId TEXT NOT NULL,
+    positionMs INTEGER NOT NULL,
+    durationMs INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    PRIMARY KEY (profileId, itemId)
+);
+
+selectProfiles:
+SELECT * FROM profile;
+
+insertProfile:
+INSERT INTO profile(id, name, colorIndex, avatar, pinHash, child, maxAge)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+updateProfile:
+UPDATE profile SET name = ?, colorIndex = ?, avatar = ?, pinHash = ?, child = ?, maxAge = ?
+WHERE id = ?;
+
+deleteProfile:
+DELETE FROM profile WHERE id = ?;
+
+upsertWatchState:
+INSERT OR REPLACE INTO watch_state(profileId, itemId, positionMs, durationMs, updatedAt)
+VALUES (?, ?, ?, ?, ?);
+
+resumeForProfile:
+SELECT * FROM watch_state
+WHERE profileId = ?
+  AND positionMs > 60000
+  AND (positionMs * 100.0) / durationMs < 92
+ORDER BY updatedAt DESC
+LIMIT 12;
+
+positionFor:
+SELECT positionMs FROM watch_state WHERE profileId = ? AND itemId = ?;
+
+deleteWatchStateForProfile:
+DELETE FROM watch_state WHERE profileId = ?;

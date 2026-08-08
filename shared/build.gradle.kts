@@ -8,6 +8,15 @@ plugins {
     // AGP 9 : plugin KMP dédié, l'ancien com.android.library est incompatible
     // avec kotlin.multiplatform depuis la 9.0.
     alias(libs.plugins.android.kmp.library)
+    alias(libs.plugins.sqldelight)
+}
+
+sqldelight {
+    databases {
+        create("LumenDb") {
+            packageName.set("app.lumen.db")
+        }
+    }
 }
 
 // Génère app/lumen/config/Secrets.kt depuis local.properties (jamais commité).
@@ -78,9 +87,13 @@ kotlin {
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)
         }
+        commonMain.dependencies {
+            implementation(libs.sqldelight.coroutines)
+        }
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.androidx.activity.compose)
+            implementation(libs.sqldelight.android)
             implementation(libs.media3.exoplayer)
             implementation(libs.media3.exoplayer.hls)
             implementation(libs.media3.ui)
@@ -89,6 +102,7 @@ kotlin {
             implementation(compose.desktop.common)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.vlcj)
+            implementation(libs.sqldelight.jvm)
         }
     }
 }

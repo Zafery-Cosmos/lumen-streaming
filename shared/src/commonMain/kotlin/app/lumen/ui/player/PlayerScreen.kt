@@ -97,6 +97,8 @@ fun PlayerScreen(
     client: JellyfinClient,
     session: StoredSession,
     itemId: String,
+    profile: app.lumen.domain.LocalProfile?,
+    watchRepo: app.lumen.domain.WatchStateRepository?,
     onBack: () -> Unit,
 ) {
     val engine = rememberPlayerEngine()
@@ -147,7 +149,9 @@ fun PlayerScreen(
                     "${it.seriesName} — S${it.parentIndexNumber}E${it.indexNumber} · ${it.name}"
                 else -> it.name
             }
-            val startMs = (it.userData?.playbackPositionTicks ?: 0L) / 10_000
+            // Reprise PAR PROFIL (base locale) en priorité, serveur en repli.
+            val localMs = profile?.let { p -> watchRepo?.position(p.id, itemId) }
+            val startMs = localMs ?: (it.userData?.playbackPositionTicks ?: 0L) / 10_000
             startPlayback(startMs)
             client.reportPlaybackStart(session.baseUrl, itemId, playSessionId)
         } catch (e: Exception) {
@@ -169,11 +173,13 @@ fun PlayerScreen(
         if (playSessionId == null) return@LaunchedEffect
         while (true) {
             delay(10_000)
-            val pos = engine.state.value.positionMs * 10_000
+            val s = engine.state.value
+            // Progression locale PAR PROFIL + progression serveur (partagée).
+            profile?.let { p -> watchRepo?.record(p.id, itemId, s.positionMs, s.durationMs) }
             runCatching {
                 client.reportPlaybackProgress(
-                    session.baseUrl, itemId, pos,
-                    paused = !engine.state.value.playing, playSessionId = playSessionId,
+                    session.baseUrl, itemId, s.positionMs * 10_000,
+                    paused = !s.playing, playSessionId = playSessionId,
                 )
             }
         }
@@ -188,7 +194,9 @@ fun PlayerScreen(
     }
 
     fun leave() {
-        val pos = engine.state.value.positionMs * 10_000
+        val s = engine.state.value
+        profile?.let { p -> watchRepo?.record(p.id, itemId, s.positionMs, s.durationMs) }
+        val pos = s.positionMs * 10_000
         val psid = playSessionId
         CoroutineScope(Dispatchers.Default).launch {
             runCatching { client.reportPlaybackStopped(session.baseUrl, itemId, pos, psid) }
