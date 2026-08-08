@@ -20,6 +20,10 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "app.lumen.desktop.MainKt"
+
+        // Requis pour corriger WM_CLASS (voir Main.kt) : depuis Java 17 les
+        // internes du toolkit X11 sont fermes par defaut.
+        jvmArgs += listOf("--add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED")
         nativeDistributions {
             // Un format par systeme : jpackage ne cross-compile pas, donc la CI
             // construit chacun sur son runner (Linux, Windows, macOS).
@@ -50,12 +54,17 @@ compose.desktop {
                 debMaintainer = "odilon.hugonnot@gmail.com"
             }
             windows {
+                // Sans .ico declare, jpackage retombe sur l icone Java par
+                // defaut : l app installee n avait aucun logo sur Windows.
+                iconFile.set(project.file("../art/logo.ico"))
                 menuGroup = "Lumen"
                 perUserInstall = true
                 // Identifiant fixe : les mises a jour remplacent l installation.
                 upgradeUuid = "9f2c1d84-3e5b-4a77-9c31-6b5f0a2d7e14"
             }
             macOS {
+                // Idem cote macOS, qui exige un .icns et rien d autre.
+                iconFile.set(project.file("../art/logo.icns"))
                 bundleID = "app.lumen.desktop"
             }
         }
