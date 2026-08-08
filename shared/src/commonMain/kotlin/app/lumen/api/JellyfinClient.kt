@@ -10,6 +10,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import io.ktor.http.encodeURLParameter
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
@@ -145,6 +146,14 @@ class JellyfinClient(
             includeTypes?.let { append("&includeItemTypes=$it") }
         },
     )
+
+    /** Recherche dynamique — appelée à chaque frappe (débouncée côté UI). */
+    suspend fun search(baseUrl: String, userId: String, term: String, limit: Int = 40): ItemsResult =
+        authedGet(
+            baseUrl,
+            "/Items?userId=$userId&searchTerm=${term.encodeURLParameter()}" +
+                "&Recursive=true&includeItemTypes=Movie,Series&limit=$limit&fields=$DEFAULT_FIELDS",
+        )
 
     /** URL d'une image d'item (Primary, Backdrop, Logo, Thumb). */
     fun imageUrl(

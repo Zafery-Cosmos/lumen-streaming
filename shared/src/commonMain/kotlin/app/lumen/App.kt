@@ -25,7 +25,7 @@ import app.lumen.auth.ServerResolver
 import app.lumen.auth.SessionStore
 import app.lumen.ui.connect.ConnectScreen
 import app.lumen.ui.connect.Wordmark
-import app.lumen.ui.home.HomeScreen
+import app.lumen.ui.shell.Shell
 import app.lumen.ui.theme.LumenColors
 import app.lumen.ui.theme.LumenTheme
 import coil3.ImageLoader
@@ -79,7 +79,7 @@ fun App() {
                 RootState.Home -> {
                     val session = (flow.step.value as? ConnectStep.Done)?.session
                     if (session != null) {
-                        HomeScreen(client, session, onLogout = { flow.logout() })
+                        Shell(client, session, onLogout = { flow.logout() })
                     }
                 }
             }

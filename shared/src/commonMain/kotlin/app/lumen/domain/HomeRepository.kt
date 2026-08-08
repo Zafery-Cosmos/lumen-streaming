@@ -53,7 +53,7 @@ class HomeRepository(private val client: JellyfinClient, private val session: St
                 add(Rail("nextup", "À suivre", it, wide = true))
             }
             latestPerLibrary.forEach { (lib, items) ->
-                if (items.isNotEmpty()) add(Rail("latest-${lib.id}", "Nouveautés — ${lib.name}", items))
+                if (items.isNotEmpty()) add(Rail("latest-${lib.id}", "Nouveautés — ${libraryLabel(lib)}", items))
             }
         }
 
@@ -63,5 +63,27 @@ class HomeRepository(private val client: JellyfinClient, private val session: St
             ?: rails.firstOrNull()?.items?.firstOrNull()
 
         HomeContent(hero = hero, rails = rails)
+    }
+
+    /**
+     * Libellé propre d'une bibliothèque : les serveurs nomment souvent les vues
+     * « nathan70240 - Movies » — on retire le préfixe utilisateur et on traduit
+     * les types connus, pour n'afficher que « Films », « Séries », etc.
+     */
+    private fun libraryLabel(lib: BaseItem): String {
+        val cleaned = lib.name
+            .removePrefix("${session.userName} - ")
+            .removePrefix("${session.userName}-")
+            .trim()
+        return when (lib.collectionType) {
+            "movies" -> "Films"
+            "tvshows" -> "Séries"
+            "music" -> "Musique"
+            "homevideos" -> "Vidéos"
+            "musicvideos" -> "Clips"
+            "books" -> "Livres"
+            "photos" -> "Photos"
+            else -> cleaned // ex. un dossier « Downloads » sans type : on garde son nom nettoyé
+        }
     }
 }
