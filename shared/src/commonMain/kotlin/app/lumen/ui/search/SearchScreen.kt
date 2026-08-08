@@ -52,7 +52,8 @@ fun SearchScreen(client: JellyfinClient, session: StoredSession, query: String, 
             )
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 150.dp),
-                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 24.dp),
+                // Le haut compense la barre de navigation transparente qui flotte.
+                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 88.dp, bottom = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,12 +25,14 @@ import app.lumen.api.BaseItem
 import app.lumen.api.JellyfinClient
 import app.lumen.auth.StoredSession
 import app.lumen.domain.toCard
+import app.lumen.domain.toHero
+import app.lumen.ui.components.HeroCarousel
 import app.lumen.ui.components.MediaCard
 import app.lumen.ui.theme.LumenColors
 
 /**
- * Grille d'une catégorie (Films, Séries). Les filtres avancés et la pagination
- * infinie arrivent au L7 — ici : tri alphabétique, 200 premiers items.
+ * Grille d'une catégorie (Films, Séries), avec le même carrousel hero que
+ * l'accueil en tête (version « billboard » arrondie), filtré sur la catégorie.
  */
 @Composable
 fun BrowseScreen(
@@ -38,6 +41,7 @@ fun BrowseScreen(
     includeTypes: String,
     title: String,
     onOpen: (String) -> Unit,
+    onPlay: (String) -> Unit,
 ) {
     val items by produceState<List<BaseItem>?>(initialValue = null, includeTypes) {
         value = runCatching {
@@ -57,11 +61,23 @@ fun BrowseScreen(
             )
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 150.dp),
-                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 24.dp),
+                // Le haut compense la barre de navigation transparente qui flotte.
+                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 88.dp, bottom = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                // Le hero défilant de la catégorie, comme sur l'accueil.
+                val heroes = list.mapNotNull { it.toHero(client, session) }.take(6)
+                if (heroes.isNotEmpty()) {
+                    item(key = "hero", span = { GridItemSpan(maxLineSpan) }) {
+                        HeroCarousel(
+                            heroes, onOpen, onPlay,
+                            modifier = Modifier.padding(bottom = 12.dp),
+                            rounded = true,
+                        )
+                    }
+                }
+                item(key = "title", span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         title,
                         color = LumenColors.OnBackground,
@@ -75,7 +91,7 @@ fun BrowseScreen(
                     MediaCard(card, onClick = { onOpen(card.id) })
                 }
                 if (list.isEmpty()) {
-                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         Text("Rien ici pour l'instant.", color = LumenColors.Muted, fontSize = 14.sp)
                     }
                 }

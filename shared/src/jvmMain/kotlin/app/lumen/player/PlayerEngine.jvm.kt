@@ -134,6 +134,35 @@ class VlcjEngine : PlayerEngine {
     override fun resume() = player.controls().setPause(false)
     override fun seekTo(positionMs: Long) = player.controls().setTime(positionMs)
 
+    override fun setRate(rate: Float) {
+        player.controls().setRate(rate)
+    }
+
+    override fun setVolume(volume: Int) {
+        player.audio().setVolume(volume)
+    }
+
+    override fun audioTracks(): List<MediaTrack> =
+        player.audio().trackDescriptions().map { MediaTrack(it.id(), it.description()) }
+
+    override fun subtitleTracks(): List<MediaTrack> =
+        player.subpictures().trackDescriptions().map { MediaTrack(it.id(), it.description()) }
+
+    override fun selectAudioTrack(id: Int) {
+        player.audio().setTrack(id)
+    }
+
+    override fun selectSubtitleTrack(id: Int) {
+        player.subpictures().setTrack(id)
+    }
+
+    override fun snapshot(): Boolean {
+        val dir = java.io.File(System.getProperty("user.home"), "Images")
+            .takeIf { it.isDirectory } ?: java.io.File(System.getProperty("user.home"))
+        val file = java.io.File(dir, "lumen-${_state.value.positionMs / 1000}s.png")
+        return player.snapshots().save(file)
+    }
+
     override fun release() {
         player.release()
         factory.release()
@@ -150,7 +179,7 @@ actual fun rememberPlayerEngine(): PlayerEngine {
 }
 
 @Composable
-actual fun VideoSurface(engine: PlayerEngine, modifier: Modifier) {
+actual fun VideoSurface(engine: PlayerEngine, modifier: Modifier, fill: Boolean) {
     val vlcj = engine as VlcjEngine
     val frame by vlcj.frames.collectAsState()
     Box(modifier.background(Color.Black)) {
@@ -158,7 +187,7 @@ actual fun VideoSurface(engine: PlayerEngine, modifier: Modifier) {
             Image(
                 bitmap = it,
                 contentDescription = null,
-                contentScale = ContentScale.Fit,
+                contentScale = if (fill) ContentScale.Crop else ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )
         }

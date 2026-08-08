@@ -259,9 +259,22 @@ private fun JellyfinDetail(
 
 @Composable
 private fun DetailHeader(client: JellyfinClient, session: StoredSession, item: BaseItem, onPlay: (String) -> Unit) {
+    // Fiche d'épisode : nom de fichier parsé + visuels de la SÉRIE en secours,
+    // sinon on affiche « 727 - FL - 08-03 - … » sur fond noir.
+    val parsed = if (item.type == "Episode") app.lumen.domain.parseEpisodeFileName(item.path) else null
+    val displayTitle = parsed?.title ?: item.name
+    val episodeSubtitle = when {
+        parsed != null -> "${item.seriesName ?: ""} · Saison ${parsed.season} · Épisode ${parsed.episode}"
+        item.type == "Episode" -> "${item.seriesName ?: ""} · S${item.parentIndexNumber ?: "?"}E${item.indexNumber ?: "?"}"
+        else -> null
+    }
     val backdrop = when {
         item.backdropImageTags.isNotEmpty() ->
             client.imageUrl(session.baseUrl, item.id, "Backdrop", item.backdropImageTags.first(), maxWidth = 1920)
+        item.parentBackdropItemId != null && item.parentBackdropImageTags.isNotEmpty() ->
+            client.imageUrl(session.baseUrl, item.parentBackdropItemId, "Backdrop", item.parentBackdropImageTags.first(), maxWidth = 1920)
+        item.type == "Episode" && item.seriesId != null ->
+            client.imageUrl(session.baseUrl, item.seriesId, "Backdrop", null, maxWidth = 1920)
         else -> client.imageUrl(session.baseUrl, item.id, "Primary", item.imageTags["Primary"], maxWidth = 1920)
     }
 
@@ -291,7 +304,10 @@ private fun DetailHeader(client: JellyfinClient, session: StoredSession, item: B
                     alignment = Alignment.CenterStart,
                 )
             } else {
-                Text(item.name, color = LumenColors.OnBackground, fontSize = 38.sp, fontWeight = FontWeight.Black)
+                episodeSubtitle?.let {
+                    Text(it, color = LumenColors.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Text(displayTitle, color = LumenColors.OnBackground, fontSize = 38.sp, fontWeight = FontWeight.Black)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 item.productionYear?.let { Meta(it.toString()) }

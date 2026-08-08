@@ -87,6 +87,9 @@ class Media3Engine(private val context: Context) : PlayerEngine {
     override fun pause() { player.pause() }
     override fun resume() { player.play() }
     override fun seekTo(positionMs: Long) { player.seekTo(positionMs) }
+    override fun setRate(rate: Float) { player.setPlaybackSpeed(rate) }
+    override fun setVolume(volume: Int) { player.volume = (volume / 100f).coerceIn(0f, 1f) }
+    // TODO(L4b) : sélection de pistes via TrackSelectionParameters.
     override fun release() {
         scope.cancel()
         player.release()
@@ -104,7 +107,7 @@ actual fun rememberPlayerEngine(): PlayerEngine {
 }
 
 @Composable
-actual fun VideoSurface(engine: PlayerEngine, modifier: Modifier) {
+actual fun VideoSurface(engine: PlayerEngine, modifier: Modifier, fill: Boolean) {
     val media3 = engine as Media3Engine
     AndroidView(
         factory = { ctx ->
@@ -113,7 +116,14 @@ actual fun VideoSurface(engine: PlayerEngine, modifier: Modifier) {
                 player = media3.player
             }
         },
-        update = { view -> view.player = media3.player },
+        update = { view ->
+            view.player = media3.player
+            view.resizeMode = if (fill) {
+                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            } else {
+                androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            }
+        },
         modifier = modifier,
     )
 }

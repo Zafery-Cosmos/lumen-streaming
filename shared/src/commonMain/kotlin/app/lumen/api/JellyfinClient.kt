@@ -154,8 +154,16 @@ class JellyfinClient(
      * Transcode. Le profil de capacités réel de l'appareil viendra au L5 ; sans
      * profil, le serveur privilégie le Direct Play — exactement ce qu'on veut.
      */
-    suspend fun playbackInfo(baseUrl: String, userId: String, itemId: String): PlaybackInfoResponse =
-        http.post("${baseUrl.trimEnd('/')}/Items/$itemId/PlaybackInfo?userId=$userId") {
+    suspend fun playbackInfo(
+        baseUrl: String,
+        userId: String,
+        itemId: String,
+        maxBitrate: Long? = null,
+    ): PlaybackInfoResponse =
+        http.post(
+            "${baseUrl.trimEnd('/')}/Items/$itemId/PlaybackInfo?userId=$userId" +
+                (maxBitrate?.let { "&maxStreamingBitrate=$it&enableDirectPlay=false&enableDirectStream=false" } ?: ""),
+        ) {
             header("Authorization", authorizationHeader())
             contentType(ContentType.Application.Json)
             setBody("{}")

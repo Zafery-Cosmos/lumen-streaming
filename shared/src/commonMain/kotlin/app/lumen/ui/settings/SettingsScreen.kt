@@ -36,7 +36,8 @@ import app.lumen.ui.theme.LumenColors
 @Composable
 fun SettingsScreen(session: StoredSession, onLogout: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().background(LumenColors.Background).padding(48.dp),
+        modifier = Modifier.fillMaxSize().background(LumenColors.Background)
+            .padding(start = 48.dp, end = 48.dp, top = 96.dp, bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Text(

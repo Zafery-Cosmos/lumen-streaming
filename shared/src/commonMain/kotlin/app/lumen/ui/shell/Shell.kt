@@ -98,19 +98,9 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
         return
     }
 
-    Column(Modifier.fillMaxSize().background(LumenColors.Background)) {
-        TopBar(
-            current = tab,
-            onTab = { tab = it; searchOpen = false; searchQuery = ""; detailStack = emptyList() },
-            searchOpen = searchOpen,
-            searchQuery = searchQuery,
-            onSearchOpen = { searchOpen = true },
-            onSearchClose = { searchOpen = false; searchQuery = "" },
-            onSearchChange = { searchQuery = it },
-            refreshKey = refreshKey,
-            onSync = { refreshKey++ },
-        )
-
+    // La barre est TRANSPARENTE et flotte au-dessus du contenu (style Netflix) :
+    // le hero passe dessous, un dégradé assure la lisibilité des onglets.
+    Box(Modifier.fillMaxSize().background(LumenColors.Background)) {
         val showSearch = searchOpen && searchQuery.isNotBlank()
         val target = detailStack.lastOrNull() ?: if (showSearch) "search" else tab.name
         AnimatedContent(
@@ -119,7 +109,7 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
                 (fadeIn(tween(350)) + slideInVertically(tween(350)) { it / 20 })
                     .togetherWith(fadeOut(tween(180)))
             },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxSize(),
         ) { state ->
             when {
                 state.startsWith("jf:") || state.startsWith("tmdb:") -> DetailScreen(
@@ -134,11 +124,29 @@ fun Shell(client: JellyfinClient, session: StoredSession, onLogout: () -> Unit) 
                     onOpen = openDetail,
                     onPlay = { id -> playingId = id },
                 )
-                state == ShellTab.Movies.name -> BrowseScreen(client, session, includeTypes = "Movie", title = "Films", onOpen = openDetail)
-                state == ShellTab.Series.name -> BrowseScreen(client, session, includeTypes = "Series", title = "Séries", onOpen = openDetail)
+                state == ShellTab.Movies.name -> BrowseScreen(
+                    client, session, includeTypes = "Movie", title = "Films",
+                    onOpen = openDetail, onPlay = { id -> playingId = id },
+                )
+                state == ShellTab.Series.name -> BrowseScreen(
+                    client, session, includeTypes = "Series", title = "Séries",
+                    onOpen = openDetail, onPlay = { id -> playingId = id },
+                )
                 else -> SettingsScreen(session, onLogout)
             }
         }
+
+        TopBar(
+            current = tab,
+            onTab = { tab = it; searchOpen = false; searchQuery = ""; detailStack = emptyList() },
+            searchOpen = searchOpen,
+            searchQuery = searchQuery,
+            onSearchOpen = { searchOpen = true },
+            onSearchClose = { searchOpen = false; searchQuery = "" },
+            onSearchChange = { searchQuery = it },
+            refreshKey = refreshKey,
+            onSync = { refreshKey++ },
+        )
     }
 }
 
@@ -155,7 +163,16 @@ private fun TopBar(
     onSync: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 28.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0f to LumenColors.Background.copy(alpha = 0.85f),
+                    1f to androidx.compose.ui.graphics.Color.Transparent,
+                ),
+            )
+            .height(72.dp)
+            .padding(horizontal = 28.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(26.dp),
     ) {

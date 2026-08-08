@@ -19,6 +19,9 @@ data class PlayerState(
  * Media3/ExoPlayer sur Android — et libmpv plus tard, sans toucher à l'UI.
  * L'UI du lecteur est 100% maison : le moteur ne dessine que la vidéo.
  */
+/** Une piste (audio ou sous-titres) exposée par le moteur. */
+data class MediaTrack(val id: Int, val label: String)
+
 interface PlayerEngine {
     val state: StateFlow<PlayerState>
 
@@ -28,12 +31,25 @@ interface PlayerEngine {
     fun resume()
     fun seekTo(positionMs: Long)
     fun release()
+
+    // Options avancées — implémentations par défaut neutres pour que chaque
+    // moteur n'implémente que ce qu'il sait faire.
+    fun setRate(rate: Float) {}
+    fun setVolume(volume: Int) {}
+    fun audioTracks(): List<MediaTrack> = emptyList()
+    fun subtitleTracks(): List<MediaTrack> = emptyList()
+    fun selectAudioTrack(id: Int) {}
+    fun selectSubtitleTrack(id: Int) {}
+
+    /** Capture d'écran de la frame courante ; false si non supporté. */
+    fun snapshot(): Boolean = false
 }
 
 /** Fabrique le moteur natif de la plateforme, lié au cycle de vie de l'écran. */
 @Composable
 expect fun rememberPlayerEngine(): PlayerEngine
 
-/** Surface vidéo native du moteur — remplit l'espace donné, fond noir. */
+/** Surface vidéo native du moteur — remplit l'espace donné, fond noir.
+ *  fill=true → l'image remplit l'écran (recadrée), sinon ajustée. */
 @Composable
-expect fun VideoSurface(engine: PlayerEngine, modifier: Modifier)
+expect fun VideoSurface(engine: PlayerEngine, modifier: Modifier, fill: Boolean = false)
