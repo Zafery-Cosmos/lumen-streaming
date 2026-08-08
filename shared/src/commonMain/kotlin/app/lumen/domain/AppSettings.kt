@@ -118,6 +118,8 @@ object AppSettings {
     val torrentCacheDir = StringPref("stream.cachedir", "")
     /** Dossier des téléchargements ; vide = ~/Téléchargements. */
     val downloadDir = StringPref("stream.downloaddir", "")
+    /** Où ranger les dossiers HLS produits par la conversion ; vide = ~/HLS. */
+    val hlsOutputDir = StringPref("hls.outputdir", "")
     /** Profil de transcodage : « none » ou un périphérique détecté (vaapi-renderD128…). */
     val transcodeProfile = StringPref("stream.transcode", "none")
 

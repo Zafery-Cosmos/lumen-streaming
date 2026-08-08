@@ -738,12 +738,7 @@ private fun AdvancedSection(
     app.lumen.ui.settings.HlsImportSection(tmdb, hlsRepo, onLibraryChanged)
 
     SubHeader("Segmentation")
-    Text(
-        "Convertir un fichier vidéo brut en HLS demande FFmpeg. Ce n'est pas " +
-            "encore intégré : pour l'instant Lumen importe des dossiers DÉJÀ " +
-            "segmentés, sans jamais ré-encoder.",
-        color = LumenColors.Muted, fontSize = 12.sp,
-    )
+    app.lumen.ui.settings.HlsConvertSection(tmdb, hlsRepo, onLibraryChanged)
 }
 
 @Composable
