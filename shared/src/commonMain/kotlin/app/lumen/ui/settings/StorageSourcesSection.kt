@@ -480,17 +480,15 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
                             )
                         }
                     }
-                    Text(
-                        "S3, R2, B2, Wasabi, Scaleway, MinIO… tout stockage compatible S3 : " +
-                            "seuls l'endpoint et la région changent.",
-                        color = LumenColors.Muted, fontSize = 11.sp,
-                    )
+                    // Chaque fournisseur nomme ces champs différemment : c'est
+                    // la première cause de blocage à la configuration.
+                    ProviderHelp(kind)
                     DialogField("Nom", label) { label = it }
-                    DialogField("Endpoint (https://…)", endpoint) { endpoint = it; testResult = null }
-                    DialogField("Région (optionnel)", region) { region = it; testResult = null }
+                    DialogField(endpointHint(kind), endpoint) { endpoint = it; testResult = null }
+                    DialogField(regionHint(kind), region) { region = it; testResult = null }
                     DialogField("Bucket", bucket) { bucket = it; testResult = null }
-                    DialogField("Access key", accessKey) { accessKey = it; testResult = null }
-                    DialogField("Secret key", secretKey, password = true) { secretKey = it; testResult = null }
+                    DialogField(accessHint(kind), accessKey) { accessKey = it; testResult = null }
+                    DialogField(secretHint(kind), secretKey, password = true) { secretKey = it; testResult = null }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -675,5 +673,74 @@ fun DialogField(label: String? = null, value: String, password: Boolean = false,
                 .background(LumenColors.SurfaceHigh, RoundedCornerShape(8.dp))
                 .padding(horizontal = 12.dp, vertical = 10.dp),
         )
+    }
+}
+
+// --- Aide à la configuration -------------------------------------------------
+//
+// Aucun fournisseur n'emploie le vocabulaire d'Amazon. Sur Backblaze on parle de
+// « keyID » et « applicationKey », sur Cloudflare de « jeton d'API R2 » : sans
+// repères, on cherche des champs qui n'existent pas sous ce nom.
+
+private fun endpointHint(kind: String): String = when (kind) {
+    "b2" -> "Endpoint — visible sur la page du bucket, ligne « Endpoint »"
+    "r2" -> "Endpoint — https://<id-de-compte>.r2.cloudflarestorage.com"
+    else -> "Endpoint (https://…)"
+}
+
+private fun regionHint(kind: String): String = when (kind) {
+    "b2" -> "Région — celle contenue dans l'endpoint, ex. us-west-004"
+    "r2" -> "Région — laisser « auto »"
+    else -> "Région (optionnel)"
+}
+
+private fun accessHint(kind: String): String = when (kind) {
+    "b2" -> "Access key = le « keyID » de ta clé d'application"
+    "r2" -> "Access key = « Access Key ID » du jeton R2"
+    else -> "Access key"
+}
+
+private fun secretHint(kind: String): String = when (kind) {
+    "b2" -> "Secret key = la « applicationKey », affichée UNE seule fois"
+    "r2" -> "Secret key = « Secret Access Key » du jeton R2"
+    else -> "Secret key"
+}
+
+@Composable
+private fun ProviderHelp(kind: String) {
+    val steps = when (kind) {
+        "b2" -> listOf(
+            "Backblaze appelle ces champs autrement : va dans « Account » → " +
+                "« Application Keys », puis « Add a New Application Key ».",
+            "Le « keyID » obtenu est l'Access key ; la « applicationKey » est la " +
+                "Secret key — elle n'est montrée qu'une fois, note-la tout de suite.",
+            "L'endpoint et la région se lisent sur la page du bucket, ligne " +
+                "« Endpoint » (par exemple s3.us-west-004.backblazeb2.com).",
+            "Donne à la clé l'accès au bucket voulu, en lecture au minimum.",
+        )
+        "r2" -> listOf(
+            "Dans le tableau de bord Cloudflare : R2 → « Manage R2 API Tokens » " +
+                "→ « Create API token ».",
+            "Le jeton fournit un « Access Key ID » et un « Secret Access Key » — " +
+                "ce sont les deux champs ci-dessous.",
+            "L'endpoint est affiché avec le jeton : https://<id-de-compte>." +
+                "r2.cloudflarestorage.com. La région reste « auto ».",
+        )
+        else -> listOf(
+            "Sur Amazon S3 : console IAM → ton utilisateur → « Security " +
+                "credentials » → « Create access key ».",
+            "L'endpoint suit la forme https://s3.<région>.amazonaws.com.",
+            "Sur un autre fournisseur compatible (Wasabi, Scaleway, MinIO…), " +
+                "cherche « clés d'accès S3 » ou « S3 credentials ».",
+        )
+    }
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.fillMaxWidth()
+            .background(LumenColors.SurfaceHigh, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+    ) {
+        Text("Où trouver ces informations", color = LumenColors.OnBackground, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        steps.forEach { Text("• $it", color = LumenColors.Muted, fontSize = 11.sp) }
     }
 }
