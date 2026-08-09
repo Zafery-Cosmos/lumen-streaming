@@ -37,6 +37,7 @@ import app.lumen.api.TmdbClient
 import app.lumen.api.TmdbPersonDetail
 import app.lumen.domain.toCard
 import app.lumen.ui.components.MediaCard
+import app.lumen.ui.theme.LocalSidePadding
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 
@@ -83,7 +84,7 @@ private fun PersonBody(person: TmdbPersonDetail, onOpen: (String) -> Unit) {
         item(key = "header") {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(28.dp),
-                modifier = Modifier.padding(horizontal = 48.dp),
+                modifier = Modifier.padding(horizontal = LocalSidePadding.current),
             ) {
                 Box(
                     Modifier.width(180.dp).height(270.dp).clip(RoundedCornerShape(14.dp))
@@ -150,11 +151,11 @@ private fun FilmographyRail(title: String, cards: List<app.lumen.domain.CardItem
             color = LumenColors.OnBackground,
             fontSize = 19.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 48.dp),
+            modifier = Modifier.padding(horizontal = LocalSidePadding.current),
         )
         app.lumen.ui.components.ScrollableRow(
             spacing = 10.dp,
-            contentPadding = PaddingValues(horizontal = 48.dp),
+            contentPadding = PaddingValues(horizontal = LocalSidePadding.current),
         ) {
             items(cards, key = { it.id }) { card ->
                 MediaCard(card, onClick = { onOpen(card.id) })

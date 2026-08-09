@@ -23,3 +23,14 @@ expect fun resolveSibling(masterPath: String, relative: String): String
 
 /** Nom du dossier contenant ce fichier. */
 expect fun parentFolderName(path: String): String
+
+/**
+ * URI `file:` valide pour un chemin local.
+ *
+ * Indispensable : « file://" + chemin » n'est PAS une URI dès que le chemin
+ * contient un espace ou une parenthèse — ce qui est la norme pour un dossier
+ * de film. libvlc résout alors les segments d'une playlist HLS contre une base
+ * tronquée et cherche `init.mp4` à la racine du disque : rien ne se lit, sans
+ * la moindre erreur remontée.
+ */
+expect fun localFileUri(path: String): String

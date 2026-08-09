@@ -12,6 +12,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumen.domain.CardItem
+import app.lumen.ui.theme.LocalSidePadding
 import app.lumen.ui.theme.LumenColors
 
 /**
@@ -35,11 +36,11 @@ fun MediaRail(
             color = LumenColors.OnBackground,
             fontSize = 19.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 48.dp),
+            modifier = Modifier.padding(horizontal = LocalSidePadding.current),
         )
         ScrollableRow(
             spacing = if (ranked) 26.dp else 10.dp,
-            contentPadding = PaddingValues(horizontal = 48.dp),
+            contentPadding = PaddingValues(horizontal = LocalSidePadding.current),
         ) {
             items(cards, key = { it.id }) { card ->
                 if (ranked) {

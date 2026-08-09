@@ -10,7 +10,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -59,6 +63,7 @@ import app.lumen.api.TmdbDetail
 import app.lumen.auth.StoredSession
 import app.lumen.domain.toCard
 import app.lumen.ui.components.MediaCard
+import app.lumen.ui.theme.LocalSidePadding
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 
@@ -271,7 +276,7 @@ private fun JellyfinDetail(
                 item(key = "season-picker") {
                     app.lumen.ui.components.ScrollableRow(
                         spacing = 8.dp,
-                        contentPadding = PaddingValues(horizontal = 48.dp),
+                        contentPadding = PaddingValues(horizontal = LocalSidePadding.current),
                         modifier = Modifier.padding(top = 8.dp),
                     ) {
                         items(groups.keys.toList(), key = { it }) { seasonNum ->
@@ -303,7 +308,7 @@ private fun JellyfinDetail(
                     ) { seasonNum ->
                         Column(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.padding(horizontal = 48.dp, vertical = 16.dp),
+                            modifier = Modifier.padding(horizontal = LocalSidePadding.current, vertical = 16.dp),
                         ) {
                             seasonNum?.let { groups[it] }.orEmpty().forEach { org ->
                                 EpisodeRow(
@@ -357,6 +362,7 @@ private fun JellyfinDetail(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DetailHeader(
     client: JellyfinClient,
@@ -385,20 +391,33 @@ private fun DetailHeader(
         else -> client.imageUrl(session.baseUrl, item.id, "Primary", item.imageTags["Primary"], maxWidth = 1920)
     }
 
-    Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
+    // Le bandeau NE PEUT PAS avoir une hauteur fixe : sur un téléphone, le
+    // titre + les métadonnées + le synopsis + les boutons dépassent largement
+    // un 16:7.2, et tout se superposait (boutons invisibles mais cliquables).
+    // Sur mobile la hauteur suit donc le contenu, l'image se recadre dessus.
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    val compact = maxWidth < 700.dp
+    val sidePad = if (compact) 20.dp else 48.dp
+    Box(
+        if (compact) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().aspectRatio(16f / 7.2f),
+    ) {
         AsyncImage(
             model = backdrop,
             contentDescription = item.name,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.matchParentSize(),
         )
         Box(
-            Modifier.fillMaxSize().background(
+            Modifier.matchParentSize().background(
                 Brush.verticalGradient(0f to Color.Transparent, 1f to LumenColors.Background),
             ),
         )
         Column(
-            modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 48.dp, vertical = 28.dp),
+            modifier = Modifier.align(Alignment.BottomStart)
+                .padding(horizontal = sidePad)
+                // Sur mobile, la barre du haut flotte au-dessus : sans réserve,
+                // le titre passait sous la barre d'état.
+                .padding(top = if (compact) 104.dp else 28.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             val logoTag = item.imageTags["Logo"]
@@ -406,7 +425,7 @@ private fun DetailHeader(
                 AsyncImage(
                     model = client.imageUrl(session.baseUrl, item.id, "Logo", logoTag, maxWidth = 800),
                     contentDescription = null,
-                    modifier = Modifier.height(80.dp),
+                    modifier = Modifier.height(if (compact) 56.dp else 80.dp),
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart,
                 )
@@ -414,9 +433,17 @@ private fun DetailHeader(
                 episodeSubtitle?.let {
                     Text(it, color = LumenColors.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
-                Text(displayTitle, color = LumenColors.OnBackground, fontSize = 38.sp, fontWeight = FontWeight.Black)
+                Text(
+                    displayTitle,
+                    color = LumenColors.OnBackground,
+                    fontSize = if (compact) 26.sp else 38.sp,
+                    fontWeight = FontWeight.Black,
+                )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 item.productionYear?.let { Meta(it.toString()) }
                 item.runTimeMinutes?.let { Meta("${it / 60}h${(it % 60).toString().padStart(2, '0')}") }
                 item.communityRating?.let { Meta("★ ${(it * 10).toInt() / 10.0}") }
@@ -427,13 +454,18 @@ private fun DetailHeader(
                     it,
                     color = LumenColors.OnBackground.copy(alpha = 0.85f),
                     fontSize = 14.sp,
-                    maxLines = 4,
+                    maxLines = if (compact) 3 else 4,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.width(620.dp),
+                    // widthIn et NON width : une largeur figée de 620 dp
+                    // sortait le synopsis de l'écran sur téléphone.
+                    modifier = Modifier.widthIn(max = 620.dp),
                 )
             }
             val resume = (item.userData?.playbackPositionTicks ?: 0L) > 0L
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Button(
                     // Série : « Lire » lance le premier épisode utile via NextUp au L12 ;
                     // pour l'instant il ne s'applique qu'aux items directement lisibles.
@@ -477,6 +509,7 @@ private fun DetailHeader(
                 )
             }
         }
+    }
     }
 }
 
@@ -583,6 +616,7 @@ private fun EpisodeRow(
 
 // --- Fiche TMDB (catalogue, pas encore lisible) ----------------------------
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TmdbDetailBody(
     detail: TmdbDetail,
@@ -593,29 +627,51 @@ private fun TmdbDetailBody(
 ) {
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            Box(Modifier.fillMaxWidth().aspectRatio(16f / 7.2f)) {
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 700.dp
+            Box(
+                if (compact) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().aspectRatio(16f / 7.2f),
+            ) {
                 AsyncImage(
                     model = TmdbClient.backdropUrl(detail.backdropPath) ?: TmdbClient.posterUrl(detail.posterPath),
                     contentDescription = detail.displayName,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.matchParentSize(),
                 )
                 Box(
-                    Modifier.fillMaxSize().background(
+                    Modifier.matchParentSize().background(
                         Brush.verticalGradient(0f to Color.Transparent, 1f to LumenColors.Background),
                     ),
                 )
                 Column(
-                    modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 48.dp, vertical = 28.dp),
+                    modifier = Modifier.align(Alignment.BottomStart)
+                        .padding(horizontal = if (compact) 20.dp else 48.dp)
+                        .padding(top = if (compact) 104.dp else 28.dp, bottom = 28.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        detail.displayName,
-                        color = LumenColors.OnBackground,
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.Black,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // Le logo du titre plutôt qu'un texte — repli sur le texte
+                    // si TMDB n'en fournit aucun.
+                    val logo = detail.logoUrl
+                    if (logo != null) {
+                        AsyncImage(
+                            model = logo,
+                            contentDescription = detail.displayName,
+                            modifier = Modifier.height(if (compact) 56.dp else 80.dp),
+                            contentScale = ContentScale.Fit,
+                            alignment = Alignment.CenterStart,
+                        )
+                    } else {
+                        Text(
+                            detail.displayName,
+                            color = LumenColors.OnBackground,
+                            fontSize = if (compact) 26.sp else 38.sp,
+                            fontWeight = FontWeight.Black,
+                        )
+                    }
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         detail.year?.let { Meta(it.toString()) }
                         detail.runtime?.let { Meta("${it / 60}h${(it % 60).toString().padStart(2, '0')}") }
                         detail.numberOfSeasons?.let { Meta("$it saison${if (it > 1) "s" else ""}") }
@@ -627,14 +683,17 @@ private fun TmdbDetailBody(
                             it,
                             color = LumenColors.OnBackground.copy(alpha = 0.85f),
                             fontSize = 14.sp,
-                            maxLines = 4,
+                            maxLines = if (compact) 3 else 4,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.width(620.dp),
+                            modifier = Modifier.widthIn(max = 620.dp),
                         )
                     }
                     // Pas dans la médiathèque : la lecture passe par les ADDONS.
                     val imdb = detail.externalIds?.imdbId
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
                         if (imdb != null && detail.runtime != null) {
                             // Un runtime → c'est un film : sources directes possibles.
                             Button(
@@ -672,6 +731,7 @@ private fun TmdbDetailBody(
                     }
                 }
             }
+            }
         }
 
         // Réalisation + distribution TMDB.
@@ -708,7 +768,7 @@ private fun PeopleSection(directors: List<String>, cast: List<PersonCardData>, o
         if (directors.isNotEmpty()) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(horizontal = 48.dp),
+                modifier = Modifier.padding(horizontal = LocalSidePadding.current),
             ) {
                 Text("Réalisation :", color = LumenColors.Muted, fontSize = 14.sp)
                 Text(
@@ -725,11 +785,11 @@ private fun PeopleSection(directors: List<String>, cast: List<PersonCardData>, o
                 color = LumenColors.OnBackground,
                 fontSize = 19.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 48.dp),
+                modifier = Modifier.padding(horizontal = LocalSidePadding.current),
             )
             app.lumen.ui.components.ScrollableRow(
                 spacing = 16.dp,
-                contentPadding = PaddingValues(horizontal = 48.dp),
+                contentPadding = PaddingValues(horizontal = LocalSidePadding.current),
             ) {
                 items(cast.size) { i -> PersonCard(cast[i], onClick = { onPerson(cast[i].name) }) }
             }
@@ -805,11 +865,11 @@ private fun SimilarSection(
             color = LumenColors.OnBackground,
             fontSize = 19.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 48.dp),
+            modifier = Modifier.padding(horizontal = LocalSidePadding.current),
         )
         app.lumen.ui.components.ScrollableRow(
             spacing = 10.dp,
-            contentPadding = PaddingValues(horizontal = 48.dp),
+            contentPadding = PaddingValues(horizontal = LocalSidePadding.current),
         ) {
             items(cards.size) { i ->
                 MediaCard(cards[i], onClick = { onOpen(cards[i].id) }, ctx = ctx)

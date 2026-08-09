@@ -1,5 +1,6 @@
 package app.lumen.auth
 
+import app.lumen.security.SecureStore
 import com.russhwolf.settings.Settings
 import kotlin.random.Random
 
@@ -16,8 +17,9 @@ data class StoredSession(
 /**
  * Persistance de la session et de l'identité de l'appareil.
  *
- * TODO(L10b) : chiffrer le token au repos (Keystore Android / keyring desktop).
- * Pour l'instant multiplatform-settings suffit à faire tourner L1.
+ * Le jeton d'accès et la liste des serveurs passent par [SecureStore] : ils
+ * ouvrent la médiathèque de l'utilisateur, ils n'ont rien à faire en clair.
+ * Le deviceId, lui, n'est pas un secret et reste dans les préférences.
  */
 class SessionStore(private val settings: Settings = Settings()) {
 
@@ -28,21 +30,21 @@ class SessionStore(private val settings: Settings = Settings()) {
         }.also { settings.putString(KEY_DEVICE_ID, it) }
 
     fun save(session: StoredSession) {
-        settings.putString(KEY_BASE_URL, session.baseUrl)
-        settings.putString(KEY_SERVER_NAME, session.serverName)
-        settings.putString(KEY_USER_ID, session.userId)
-        settings.putString(KEY_USER_NAME, session.userName)
-        settings.putString(KEY_TOKEN, session.accessToken)
+        SecureStore.put(KEY_BASE_URL, session.baseUrl)
+        SecureStore.put(KEY_SERVER_NAME, session.serverName)
+        SecureStore.put(KEY_USER_ID, session.userId)
+        SecureStore.put(KEY_USER_NAME, session.userName)
+        SecureStore.put(KEY_TOKEN, session.accessToken)
     }
 
     fun load(): StoredSession? {
-        val baseUrl = settings.getStringOrNull(KEY_BASE_URL) ?: return null
-        val token = settings.getStringOrNull(KEY_TOKEN) ?: return null
+        val baseUrl = SecureStore.get(KEY_BASE_URL) ?: return null
+        val token = SecureStore.get(KEY_TOKEN) ?: return null
         return StoredSession(
             baseUrl = baseUrl,
-            serverName = settings.getString(KEY_SERVER_NAME, ""),
-            userId = settings.getString(KEY_USER_ID, ""),
-            userName = settings.getString(KEY_USER_NAME, ""),
+            serverName = SecureStore.get(KEY_SERVER_NAME).orEmpty(),
+            userId = SecureStore.get(KEY_USER_ID).orEmpty(),
+            userName = SecureStore.get(KEY_USER_NAME).orEmpty(),
             accessToken = token,
         )
     }
@@ -50,7 +52,7 @@ class SessionStore(private val settings: Settings = Settings()) {
     /** Déconnexion : on oublie la session mais jamais le deviceId. */
     fun clear() {
         listOf(KEY_BASE_URL, KEY_SERVER_NAME, KEY_USER_ID, KEY_USER_NAME, KEY_TOKEN)
-            .forEach(settings::remove)
+            .forEach { SecureStore.put(it, null) }
     }
 
     // --- Multi-serveurs (plan §2) : bascule dynamique -----------------------
@@ -59,18 +61,18 @@ class SessionStore(private val settings: Settings = Settings()) {
 
     /** Tous les serveurs connus (sessions valides mémorisées), par URL. */
     fun listServers(): List<StoredSession> =
-        settings.getStringOrNull(KEY_SERVERS)?.let {
+        SecureStore.get(KEY_SERVERS)?.let {
             runCatching { json.decodeFromString<List<StoredSession>>(it) }.getOrDefault(emptyList())
         } ?: emptyList()
 
     /** Mémorise (ou met à jour) un serveur dans la liste de bascule. */
     fun rememberServer(session: StoredSession) {
         val updated = listServers().filterNot { it.baseUrl == session.baseUrl } + session
-        settings.putString(KEY_SERVERS, json.encodeToString(updated))
+        SecureStore.put(KEY_SERVERS, json.encodeToString(updated))
     }
 
     fun forgetServer(baseUrl: String) {
-        settings.putString(
+        SecureStore.put(
             KEY_SERVERS,
             json.encodeToString(listServers().filterNot { it.baseUrl == baseUrl }),
         )

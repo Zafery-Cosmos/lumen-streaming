@@ -48,6 +48,7 @@ import app.lumen.domain.ProfileRepository
 import app.lumen.db.sha256Hex
 import app.lumen.ui.components.Avatars
 import app.lumen.ui.components.ProfileAvatar
+import app.lumen.ui.theme.LocalSidePadding
 import app.lumen.ui.theme.LumenColors
 import org.jetbrains.compose.resources.painterResource
 
@@ -68,7 +69,7 @@ fun ProfileSettingsScreen(client: app.lumen.api.JellyfinClient, repo: ProfileRep
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxSize().background(LumenColors.Background)
             .verticalScroll(rememberScrollState())
-            .padding(start = 48.dp, end = 48.dp, top = 96.dp, bottom = 48.dp),
+            .padding(start = LocalSidePadding.current, end = LocalSidePadding.current, top = 96.dp, bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {

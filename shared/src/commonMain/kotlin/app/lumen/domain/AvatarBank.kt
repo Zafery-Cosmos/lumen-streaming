@@ -34,9 +34,14 @@ data class AvatarEntry(
  */
 class AvatarBank(private val http: HttpClient, private val baseUrl: String = UPDATE_SERVER) {
 
-    suspend fun index(): AvatarIndex? = runCatching {
+    /**
+     * L'index de la banque. On renvoie un [Result] et NON un null : sans la
+     * cause, l'interface ne peut pas distinguer « ça charge » de « ça a
+     * échoué », et affiche un sablier éternel.
+     */
+    suspend fun index(): Result<AvatarIndex> = runCatching {
         http.get("$baseUrl/avatars/index.json").body<AvatarIndex>()
-    }.getOrNull()
+    }
 
     /** URL absolue d'un avatar, à partir du chemin stocké dans le profil. */
     fun url(path: String): String =

@@ -74,3 +74,10 @@ actual fun resolveSibling(masterPath: String, relative: String): String =
 
 actual fun parentFolderName(path: String): String =
     java.io.File(path).parentFile?.name.orEmpty()
+
+// toURI() encode correctement (espaces → %20) mais rend « file:/chemin » : sans
+// le double slash, vlcj n'y voit pas une URL et le retraite comme un chemin
+// RELATIF, qu'il ré-encode par-dessus. On recompose donc « file:// » + chemin
+// déjà encodé.
+actual fun localFileUri(path: String): String =
+    if (path.startsWith("file:")) path else "file://" + java.io.File(path).toURI().rawPath

@@ -56,6 +56,7 @@ import app.lumen.api.JellyfinClient
 import app.lumen.api.UserConfig
 import app.lumen.auth.StoredSession
 import app.lumen.domain.AppSettings
+import app.lumen.ui.theme.LocalSidePadding
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.launch
 
@@ -73,6 +74,7 @@ fun SettingsSectionScreen(
     onForgetServer: (StoredSession) -> Unit,
     onBack: () -> Unit,
     onLogout: () -> Unit,
+    onPlay: (app.lumen.domain.PlayRequest) -> Unit,
 ) {
     SectionScaffold(
         title = when (sectionKey) {
@@ -86,7 +88,7 @@ fun SettingsSectionScreen(
             "simkl" -> "Simkl — suivi de visionnage"
             "advanced" -> "Avancé"
             "quickconnect" -> "Connexion rapide"
-            "server" -> "Serveurs"
+            "server" -> "Service"
             else -> "Paramètres"
         },
         onBack = onBack,
@@ -102,7 +104,7 @@ fun SettingsSectionScreen(
             "simkl" -> SimklSection(client)
             "advanced" -> AdvancedSection(client, db, onLibraryChanged)
             "quickconnect" -> QuickConnectSection(client, session)
-            "server" -> ServerSection(session, servers, onSwitchServer, onAddServer, onForgetServer, onLogout)
+            "server" -> ServerSection(session, servers, onSwitchServer, onAddServer, onForgetServer, onLogout, db, onPlay, client, onLibraryChanged)
         }
     }
 }
@@ -430,6 +432,12 @@ private fun QualitySection() {
     Text(
         "Valeur libre, appliquée au lancement de chaque lecture ; modifiable en " +
             "cours de lecture dans les options du lecteur.",
+        color = LumenColors.Muted, fontSize = 12.sp,
+    )
+    Text(
+        "À savoir : ce plafond ne s'applique qu'aux titres lus depuis ton serveur " +
+            "Jellyfin — lui seul peut ré-encoder à la volée. Les flux d'addons, " +
+            "les torrents et les fichiers locaux sont toujours lus tels quels.",
         color = LumenColors.Muted, fontSize = 12.sp,
     )
 }
@@ -922,6 +930,10 @@ private fun ServerSection(
     onAddServer: () -> Unit,
     onForgetServer: (StoredSession) -> Unit,
     onLogout: () -> Unit,
+    db: app.lumen.db.LumenDb,
+    onPlay: (app.lumen.domain.PlayRequest) -> Unit,
+    client: JellyfinClient,
+    onLibraryChanged: () -> Unit,
 ) {
     Text(
         "Bascule d'un serveur à l'autre sans te reconnecter — la session de " +
@@ -984,6 +996,22 @@ private fun ServerSection(
         Icon(Icons.Filled.Add, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
         Text("Ajouter un serveur", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
+
+    val storageRepo = remember(db) { app.lumen.domain.StorageSourceRepository(db) }
+    val webdavRepo = remember(db) { app.lumen.domain.WebDavSourceRepository(db) }
+    val ftpRepo = remember(db) { app.lumen.domain.FtpSourceRepository(db) }
+    val bucketRepo = remember(db) { app.lumen.domain.BucketLibraryRepository(db) }
+    val tmdb = remember { app.lumen.api.TmdbClient(client.http) }
+
+    SubHeader("Stockage perso — S3, R2, B2")
+    StorageSourcesSection(storageRepo, bucketRepo, tmdb, onPlay, onLibraryChanged)
+
+    SubHeader("WebDAV")
+    WebDavSourcesSection(webdavRepo, onPlay)
+
+    SubHeader("FTP")
+    FtpSourcesSection(ftpRepo, onPlay)
+
     Spacer(Modifier.size(10.dp))
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1028,7 +1056,7 @@ private fun SectionScaffold(title: String, onBack: () -> Unit, content: @Composa
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxSize().background(LumenColors.Background)
             .verticalScroll(rememberScrollState())
-            .padding(start = 48.dp, end = 48.dp, top = 96.dp, bottom = 48.dp),
+            .padding(start = LocalSidePadding.current, end = LocalSidePadding.current, top = 96.dp, bottom = 48.dp),
     ) {
         Column(
             verticalArrangement = Arrangement.spacedBy(14.dp),

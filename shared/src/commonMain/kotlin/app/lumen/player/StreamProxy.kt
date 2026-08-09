@@ -27,6 +27,30 @@ expect object StreamProxy {
         extension: String = "mkv",
     ): String
 
+    /**
+     * Enregistre une source FTP : le proxy s'y connectera lui-même à la
+     * demande (FTP ne se donne à aucun lecteur vidéo tel quel).
+     * [sizeBytes] vient de la navigation — sans lui, pas de Content-Range.
+     */
+    fun registerFtp(
+        config: app.lumen.domain.FtpConfig,
+        path: String,
+        sizeBytes: Long?,
+        extension: String = "mp4",
+    ): String
+
+    /**
+     * Enregistre un dossier HLS d'un bucket privé : renvoie l'URL locale du
+     * master. Les playlists référencent leurs segments en RELATIF — le lecteur
+     * les résout donc contre l'URL du proxy, qui signe chaque objet à la volée.
+     * Une simple URL signée du master ne suffirait pas : les segments
+     * répondraient 403.
+     */
+    fun registerS3Hls(
+        config: app.lumen.domain.PrivateStorageConfig,
+        masterKey: String,
+    ): String
+
     /** Adresse de base du proxy, ou null s'il ne tourne pas. */
     fun baseUrl(): String?
 }

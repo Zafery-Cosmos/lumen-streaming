@@ -28,14 +28,15 @@ titre n'est pas sur le serveur.
 | **Avatars** | Téléverser une image soi-même | **1 757 avatars triés par film et série** |
 | **Séries mal rangées** | Affichées telles quelles | **Réorganisées** via TMDB (numéros absolus → vraies saisons) |
 | **Métadonnées manquantes** | Vides | Complétées par TMDB (titres, résumés, vignettes, logos) |
-| **Mises à jour** | À la main | **En direct** : publier prévient les apps ouvertes instantanément |
+| **Sources autres que Jellyfin** | Aucune | Buckets **S3/R2/B2**, **WebDAV**, **FTP** — indexés et rangés sur l'accueil |
+| **Mises à jour** | À la main | **En direct** : publier prévient les apps ouvertes instantanément, **PC et Android** |
 | **Lecteur** | Contrôles de base | UI maison : vitesse, qualité, pistes, rendu, capture, statistiques de flux |
 
 ---
 
 ## Ce que ça sait faire
 
-### Trois sources, une seule interface
+### Toutes vos sources, une seule interface
 
 L'utilisateur voit des titres et un bouton « Lire ». Derrière :
 
@@ -43,6 +44,39 @@ L'utilisateur voit des titres et un bouton « Lire ». Derrière :
 2. **Vos dossiers HLS** — déjà transcodés, lus sans qu'aucun serveur ne ré-encode.
 3. **Les addons Stremio** — Torrentio, Frenchio, TvVoo… Le protocole officiel est
    implémenté, donc **n'importe quel addon existant fonctionne**.
+4. **Vos stockages perso** — buckets S3, WebDAV, FTP (voir ci-dessous).
+
+### L'onglet Service : brancher son propre stockage
+
+Un serveur Jellyfin n'est pas la seule façon de ranger ses films. L'onglet
+**Service** accepte, en plus des serveurs Jellyfin :
+
+| Type | Ce que Lumen sait faire |
+|---|---|
+| **Stockage objet** (S3, R2, B2, Wasabi, Scaleway, MinIO…) | Test de connexion, choix des dossiers à indexer, lecture par **URL signée** (SigV4 maison, aucun SDK) |
+| **WebDAV** (Nextcloud, Synology, mod_dav) | Test de connexion, navigation des dossiers, lecture directe |
+| **FTP** | Navigation, lecture via un proxy HTTP local — aucun lecteur vidéo ne lit du FTP nativement |
+
+**Un bucket devient une médiathèque.** L'assistant se fait en deux temps :
+identifiants + « Tester la connexion », puis **choix des dossiers** à indexer
+(sélection multiple, navigation dans les sous-dossiers). L'indexation repère les
+fichiers vidéo et les dossiers HLS, rapproche chaque titre de **TMDB** (jaquette,
+année, résumé), et les titres apparaissent sur l'accueil comme n'importe quel
+film. Un dossier HLS dans un bucket privé est lu via le proxy local, qui **signe
+chaque segment à la volée** — une simple URL signée du manifeste ne suffirait pas.
+
+### Transférer une configuration par QR code
+
+Une source de stockage s'exporte en **QR code** (JSON compressé en GZip puis
+encodé en Base64 URL-safe, sortie déterministe : deux exports de la même config
+donnent la même chaîne). De quoi configurer ses autres appareils sans retaper
+des clés d'accès à la main.
+
+> **Ce n'est pas du chiffrement.** GZip et Base64 transportent la donnée, ils ne
+> la protègent pas : qui décode le code lit la clé d'accès en clair, exactement
+> comme un QR code de mot de passe Wi-Fi. La sécurité vient de à qui vous le
+> montrez. Lumen n'a **aucun annuaire, aucune mise en relation, aucun serveur**
+> impliqué dans cet échange.
 
 ### Un vrai moteur torrent, sans debrid
 
@@ -85,9 +119,10 @@ Kotlin **Compose Multiplatform** — une base de code, des lecteurs natifs.
 lumen/
 ├── shared/          ~85 % du code : UI, client API, domaine, base locale
 │   ├── api/         clients Jellyfin, TMDB et Stremio (écrits à la main)
-│   ├── domain/      profils, réglages, réorganisation des épisodes
-│   ├── player/      PlayerEngine commun + moteur torrent
-│   ├── update/      mises à jour en direct (SSE)
+│   ├── domain/      profils, réglages, réorganisation des épisodes,
+│   │                clients S3/WebDAV/FTP et indexeur de bucket
+│   ├── player/      PlayerEngine commun + moteur torrent + proxy de flux
+│   ├── update/      mises à jour en direct (SSE), PC et Android
 │   └── ui/          écrans Compose et design system
 ├── androidApp/      Media3 / ExoPlayer
 └── desktopApp/      libVLC en rendu par callback
@@ -99,6 +134,8 @@ lumen/
 | **libVLC en rendu par callback** | Sur Linux, une surface vidéo AWT passe *au-dessus* de Compose : les contrôles seraient invisibles. libVLC décode en mémoire, Compose dessine. |
 | **UI de lecteur 100 % maison** | Aucun contrôle stock : la même interface sur toutes les plateformes, derrière une interface `PlayerEngine` commune. |
 | **SQLDelight** | Profils, PIN hachés et reprise par profil dans une vraie base locale. |
+| **Signature S3 écrite à la main** | ~100 lignes de SigV4 remplacent un SDK de plusieurs Mo, et couvrent S3, R2, B2 et tous les compatibles d'un seul coup. |
+| **Proxy de flux local** | FTP et HLS-dans-un-bucket ne se donnent à aucun lecteur vidéo tels quels : le proxy les réexpose en HTTP propre, en signant les segments à la demande. |
 
 ---
 
@@ -147,7 +184,14 @@ server/publish.sh 0.3.0 "Correctif A|Correctif B" lumen.jar
 À la publication, **toutes les apps ouvertes sont prévenues instantanément**
 (SSE) : le bandeau apparaît sans redémarrage, annonce le poids avant de lancer,
 puis affiche débit et temps restant. Le téléchargement reprend après coupure
-(requêtes Range).
+(requêtes Range). Les versions obsolètes sont purgées automatiquement du serveur.
+
+**Sur PC**, la mise à jour s'installe en espace utilisateur puis relance l'app.
+**Sur Android**, le même bandeau télécharge l'APK et passe la main à
+l'installateur du système : aucun câble, aucun ADB. L'APK doit être signé avec
+la même clé que l'app installée — elle est déclarée dans `local.properties`
+(`lumen.keystore=…`) pour qu'un build ne puisse pas produire un paquet
+impossible à installer.
 
 ### Banque d'avatars
 
@@ -169,14 +213,34 @@ avatars/
 
 Fonctionnel et utilisé au quotidien. Ce qui tourne : connexion et Quick Connect,
 accueil éditorial, fiches films et séries, pages acteur, lecteur complet,
-addons Stremio avec moteur torrent, profils, paramètres, mises à jour en direct.
+addons Stremio avec moteur torrent, profils, paramètres, import de dossiers HLS,
+stockages perso (S3/WebDAV/FTP) avec indexation, mises à jour en direct sur PC
+et Android.
 
-Ce qui n'est pas encore là, dit franchement : le mode TV (navigation à la
-télécommande), le téléchargement hors-ligne, la sélection de pistes sur Android,
-et l'assistant d'import de dossiers HLS.
+Ce qui n'est pas encore là, dit franchement :
 
-## Licence et avertissement
+- le **mode TV** (navigation à la télécommande) ;
+- le **téléchargement hors-ligne** ;
+- la **sélection de pistes** sur Android ;
+- le **proxy de flux local sur Android** — donc, sur mobile, le FTP et les
+  dossiers HLS d'un bucket ne sont pas encore lisibles (les fichiers simples, si) ;
+- les paquets **Windows et macOS** ne sont pas publiés sur le serveur de mises à
+  jour : ils se construisent sur leur propre système (`jpackage` ne compile pas
+  pour une autre plateforme).
 
-Projet personnel, publié tel quel. Lumen **ne fournit aucun contenu** : c'est un
-client. Les addons Stremio sont ajoutés par l'utilisateur, qui reste responsable
-de ce qu'il en fait et du respect des lois de son pays.
+---
+
+## ⚖️ Avertissement légal
+
+Lumen Streaming est un **client logiciel**, comme un navigateur web.
+
+- Lumen **ne fournit aucun contenu**. Aucun fichier vidéo, audio, ou sous-titre n'est hébergé ou distribué par le projet.
+- Lumen **ne gère aucun serveur**. Toutes les sources sont connectées **directement** par l'utilisateur.
+- Les **QR Codes** sont des liens locaux. Ils ne sont jamais envoyés, stockés ou traités par des serveurs appartenant à Lumen.
+- L'utilisateur est **seul responsable** des sources qu'il ajoute et des QR Codes qu'il partage.
+
+**Lumen est un outil. Son usage relève de la responsabilité de l'utilisateur.**
+
+## Licence
+
+Projet personnel, publié tel quel.

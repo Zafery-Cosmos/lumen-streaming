@@ -15,7 +15,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /** La version actuellement installée — comparée à celle publiée sur le NAS. */
-const val LUMEN_VERSION = "1.1.0"
+// À BUMPER À CHAQUE PUBLICATION (publish.sh) : c'est la version que l'app
+// compare au manifeste — si elle reste en arrière, l'app se repropose sa
+// propre version en boucle après chaque mise à jour.
+const val LUMEN_VERSION = "1.9.3"
 
 /** Adresse du serveur de mises à jour (NAS). */
 const val UPDATE_SERVER = "http://192.168.1.170:8500"

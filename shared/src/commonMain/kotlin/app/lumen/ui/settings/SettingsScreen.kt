@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumen.auth.StoredSession
+import app.lumen.ui.theme.LocalSidePadding
 import app.lumen.ui.theme.LumenColors
 
 /** Un groupe de paramètres, ouvert en sous-écran. */
@@ -70,7 +71,7 @@ fun SettingsScreen(
         SettingsGroup("simkl", Icons.Filled.Sync, "Simkl", "Historique unifié, addons compris"),
         SettingsGroup("advanced", Icons.Filled.Tune, "Avancé", "Import de dossiers HLS, segmentation"),
         SettingsGroup("quickconnect", Icons.Filled.Key, "Connexion rapide", "Autoriser un autre appareil"),
-        SettingsGroup("server", Icons.Filled.Dns, "Serveur", session.serverName.ifEmpty { session.baseUrl }),
+        SettingsGroup("server", Icons.Filled.Dns, "Service", session.serverName.ifEmpty { session.baseUrl }),
     )
 
     Column(
@@ -78,7 +79,7 @@ fun SettingsScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxSize().background(LumenColors.Background)
             .verticalScroll(rememberScrollState())
-            .padding(start = 48.dp, end = 48.dp, top = 96.dp, bottom = 48.dp),
+            .padding(start = LocalSidePadding.current, end = LocalSidePadding.current, top = 96.dp, bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(

@@ -40,6 +40,7 @@ import app.lumen.domain.toCard
 import app.lumen.ui.components.MediaCard
 import app.lumen.ui.detail.SourcesOverlay
 import app.lumen.ui.detail.SourcesTarget
+import app.lumen.ui.theme.LocalSidePadding
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -115,7 +116,7 @@ fun SearchScreen(
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 150.dp),
                 // Le haut compense la barre de navigation transparente qui flotte.
-                contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 88.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = LocalSidePadding.current, end = LocalSidePadding.current, top = 88.dp, bottom = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {

@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumen.domain.HeroItem
+import app.lumen.ui.theme.LocalSidePadding
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
@@ -126,7 +127,7 @@ private fun HeroSlide(hero: HeroItem, onOpen: (String) -> Unit, onPlay: (String)
         )
 
         Column(
-            modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 48.dp, vertical = 36.dp),
+            modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = LocalSidePadding.current, vertical = 36.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (hero.logoUrl != null) {

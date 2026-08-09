@@ -101,6 +101,10 @@ kotlin {
             implementation(libs.media3.exoplayer)
             implementation(libs.media3.exoplayer.hls)
             implementation(libs.media3.ui)
+            implementation(libs.zxing.core)
+            implementation(libs.commons.net)
+            // FileProvider : sert l'APK de mise à jour à l'installateur système.
+            implementation(libs.androidx.core)
         }
         // Code java.net commun au desktop et à Android (cast) : un seul
         // fichier, compilé dans les deux cibles.
@@ -115,6 +119,8 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.vlcj)
             implementation(libs.sqldelight.jvm)
+            implementation(libs.zxing.core)
+            implementation(libs.commons.net)
         }
     }
 }

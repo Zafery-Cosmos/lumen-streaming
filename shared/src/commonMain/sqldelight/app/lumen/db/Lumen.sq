@@ -27,6 +27,59 @@ CREATE TABLE hls_entry (
     importedAt INTEGER NOT NULL
 );
 
+-- Sources de stockage perso (S3/R2/B2…), importees via QR code ou saisie
+-- manuelle. Jamais partagees automatiquement : Lumen n'est qu'un client.
+CREATE TABLE storage_source (
+    id TEXT NOT NULL PRIMARY KEY,
+    label TEXT NOT NULL,        -- nom donne par l'utilisateur ("Mon NAS", "R2 perso"…)
+    kind TEXT NOT NULL,         -- s3 | r2 | b2 (toutes compatibles API S3)
+    endpoint TEXT NOT NULL,
+    region TEXT,
+    bucket TEXT NOT NULL,
+    accessKey TEXT NOT NULL,
+    secretKey TEXT NOT NULL,
+    importedAt INTEGER NOT NULL,
+    folders TEXT NOT NULL DEFAULT ''   -- prefixes a indexer, un par ligne ; vide = tout
+);
+
+-- Connexions WebDAV perso (Nextcloud, Synology, mod_dav…). Meme principe que
+-- storage_source : Lumen n'est qu'un client, rien n'est partage.
+CREATE TABLE webdav_source (
+    id TEXT NOT NULL PRIMARY KEY,
+    label TEXT NOT NULL,
+    baseUrl TEXT NOT NULL,
+    username TEXT NOT NULL,
+    password TEXT NOT NULL,
+    importedAt INTEGER NOT NULL
+);
+
+-- Titres indexes depuis un bucket perso : la carte de l accueil pointe soit
+-- un objet video (lu par URL signee), soit un master.m3u8 (lu via le proxy
+-- local qui signe chaque segment a la volee).
+CREATE TABLE bucket_entry (
+    id TEXT NOT NULL PRIMARY KEY,
+    sourceId TEXT NOT NULL,      -- storage_source.id d'origine
+    title TEXT NOT NULL,
+    year INTEGER,
+    kind TEXT NOT NULL,          -- file | hls
+    objectKey TEXT NOT NULL,     -- cle de l objet ou du master.m3u8
+    posterUrl TEXT,
+    backdropUrl TEXT,
+    overview TEXT,
+    indexedAt INTEGER NOT NULL
+);
+
+-- Connexions FTP perso. Meme principe que storage_source/webdav_source.
+CREATE TABLE ftp_source (
+    id TEXT NOT NULL PRIMARY KEY,
+    label TEXT NOT NULL,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    password TEXT NOT NULL,
+    importedAt INTEGER NOT NULL
+);
+
 CREATE TABLE watch_state (
     profileId TEXT NOT NULL,
     itemId TEXT NOT NULL,
@@ -83,3 +136,48 @@ INSERT OR REPLACE INTO hls_entry(
 
 deleteHlsEntry:
 DELETE FROM hls_entry WHERE id = ?;
+
+selectStorageSources:
+SELECT * FROM storage_source ORDER BY importedAt DESC;
+
+insertStorageSource:
+INSERT OR REPLACE INTO storage_source(
+    id, label, kind, endpoint, region, bucket, accessKey, secretKey, importedAt, folders
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteStorageSource:
+DELETE FROM storage_source WHERE id = ?;
+
+selectWebDavSources:
+SELECT * FROM webdav_source ORDER BY importedAt DESC;
+
+insertWebDavSource:
+INSERT OR REPLACE INTO webdav_source(id, label, baseUrl, username, password, importedAt)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteWebDavSource:
+DELETE FROM webdav_source WHERE id = ?;
+
+selectBucketEntries:
+SELECT * FROM bucket_entry ORDER BY title;
+
+insertBucketEntry:
+INSERT OR REPLACE INTO bucket_entry(
+    id, sourceId, title, year, kind, objectKey, posterUrl, backdropUrl, overview, indexedAt
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteBucketEntry:
+DELETE FROM bucket_entry WHERE id = ?;
+
+deleteBucketEntriesForSource:
+DELETE FROM bucket_entry WHERE sourceId = ?;
+
+selectFtpSources:
+SELECT * FROM ftp_source ORDER BY importedAt DESC;
+
+insertFtpSource:
+INSERT OR REPLACE INTO ftp_source(id, label, host, port, username, password, importedAt)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+deleteFtpSource:
+DELETE FROM ftp_source WHERE id = ?;

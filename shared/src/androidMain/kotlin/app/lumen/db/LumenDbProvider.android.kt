@@ -10,7 +10,11 @@ import java.security.MessageDigest
 actual fun rememberLumenDb(): LumenDb {
     val context = LocalContext.current.applicationContext
     return remember {
-        LumenDb(AndroidSqliteDriver(LumenDb.Schema, context, "lumen.db"))
+        val driver = AndroidSqliteDriver(LumenDb.Schema, context, "lumen.db")
+        // Même filet que sur desktop : une base d'ancienne version n'a pas les
+        // tables ajoutées depuis (le onCreate d'Android ne rejoue jamais).
+        ensureLumenTables(driver)
+        LumenDb(driver)
     }
 }
 

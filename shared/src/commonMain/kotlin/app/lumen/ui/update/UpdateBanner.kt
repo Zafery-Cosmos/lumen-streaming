@@ -235,9 +235,15 @@ fun UpdateBanner(client: JellyfinClient) {
                     }
 
                     Phase.Ready -> {
+                        error?.let { Text(it, color = LumenColors.Accent, fontSize = 12.sp) }
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Button(
-                                onClick = { downloadedPath?.let { applyUpdate(it) } },
+                                onClick = {
+                                    // Si tout va bien, applyUpdate FERME l'app :
+                                    // on ne repasse ici qu'en cas d'échec.
+                                    val ok = downloadedPath?.let { applyUpdate(it) } ?: false
+                                    if (!ok) error = "Installation échouée — retélécharge la mise à jour"
+                                },
                                 colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
                                 shape = RoundedCornerShape(8.dp),
                             ) {

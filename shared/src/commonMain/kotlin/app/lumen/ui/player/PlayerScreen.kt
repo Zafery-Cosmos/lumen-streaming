@@ -187,10 +187,13 @@ fun PlayerScreen(
         if (request.hlsMasterPath != null) {
             // Dossier HLS déjà transcodé : lecture directe du fichier, aucun
             // serveur dans la boucle, donc aucun ré-encodage possible.
+            // L'URI doit être ENCODÉE (cf. localFileUri) : un espace dans le
+            // chemin suffisait à casser la résolution des segments.
             title = request.title
             playMethod = "HLS local — Direct Play"
-            streamUrl = "file://${request.hlsMasterPath}"
-            engine.play("file://${request.hlsMasterPath}")
+            val uri = app.lumen.localFileUri(request.hlsMasterPath)
+            streamUrl = uri
+            engine.play(uri)
             return@LaunchedEffect
         }
         if (request.torrentHash != null) {
@@ -257,6 +260,19 @@ fun PlayerScreen(
             client.reportPlaybackStart(session.baseUrl, itemId, playSessionId)
         } catch (e: Exception) {
             loadError = "Impossible de lancer la lecture"
+        }
+    }
+
+    // Garde-fou : libvlc peut échouer SANS émettre d'erreur (démuxeur HLS qui
+    // n'ouvre aucun segment, par exemple). Sans ça, l'écran reste noir et muet
+    // indéfiniment et l'utilisateur croit l'application plantée.
+    LaunchedEffect(request) {
+        delay(20_000)
+        val s = engine.state.value
+        if (!s.playing && s.positionMs == 0L && loadError == null && s.error == null) {
+            loadError = "Lecture impossible — le fichier n'a pas pu être ouvert. " +
+                "Reviens en arrière et réessaie."
+            controlsVisible = true
         }
     }
 
@@ -375,6 +391,12 @@ fun PlayerScreen(
             }
         }
         if (navigateBack) onBack()
+    }
+
+    // Retour système : on quitte le LECTEUR (en enregistrant la progression),
+    // pas l'application.
+    app.lumen.ui.PlatformBackHandler(enabled = true) {
+        if (settingsOpen) settingsOpen = false else leave()
     }
 
     /**
@@ -605,6 +627,9 @@ fun PlayerScreen(
                 onSnapshot = { engine.snapshot() },
                 streamUrl = streamUrl,
                 playerTitle = title,
+                // Seul un item Jellyfin passe par PlaybackInfo : lui seul peut
+                // être transcodé à la demande.
+                qualityControllable = itemId != null,
                 playMethod = buildString {
                     append(playMethod)
                     append(" · ")
@@ -692,6 +717,8 @@ private fun SettingsPanel(
     playMethod: String,
     streamUrl: String?,
     playerTitle: String,
+    /** Le transcodage n'existe QUE pour un item du serveur Jellyfin. */
+    qualityControllable: Boolean,
 ) {
     var selectedAudio by remember { mutableStateOf<Int?>(null) }
     var selectedSub by remember { mutableStateOf(-1) }
@@ -718,17 +745,48 @@ private fun SettingsPanel(
         }
 
         SettingSection(Icons.Filled.HighQuality, "Qualité") {
-            ChipRow(
-                options = listOf(
-                    "Auto" to null,
-                    "20 Mbps" to 20_000_000L,
-                    "8 Mbps" to 8_000_000L,
-                    "4 Mbps" to 4_000_000L,
-                    "2 Mbps" to 2_000_000L,
-                ),
-                isSelected = { it == maxBitrate },
-                onSelect = onMaxBitrate,
-            )
+            if (!qualityControllable) {
+                // Honnêteté : sur un flux d'addon, un torrent ou un fichier
+                // local, AUCUN serveur ne peut ré-encoder à la volée. Afficher
+                // des paliers ici serait purement décoratif.
+                Text(
+                    "Flux lu tel quel — la qualité dépend de la source, " +
+                        "il n'y a pas de serveur pour la convertir.",
+                    color = LumenColors.Muted,
+                    fontSize = 12.sp,
+                )
+            } else {
+                // L'état RÉEL, renvoyé par le serveur après négociation.
+                Text(
+                    when {
+                        playMethod.startsWith("Direct Play") -> "Actuellement : Direct Play — aucun ré-encodage"
+                        playMethod.startsWith("Direct Stream") -> "Actuellement : Direct Stream — remuxage seul"
+                        else -> "Actuellement : transcodage par le serveur"
+                    },
+                    color = LumenColors.Muted,
+                    fontSize = 12.sp,
+                )
+                ChipRow(
+                    options = listOf(
+                        "Direct Play" to null,
+                        "1080p · 20 Mbps" to 20_000_000L,
+                        "1080p · 8 Mbps" to 8_000_000L,
+                        "720p · 4 Mbps" to 4_000_000L,
+                        "480p · 2 Mbps" to 2_000_000L,
+                    ),
+                    isSelected = { it == maxBitrate },
+                    onSelect = onMaxBitrate,
+                )
+                Text(
+                    if (maxBitrate == null) {
+                        "Le serveur envoie le fichier tel quel tant que ton appareil sait le lire."
+                    } else {
+                        "Le serveur ré-encode à la volée pour tenir sous ce débit."
+                    },
+                    color = LumenColors.Muted,
+                    fontSize = 11.sp,
+                )
+            }
         }
 
         SettingSection(Icons.Filled.Audiotrack, "Piste audio") {

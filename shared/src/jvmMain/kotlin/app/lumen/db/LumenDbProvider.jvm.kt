@@ -14,6 +14,8 @@ actual fun rememberLumenDb(): LumenDb = remember {
     val fresh = !file.exists()
     val driver = JdbcSqliteDriver("jdbc:sqlite:${file.absolutePath}", Properties())
     if (fresh) LumenDb.Schema.create(driver)
+    // Base existante : les tables ajoutées depuis sa création n'y sont pas.
+    ensureLumenTables(driver)
     LumenDb(driver)
 }
 

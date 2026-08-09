@@ -1,6 +1,7 @@
 package app.lumen.domain
 
 import app.lumen.api.StremioClient
+import app.lumen.security.SecureStore
 import com.russhwolf.settings.Settings
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -18,12 +19,14 @@ class AddonStore(private val settings: Settings = Settings()) {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun list(): List<AddonEntry> =
-        settings.getStringOrNull(KEY)?.let {
+        SecureStore.get(KEY)?.let {
             runCatching { json.decodeFromString<List<AddonEntry>>(it) }.getOrDefault(emptyList())
         } ?: emptyList()
 
     fun save(addons: List<AddonEntry>) {
-        settings.putString(KEY, json.encodeToString(addons))
+        // Les URL d'addons portent des clés d'API dans leur chemin (debrid,
+        // TMDB, passkeys de trackers) : elles valent un mot de passe.
+        SecureStore.put(KEY, json.encodeToString(addons))
     }
 
     /** Valide le manifeste puis installe — renvoie l'addon ou null si invalide. */

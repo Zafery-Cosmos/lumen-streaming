@@ -41,6 +41,7 @@ import app.lumen.domain.CardItem
 import app.lumen.ui.components.MediaCard
 import app.lumen.ui.detail.SourcesOverlay
 import app.lumen.ui.detail.SourcesTarget
+import app.lumen.ui.theme.LocalSidePadding
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -92,7 +93,7 @@ fun DiscoverScreen(
             item(key = "chips") {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.padding(horizontal = 48.dp),
+                    modifier = Modifier.padding(horizontal = LocalSidePadding.current),
                 ) {
                     DISCOVER_TYPES.forEachIndexed { i, (label, _) ->
                         val isSel = i == selected
@@ -140,7 +141,7 @@ fun DiscoverScreen(
                                 },
                                 color = LumenColors.Muted,
                                 fontSize = 14.sp,
-                                modifier = Modifier.padding(horizontal = 48.dp),
+                                modifier = Modifier.padding(horizontal = LocalSidePadding.current),
                             )
                         }
                     }
@@ -228,19 +229,19 @@ private fun CatalogRail(
             color = LumenColors.OnBackground,
             fontSize = 19.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 48.dp),
+            modifier = Modifier.padding(horizontal = LocalSidePadding.current),
         )
         when (val list = metas) {
             null -> CircularProgressIndicator(
                 color = LumenColors.Accent,
-                modifier = Modifier.padding(horizontal = 48.dp).size(22.dp),
+                modifier = Modifier.padding(horizontal = LocalSidePadding.current).size(22.dp),
             )
             else -> if (grid) {
                 // Chaînes TV : GRILLE verticale — tout est atteignable au scroll,
                 // pas coincé au bout d'une rangée horizontale.
                 Column(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.padding(horizontal = 48.dp),
+                    modifier = Modifier.padding(horizontal = LocalSidePadding.current),
                 ) {
                     list.chunked(7).forEach { rowMetas ->
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -260,7 +261,7 @@ private fun CatalogRail(
                 }
             } else LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(horizontal = 48.dp),
+                contentPadding = PaddingValues(horizontal = LocalSidePadding.current),
             ) {
                 items(list.take(40), key = { it.id }) { meta ->
                     MediaCard(

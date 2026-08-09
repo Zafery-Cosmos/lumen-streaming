@@ -54,12 +54,43 @@ fun AvatarPicker(
     onSelect: (String?) -> Unit,
 ) {
     val bank = remember { AvatarBank(client.http) }
-    val index by produceState<AvatarIndex?>(initialValue = null) { value = bank.index() }
+    var attempt by remember { mutableStateOf(0) }
+    val result by produceState<Result<AvatarIndex>?>(initialValue = null, attempt) {
+        value = null
+        value = bank.index()
+    }
 
-    val idx = index
-    if (idx == null) {
+    val current = result
+    if (current == null) {
         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.CenterStart) {
             CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(22.dp))
+        }
+        return
+    }
+    val idx = current.getOrNull()
+    if (idx == null) {
+        // Un échec DOIT se voir : avant, on restait bloqué sur le sablier.
+        Column(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+        ) {
+            Text(
+                "Banque d'avatars injoignable — le serveur du NAS ne répond pas.",
+                color = LumenColors.Accent, fontSize = 13.sp,
+            )
+            current.exceptionOrNull()?.message?.let {
+                Text(it, color = LumenColors.Muted, fontSize = 11.sp)
+            }
+            Text(
+                "Réessayer",
+                color = LumenColors.Accent,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { attempt++ },
+            )
         }
         return
     }

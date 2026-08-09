@@ -6,10 +6,21 @@
     <!-- Découverte cast : réception mDNS (multicast) sur le Wi-Fi. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!-- Mise à jour depuis le serveur du NAS : Lumen n'est pas sur le Play
+         Store, l'installation passe donc par l'installateur du système. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!--
+        Trafic en clair AUTORISÉ : depuis Android 9 il est bloqué par défaut, ce
+        qui coupait tout ce que Lumen doit joindre en http:// — la banque
+        d'avatars et le serveur de mises à jour du NAS, un Jellyfin en IP
+        locale, les addons et le proxy de flux local. Symptôme observé : le
+        sélecteur d'avatars tournait indéfiniment, l'erreur étant avalée.
+    -->
     <application
         android:label="Lumen"
         android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
         android:supportsRtl="true">
         <activity
@@ -21,5 +32,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Passe l'APK téléchargé à l'installateur : un file:// vers nos
+             données privées serait rejeté depuis Android 7. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/lumen_update_paths" />
+        </provider>
     </application>
 </manifest>

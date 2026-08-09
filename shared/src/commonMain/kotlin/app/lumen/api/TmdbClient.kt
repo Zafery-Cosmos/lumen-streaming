@@ -54,10 +54,41 @@ data class TmdbDetail(
     @SerialName("credits") val credits: TmdbCredits? = null,
     @SerialName("similar") val similar: TmdbPaged? = null,
     @SerialName("external_ids") val externalIds: TmdbExternalIds? = null,
+    @SerialName("images") val images: TmdbImages? = null,
 ) {
     val displayName: String get() = title ?: nameField ?: ""
     val year: Int? get() = (releaseDate ?: firstAirDate)?.take(4)?.toIntOrNull()
+
+    /**
+     * Le logo du titre, à afficher À LA PLACE du texte. On préfère le
+     * français, puis l'anglais, puis une version sans langue ; à qualité
+     * égale, le mieux noté. Null = pas de logo, on retombe sur le texte.
+     */
+    val logoUrl: String? get() = images?.logos.orEmpty()
+        .filter { it.filePath != null }
+        .minByOrNull { logo ->
+            val langRank = when (logo.language) {
+                "fr" -> 0
+                "en" -> 1
+                null -> 2
+                else -> 3
+            }
+            langRank * 1000 - (logo.voteAverage ?: 0.0).toInt()
+        }
+        ?.let { TmdbClient.logoUrl(it.filePath) }
 }
+
+@Serializable
+data class TmdbImages(
+    @SerialName("logos") val logos: List<TmdbImage> = emptyList(),
+)
+
+@Serializable
+data class TmdbImage(
+    @SerialName("file_path") val filePath: String? = null,
+    @SerialName("iso_639_1") val language: String? = null,
+    @SerialName("vote_average") val voteAverage: Double? = null,
+)
 
 @Serializable
 data class TmdbPersonSearch(
@@ -169,11 +200,18 @@ class TmdbClient(private val http: HttpClient) {
     /** Nouveautés cinéma du moment. */
     suspend fun nowPlaying(): List<TmdbItem> = get("movie/now_playing").results
 
-    /** Fiche détaillée d'un film ou d'une série TMDB, avec casting et similaires. */
+    /**
+     * Fiche détaillée d'un film ou d'une série TMDB, avec casting, similaires
+     * ET logos du titre. `include_image_language` est indispensable : sans lui
+     * l'API ne renvoie que les images de la langue demandée, donc presque
+     * aucun logo. On demande le français, l'anglais, puis les logos sans
+     * langue (typographies internationales).
+     */
     suspend fun detail(mediaType: String, id: Long): TmdbDetail =
         http.get(
             "$BASE/$mediaType/$id?api_key=${Secrets.TMDB_API_KEY}&language=fr-FR" +
-                "&append_to_response=credits,similar,external_ids",
+                "&append_to_response=credits,similar,external_ids,images" +
+                "&include_image_language=fr,en,null",
         ).body()
 
     /** Recherche d'une personne par nom (pont depuis les fiches Jellyfin). */
@@ -232,5 +270,7 @@ class TmdbClient(private val http: HttpClient) {
         fun backdropUrl(path: String?): String? = path?.let { "https://image.tmdb.org/t/p/w1280$it" }
         fun stillUrl(path: String?): String? = path?.let { "https://image.tmdb.org/t/p/w400$it" }
         fun profileUrl(path: String?): String? = path?.let { "https://image.tmdb.org/t/p/w185$it" }
+        /** Logo du titre : PNG transparent, à poser sur le visuel. */
+        fun logoUrl(path: String?): String? = path?.let { "https://image.tmdb.org/t/p/w500$it" }
     }
 }

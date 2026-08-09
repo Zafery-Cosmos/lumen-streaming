@@ -215,7 +215,15 @@ class VlcjEngine : PlayerEngine {
 actual fun rememberPlayerEngine(): PlayerEngine {
     val engine = remember { VlcjEngine() }
     DisposableEffect(Unit) {
-        onDispose { engine.release() }
+        // Libération HORS du thread UI : release() entre dans du code natif et
+        // peut prendre son temps (voire se bloquer) si libvlc est en mauvaise
+        // posture. Sur le thread UI, cela figerait toute la fenêtre — y compris
+        // son bouton de fermeture.
+        onDispose {
+            Thread({ runCatching { engine.release() } }, "lumen-player-release")
+                .apply { isDaemon = true }
+                .start()
+        }
     }
     return engine
 }

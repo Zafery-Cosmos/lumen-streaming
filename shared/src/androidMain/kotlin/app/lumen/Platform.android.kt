@@ -36,3 +36,5 @@ actual fun findHlsMaster(directory: String): String? = null
 actual fun readLocalText(path: String): String? = null
 actual fun resolveSibling(masterPath: String, relative: String): String = relative
 actual fun parentFolderName(path: String): String = ""
+actual fun localFileUri(path: String): String =
+    if (path.startsWith("file:")) path else "file://" + java.io.File(path).toURI().rawPath

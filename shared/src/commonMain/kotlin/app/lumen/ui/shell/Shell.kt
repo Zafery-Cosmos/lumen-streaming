@@ -41,6 +41,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -124,9 +125,27 @@ fun Shell(
         )
         return
     }
+
+    // Retour système (Android) : on remonte d'un écran au lieu de quitter
+    // l'application. Sans ça, le moindre geste de retour éjecte l'utilisateur.
+    app.lumen.ui.PlatformBackHandler(
+        enabled = detailStack.isNotEmpty() || searchOpen || settingsSub != null || tab != ShellTab.Home,
+    ) {
+        when {
+            detailStack.isNotEmpty() -> detailStack = detailStack.dropLast(1)
+            searchOpen -> { searchOpen = false; searchQuery = "" }
+            settingsSub != null -> settingsSub = null
+            else -> tab = ShellTab.Home
+        }
+    }
     val hlsRepo = remember(db) { app.lumen.domain.HlsLibraryRepository(db) }
+    val bucketRepo = remember(db) { app.lumen.domain.BucketLibraryRepository(db) }
+    val storageRepo = remember(db) { app.lumen.domain.StorageSourceRepository(db) }
+    val shellScope = androidx.compose.runtime.rememberCoroutineScope()
     val playItem: (String) -> Unit = { id -> playing = app.lumen.domain.PlayRequest(itemId = id) }
     // Une carte « hls: » pointe un dossier importé : lecture directe du master.
+    // Une carte « bucket: » pointe un objet S3 : URL signée (fichier) ou proxy
+    // local qui signe chaque segment (dossier HLS).
     val openDetail: (String) -> Unit = { id ->
         if (id.startsWith("hls:")) {
             hlsRepo.list().firstOrNull { "hls:${it.id}" == id }?.let { entry ->
@@ -134,6 +153,26 @@ fun Shell(
                     hlsMasterPath = entry.masterPath,
                     title = entry.title,
                 )
+            }
+        } else if (id.startsWith("bucket:")) {
+            bucketRepo.list().firstOrNull { "bucket:${it.id}" == id }?.let { entry ->
+                val config = storageRepo.list().firstOrNull { it.id == entry.sourceId }?.config
+                if (config != null) {
+                    shellScope.launch {
+                        val url = if (entry.kind == "hls") {
+                            if (app.lumen.player.StreamProxy.ensureRunning()) {
+                                app.lumen.player.StreamProxy.registerS3Hls(config, entry.objectKey)
+                            } else {
+                                ""
+                            }
+                        } else {
+                            app.lumen.domain.S3Client().presignGet(config, entry.objectKey)
+                        }
+                        if (url.isNotEmpty()) {
+                            playing = app.lumen.domain.PlayRequest(url = url, title = entry.title)
+                        }
+                    }
+                }
             }
         } else {
             detailStack = detailStack + id
@@ -162,6 +201,10 @@ fun Shell(
         // En dessous de 700 dp de large, on est sur un téléphone : les onglets
         // partent dans une barre du bas, sous le pouce, comme Netflix mobile.
         val compact = maxWidth < 700.dp
+        // Une seule source de vérité pour la marge latérale de TOUS les écrans.
+        androidx.compose.runtime.CompositionLocalProvider(
+            app.lumen.ui.theme.LocalSidePadding provides if (compact) 16.dp else 48.dp,
+        ) {
         val showSearch = searchOpen && searchQuery.isNotBlank()
         val target = detailStack.lastOrNull()
             ?: if (showSearch) "search" else if (tab == ShellTab.Settings && settingsSub != null) "settings-${settingsSub}" else tab.name
@@ -171,7 +214,14 @@ fun Shell(
                 (fadeIn(tween(350)) + slideInVertically(tween(350)) { it / 20 })
                     .togetherWith(fadeOut(tween(180)))
             },
-            modifier = Modifier.fillMaxSize(),
+            // Sur téléphone, la barre du bas est OPAQUE en bas de son dégradé :
+            // sans cette réserve, la dernière rangée de chaque écran passe
+            // dessous et devient inatteignable.
+            modifier = if (compact) {
+                Modifier.fillMaxSize().padding(bottom = 68.dp).navigationBarsPadding()
+            } else {
+                Modifier.fillMaxSize()
+            },
         ) { state ->
             when {
                 state.startsWith("jf:") || state.startsWith("tmdb:") -> DetailScreen(
@@ -220,7 +270,7 @@ fun Shell(
                     },
                 )
                 state == ShellTab.Home.name -> HomeScreen(
-                    client, tmdb, session, profile, watchRepo, hlsRepo, refreshKey,
+                    client, tmdb, session, profile, watchRepo, hlsRepo, bucketRepo, refreshKey,
                     onOpen = openDetail,
                     onPlay = playItem,
                 )
@@ -272,6 +322,7 @@ fun Shell(
                         onForgetServer = onForgetServer,
                         onBack = { settingsSub = null },
                         onLogout = onLogout,
+                        onPlay = { req -> playing = req },
                     )
                 }
             }
@@ -325,6 +376,7 @@ fun Shell(
                     modifier = Modifier.size(140.dp),
                 )
             }
+        }
         }
     }
 }

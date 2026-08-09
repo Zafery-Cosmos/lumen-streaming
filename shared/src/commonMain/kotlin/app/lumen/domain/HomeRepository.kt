@@ -33,6 +33,7 @@ class HomeRepository(
     private val session: StoredSession,
     private val watchRepo: WatchStateRepository? = null,
     private val hlsRepo: HlsLibraryRepository? = null,
+    private val bucketRepo: BucketLibraryRepository? = null,
 ) {
 
     suspend fun load(profile: LocalProfile? = null): HomeContent = coroutineScope {
@@ -125,6 +126,13 @@ class HomeRepository(
         if (hlsEntries.isNotEmpty()) {
             railsByKey["hls"] = listOf(
                 Rail("hls", "Mes dossiers HLS", hlsEntries.map { it.toCard() }),
+            )
+        }
+        // Les titres indexés depuis les buckets perso : même principe.
+        val bucketEntries = bucketRepo?.list().orEmpty()
+        if (bucketEntries.isNotEmpty()) {
+            railsByKey["bucket"] = listOf(
+                Rail("bucket", "Mon stockage perso", bucketEntries.map { it.toCard() }),
             )
         }
         if (AppSettings.showRecent.value) {

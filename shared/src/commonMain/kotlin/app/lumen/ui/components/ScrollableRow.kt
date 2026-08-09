@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import app.lumen.ui.theme.LocalSidePadding
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.launch
 
@@ -52,7 +53,7 @@ import kotlinx.coroutines.launch
 fun ScrollableRow(
     modifier: Modifier = Modifier,
     spacing: Dp = 10.dp,
-    contentPadding: PaddingValues = PaddingValues(horizontal = 48.dp),
+    contentPadding: PaddingValues = PaddingValues(horizontal = LocalSidePadding.current),
     arrowWidth: Dp = 56.dp,
     iconSize: Dp = 34.dp,
     scrimColor: Color = LumenColors.Background,
