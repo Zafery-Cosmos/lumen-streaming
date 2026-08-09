@@ -525,6 +525,12 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
                             },
                         )
                     }
+                    // Le message brut du fournisseur ne dit jamais quoi corriger.
+                    testResult?.exceptionOrNull()?.let { error ->
+                        failureHint(error.message.orEmpty(), endpoint, accessKey)?.let {
+                            Text(it, color = LumenColors.Muted, fontSize = 11.sp)
+                        }
+                    }
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -704,6 +710,43 @@ private fun secretHint(kind: String): String = when (kind) {
     "b2" -> "Secret key = la « applicationKey », affichée UNE seule fois"
     "r2" -> "Secret key = « Secret Access Key » du jeton R2"
     else -> "Secret key"
+}
+
+/**
+ * Traduit l'erreur renvoyée par le fournisseur en geste à faire.
+ *
+ * Backblaze mérite un cas à part : sa clé maîtresse (l'identifiant de compte,
+ * douze caractères) est refusée par l'API S3, qui exige une clé d'application.
+ * Le serveur répond « Malformed Access Key Id » — rien n'indique que la clé est
+ * simplement du mauvais type.
+ */
+private fun failureHint(message: String, endpoint: String, accessKey: String): String? {
+    val backblaze = endpoint.contains("backblazeb2.com", ignoreCase = true)
+    // Un identifiant de compte Backblaze fait exactement douze caractères ; une
+    // clé d'application en fait vingt-cinq. La longueur suffit à trancher.
+    val looksLikeAccountId = accessKey.length == 12
+    return when {
+        message.contains("Malformed Access Key", ignoreCase = true) &&
+            (backblaze || looksLikeAccountId) ->
+            "Backblaze refuse la clé maîtresse sur son API S3. L'Access key doit " +
+                "être le « keyID » d'une clé d'application (Account → Application " +
+                "Keys → Add a New Application Key), pas l'identifiant de compte " +
+                "de douze caractères."
+        message.contains("Malformed Access Key", ignoreCase = true) ->
+            "L'Access key n'a pas le format attendu par ce fournisseur — vérifie " +
+                "que c'est bien l'identifiant de clé, et non un identifiant de compte."
+        message.contains("SignatureDoesNotMatch", ignoreCase = true) ->
+            "L'Access key est reconnue, mais la Secret key ne correspond pas. Sur " +
+                "la plupart des fournisseurs elle n'est affichée qu'une fois : " +
+                "regénère une clé si tu ne l'as plus."
+        message.contains("403") && backblaze ->
+            "La clé existe mais n'a pas accès à ce bucket : à la création d'une " +
+                "clé d'application, choisis le bucket voulu ou « All »."
+        message.contains("NoSuchBucket", ignoreCase = true) ->
+            "Le bucket n'existe pas sous ce nom à cette adresse — vérifie le nom " +
+                "et que l'endpoint est celui de la bonne région."
+        else -> null
+    }
 }
 
 @Composable
