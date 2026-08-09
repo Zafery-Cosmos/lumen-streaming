@@ -128,7 +128,7 @@ principale de l'app pour un gain nul dans ce scénario.
 
 *Pas d'algorithme caché.* La solidité vient de la clé, jamais du secret de la
 méthode — un chiffrement qu'il faut dissimuler pour tenir ne tient pas, et sur un
-projet open source il ne le resterait pas dix minutes. Le code est lisible ; c'est
+projet à code ouvert il ne le resterait pas dix minutes. Le code est lisible ; c'est
 ce qui permet de le vérifier.
 
 ### Profils du foyer
@@ -289,4 +289,26 @@ Lumen Streaming est un **client logiciel**, comme un navigateur web.
 
 ## Licence
 
-Projet personnel, publié tel quel.
+**PolyForm Noncommercial 1.0.0** — texte complet dans [LICENSE](LICENSE).
+
+En clair, ce que vous pouvez faire :
+
+- **télécharger, lire et utiliser** le code, sans rien demander ;
+- le **modifier** : changer l'interface, ajouter des fonctions, retirer ce qui
+  ne vous sert pas ;
+- **publier et partager** vos versions modifiées, y compris publiquement.
+
+La seule limite : **aucun usage commercial**. Le code ne peut être ni vendu, ni
+intégré à un produit ou service payant, ni monétisé d'une façon ou d'une autre.
+Si vous redistribuez, gardez cette licence avec le code.
+
+L'usage personnel, les projets amateurs, l'étude, la recherche, et l'usage par
+les associations, écoles et organismes publics sont expressément autorisés.
+
+> Une précision de vocabulaire, pour être exact : cette licence **restreint un
+> domaine d'usage**, ce que la définition officielle de l'*open source* (OSI)
+> n'admet pas. Lumen est donc du **code source ouvert et modifiable**, mais pas
+> « open source » au sens strict du terme. Le code est là, lisible et
+> modifiable — il n'est simplement pas à vendre.
+
+Besoin d'un usage commercial ? Écrivez-moi : une licence séparée reste possible.
