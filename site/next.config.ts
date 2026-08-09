@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
   basePath: `/${REPO}`,
   assetPrefix: `/${REPO}/`,
   images: { unoptimized: true },
+  // GitHub Pages n'a pas de réécriture d'URL propre : sans ceci, l'export ne
+  // produit que fonctionnalites.html, et une adresse partagée avec un / final
+  // (le réflexe le plus courant) rend un 404 pur.
+  trailingSlash: true,
 };
 
 export default nextConfig;
