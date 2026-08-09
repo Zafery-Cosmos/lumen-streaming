@@ -31,6 +31,9 @@ private fun alignWindowClass() {
 }
 
 fun main() {
+    // Consigne tout plantage non rattrape : lance depuis une icone, l app n a
+    // aucune sortie d erreur visible, et le probleme reste invisible.
+    app.lumen.CrashLog.install()
     // Doit preceder la creation de la fenetre : WM_CLASS est fige a l ouverture.
     alignWindowClass()
     // Declare le raccourci et les icones de theme, sans quoi le bureau ne sait

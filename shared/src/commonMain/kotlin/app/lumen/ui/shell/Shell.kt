@@ -142,7 +142,6 @@ fun Shell(
     val bucketRepo = remember(db) { app.lumen.domain.BucketLibraryRepository(db) }
     val storageRepo = remember(db) { app.lumen.domain.StorageSourceRepository(db) }
     val shellScope = androidx.compose.runtime.rememberCoroutineScope()
-    val playItem: (String) -> Unit = { id -> playing = app.lumen.domain.PlayRequest(itemId = id) }
     // Une carte « hls: » pointe un dossier importé : lecture directe du master.
     // Une carte « bucket: » pointe un objet S3 : URL signée (fichier) ou proxy
     // local qui signe chaque segment (dossier HLS).
@@ -153,7 +152,7 @@ fun Shell(
                     hlsMasterPath = entry.masterPath,
                     title = entry.title,
                 )
-            }
+            } ?: run { playing = null }
         } else if (id.startsWith("bucket:")) {
             bucketRepo.list().firstOrNull { "bucket:${it.id}" == id }?.let { entry ->
                 val config = storageRepo.list().firstOrNull { it.id == entry.sourceId }?.config
@@ -176,6 +175,20 @@ fun Shell(
             }
         } else {
             detailStack = detailStack + id
+        }
+    }
+
+    /**
+     * Bouton « Lire » d'une carte. Le préfixe de l'identifiant porte l'origine
+     * du titre et DOIT être respecté : un « hls:… » ou « bucket:… » envoyé tel
+     * quel comme identifiant Jellyfin faisait échouer la négociation côté
+     * serveur — la lecture cassait aussi bien depuis ce bouton que depuis la
+     * carte elle-même.
+     */
+    val playItem: (String) -> Unit = { id ->
+        when {
+            id.startsWith("hls:") || id.startsWith("bucket:") -> openDetail(id)
+            else -> playing = app.lumen.domain.PlayRequest(itemId = id.removePrefix("jf:"))
         }
     }
 
