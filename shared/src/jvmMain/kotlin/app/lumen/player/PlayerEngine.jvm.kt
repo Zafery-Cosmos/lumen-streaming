@@ -12,7 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.graphics.asComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,10 +25,7 @@ import uk.co.caprica.vlcj.player.embedded.videosurface.callback.BufferFormat
 import uk.co.caprica.vlcj.player.embedded.videosurface.callback.BufferFormatCallback
 import uk.co.caprica.vlcj.player.embedded.videosurface.callback.RenderCallback
 import uk.co.caprica.vlcj.player.embedded.videosurface.callback.format.RV32BufferFormat
-import java.awt.image.BufferedImage
-import java.awt.image.DataBufferInt
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 /**
  * Moteur desktop : VLCJ en RENDU PAR CALLBACK — libvlc décode en mémoire et
@@ -99,11 +96,37 @@ class VlcjEngine : PlayerEngine {
     /** Dernière frame décodée, prête à dessiner. */
     val frames = MutableStateFlow<ImageBitmap?>(null)
 
-    private var image: BufferedImage? = null
+    /**
+     * Une seule image Skia et un seul tampon, réutilisés à chaque frame.
+     *
+     * La version précédente reconstruisait un bitmap complet par image : à
+     * 3448×1440, cela fait 20 Mo alloués 24 fois par seconde, soit près de
+     * 500 Mo/s jetés au ramasse-miettes. Le rendu ne suivait pas et libvlc
+     * abandonnait la moitié des images — 11 affichées sur 24. Mesuré, puis
+     * remesuré après correction.
+     *
+     * Le format natif de libvlc (RV32) correspond exactement à BGRA_8888 :
+     * les octets sont recopiés tels quels, sans conversion.
+     */
+    private var canvas: org.jetbrains.skia.Bitmap? = null
+    private var scratch: ByteArray? = null
 
     private val bufferFormatCallback = object : BufferFormatCallback {
         override fun getBufferFormat(sourceWidth: Int, sourceHeight: Int): BufferFormat {
-            image = BufferedImage(sourceWidth, sourceHeight, BufferedImage.TYPE_INT_RGB)
+            canvas = org.jetbrains.skia.Bitmap().apply {
+                allocPixels(
+                    org.jetbrains.skia.ImageInfo(
+                        org.jetbrains.skia.ColorInfo(
+                            org.jetbrains.skia.ColorType.BGRA_8888,
+                            org.jetbrains.skia.ColorAlphaType.OPAQUE,
+                            null,
+                        ),
+                        sourceWidth,
+                        sourceHeight,
+                    ),
+                )
+            }
+            scratch = ByteArray(sourceWidth * sourceHeight * 4)
             return RV32BufferFormat(sourceWidth, sourceHeight)
         }
 
@@ -122,11 +145,13 @@ class VlcjEngine : PlayerEngine {
             displayWidth: Int,
             displayHeight: Int,
         ) {
-            val img = image ?: return
-            val target = (img.raster.dataBuffer as DataBufferInt).data
+            val bmp = canvas ?: return
+            val buf = scratch ?: return
             // Duplicate : ne touche ni la position ni l'ordre du buffer natif partagé.
-            nativeBuffers[0].duplicate().order(ByteOrder.nativeOrder()).asIntBuffer().get(target)
-            frames.value = img.toComposeImageBitmap()
+            nativeBuffers[0].duplicate().get(buf)
+            bmp.installPixels(buf)
+            // L'enveloppe Compose est légère : elle partage les pixels, ne les copie pas.
+            frames.value = bmp.asComposeImageBitmap()
         }
     }
 
