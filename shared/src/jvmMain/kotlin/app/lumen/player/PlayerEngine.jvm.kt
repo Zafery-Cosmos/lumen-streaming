@@ -36,9 +36,61 @@ import java.nio.ByteOrder
  * l'overlay maison passe toujours au-dessus (le z-order Compose/AWT est
  * inutilisable sur Linux), et on évite les artefacts de la surface X11.
  */
+/**
+ * Emplacements où les distributions posent libvlc. On DÉSIGNE le dossier
+ * nous-mêmes avant de créer la fabrique.
+ *
+ * Sans cela, vlcj cherche « libvlc.so » — un nom que beaucoup de distributions
+ * ne fournissent pas (Fedora n'installe que `libvlc.so.5`, le lien non versionné
+ * appartenant au paquet de développement). Faute de le trouver, vlcj se rabat
+ * sur un balayage RÉCURSIF du répertoire courant. Lancée depuis une icône de
+ * bureau, l'application démarre dans le dossier personnel : elle se met alors à
+ * parcourir des dizaines de gigaoctets, sur le thread d'affichage, et se fige
+ * indéfiniment à 100 % de processeur. Observé en direct sur une machine réelle.
+ */
+private val LIBVLC_DIRS = listOf(
+    "/usr/lib64",
+    "/usr/lib/x86_64-linux-gnu",
+    "/usr/lib",
+    "/usr/local/lib",
+    "/app/lib",                       // Flatpak
+    "/var/lib/snapd/lib/vlc",         // Snap
+    "C:\\Program Files\\VideoLAN\\VLC",
+    "/Applications/VLC.app/Contents/MacOS/lib",
+)
+
+/** Dossier contenant libvlc, ou null s'il est réellement absent de la machine. */
+internal fun findLibVlcDir(): String? = LIBVLC_DIRS.firstOrNull { dir ->
+    runCatching {
+        java.io.File(dir).listFiles { f ->
+            f.name.startsWith("libvlc.so") || f.name.equals("libvlc.dll", true) ||
+                f.name.startsWith("libvlc.dylib")
+        }?.isNotEmpty() == true
+    }.getOrDefault(false)
+}
+
+private fun aimAtLibVlc(): Boolean {
+    val dir = findLibVlcDir() ?: return false
+    System.setProperty("jna.library.path", dir)
+    runCatching { com.sun.jna.NativeLibrary.addSearchPath("vlc", dir) }
+    // Les greffons vivent à côté ; sans eux, libvlc démarre mais ne décode rien.
+    listOf("$dir/vlc/plugins", "$dir/vlc").firstOrNull { java.io.File(it).isDirectory }
+        ?.let { System.setProperty("VLC_PLUGIN_PATH", it) }
+    return true
+}
+
+/** Levée quand VLC n'est pas installé — message clair plutôt qu'un gel. */
+class LibVlcMissing : IllegalStateException(
+    "VLC est introuvable sur cet ordinateur. Installe le paquet « vlc » de ta " +
+        "distribution, puis relance Lumen.",
+)
+
 class VlcjEngine : PlayerEngine {
     override val name: String = "libVLC"
-    private val factory = MediaPlayerFactory()
+    private val factory = run {
+        if (!aimAtLibVlc()) throw LibVlcMissing()
+        MediaPlayerFactory()
+    }
     private val player = factory.mediaPlayers().newEmbeddedMediaPlayer()
 
     private val _state = MutableStateFlow(PlayerState())
@@ -211,9 +263,24 @@ class VlcjEngine : PlayerEngine {
     }
 }
 
+/** Moteur de repli : affiche la raison au lieu de faire tomber l'application. */
+private class UnavailableEngine(reason: String) : PlayerEngine {
+    override val name: String = "indisponible"
+    private val _state = MutableStateFlow(PlayerState(error = reason))
+    override val state: StateFlow<PlayerState> = _state
+    override fun play(url: String, headers: Map<String, String>, startMs: Long, audioSlaveUrl: String?) = Unit
+    override fun pause() = Unit
+    override fun resume() = Unit
+    override fun seekTo(positionMs: Long) = Unit
+    override fun release() = Unit
+}
+
 @Composable
 actual fun rememberPlayerEngine(): PlayerEngine {
-    val engine = remember { VlcjEngine() }
+    val engine = remember {
+        runCatching { VlcjEngine() }
+            .getOrElse { UnavailableEngine(it.message ?: "Lecteur indisponible") }
+    }
     DisposableEffect(Unit) {
         // Libération HORS du thread UI : release() entre dans du code natif et
         // peut prendre son temps (voire se bloquer) si libvlc est en mauvaise
@@ -230,7 +297,12 @@ actual fun rememberPlayerEngine(): PlayerEngine {
 
 @Composable
 actual fun VideoSurface(engine: PlayerEngine, modifier: Modifier, fill: Boolean) {
-    val vlcj = engine as VlcjEngine
+    // Le moteur de repli n'a pas de surface : sans ce garde-fou, le transtypage
+    // ferait tomber l'application au lieu d'afficher la raison de l'échec.
+    val vlcj = engine as? VlcjEngine ?: run {
+        Box(modifier.background(Color.Black))
+        return
+    }
     val frame by vlcj.frames.collectAsState()
     Box(modifier.background(Color.Black)) {
         frame?.let {
