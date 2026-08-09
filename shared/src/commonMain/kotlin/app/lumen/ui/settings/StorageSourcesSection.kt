@@ -423,6 +423,7 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
     var secretKey by remember { mutableStateOf("") }
     var testing by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<Result<Int>?>(null) }
+    var fixes by remember { mutableStateOf<List<String>>(emptyList()) }
 
     // Étape 2 : navigation dans le bucket et cases à cocher.
     val client = remember { S3Client() }
@@ -484,11 +485,11 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
                     // la première cause de blocage à la configuration.
                     ProviderHelp(kind)
                     DialogField("Nom", label) { label = it }
-                    DialogField(endpointHint(kind), endpoint) { endpoint = it; testResult = null }
-                    DialogField(regionHint(kind), region) { region = it; testResult = null }
-                    DialogField("Bucket", bucket) { bucket = it; testResult = null }
-                    DialogField(accessHint(kind), accessKey) { accessKey = it; testResult = null }
-                    DialogField(secretHint(kind), secretKey, password = true) { secretKey = it; testResult = null }
+                    DialogField(endpointHint(kind), endpoint) { endpoint = it; testResult = null; fixes = emptyList() }
+                    DialogField(regionHint(kind), region) { region = it; testResult = null; fixes = emptyList() }
+                    DialogField("Bucket", bucket) { bucket = it; testResult = null; fixes = emptyList() }
+                    DialogField(accessHint(kind), accessKey) { accessKey = it; testResult = null; fixes = emptyList() }
+                    DialogField(secretHint(kind), secretKey, password = true) { secretKey = it; testResult = null; fixes = emptyList() }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -498,6 +499,17 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                         ) {
+                            // Remettre la saisie d'aplomb AVANT d'interroger le
+                            // fournisseur : la moitié des échecs sont un collage
+                            // de travers, pas une mauvaise clé.
+                            val tidy = tidyUp(endpoint, region, bucket, accessKey, secretKey, kind)
+                            endpoint = tidy.endpoint
+                            region = tidy.region
+                            bucket = tidy.bucket
+                            accessKey = tidy.accessKey
+                            secretKey = tidy.secretKey
+                            kind = tidy.kind
+                            fixes = tidy.notes
                             testing = true
                             testResult = null
                             scope.launch {
@@ -524,6 +536,11 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
                                 Text("✗ ${it.message ?: "échec"}", color = LumenColors.Accent, fontSize = 12.sp)
                             },
                         )
+                    }
+                    // Dire ce qui a été rectifié : une correction silencieuse
+                    // donnerait l'impression que la saisie était bonne.
+                    fixes.forEach {
+                        Text("↻ $it", color = LumenColors.Muted, fontSize = 11.sp)
                     }
                     // Le message brut du fournisseur ne dit jamais quoi corriger.
                     testResult?.exceptionOrNull()?.let { error ->
@@ -712,6 +729,110 @@ private fun secretHint(kind: String): String = when (kind) {
     else -> "Secret key"
 }
 
+// --- Redressement de la saisie ----------------------------------------------
+
+internal class Tidy(
+    val endpoint: String, val region: String, val bucket: String,
+    val accessKey: String, val secretKey: String, val kind: String,
+    val notes: List<String>,
+)
+
+/**
+ * Rectifie ce qui peut l'être avant d'interroger le fournisseur.
+ *
+ * Une clé se copie-colle depuis une page web, et arrive rarement propre :
+ * espaces, adresse sans `https://`, chemin du bucket collé à l'endpoint,
+ * région laissée vide alors qu'elle est lisible dans l'adresse, et surtout les
+ * deux clés interverties — chez tous les fournisseurs, celle qui identifie et
+ * celle qui signe se ressemblent assez pour qu'on s'y trompe.
+ *
+ * Chaque correction est annoncée : rectifier en silence laisserait croire que
+ * la saisie était bonne, et la même erreur reviendrait à l'appareil suivant.
+ */
+internal fun tidyUp(
+    endpoint: String, region: String, bucket: String,
+    accessKey: String, secretKey: String, kind: String,
+): Tidy {
+    val notes = mutableListOf<String>()
+
+    // Un collage traîne souvent une espace ou un retour à la ligne, invisibles
+    // dans le champ mais fatals à la signature.
+    var ep = endpoint.trim()
+    var rg = region.trim()
+    var bk = bucket.trim()
+    var ak = accessKey.trim()
+    var sk = secretKey.trim()
+    if (listOf(endpoint, region, bucket, accessKey, secretKey) != listOf(ep, rg, bk, ak, sk)) {
+        notes += "Espaces superflus retirés."
+    }
+
+    if (ep.isNotEmpty() && !ep.startsWith("http", ignoreCase = true)) {
+        ep = "https://$ep"
+        notes += "Adresse complétée en https://."
+    }
+
+    // Endpoint collé avec le chemin du bucket : on sépare les deux, et le nom
+    // récupéré sert si le champ Bucket est encore vide.
+    val afterScheme = ep.substringAfter("://", "")
+    if (afterScheme.contains('/')) {
+        val path = afterScheme.substringAfter('/').trim('/')
+        ep = ep.substringBefore("://") + "://" + afterScheme.substringBefore('/')
+        if (path.isNotEmpty()) {
+            if (bk.isEmpty()) {
+                bk = path.substringBefore('/')
+                notes += "Bucket « $bk » repris de l'adresse."
+            } else {
+                notes += "Chemin retiré de l'adresse."
+            }
+        }
+    }
+
+    val host = ep.substringAfter("://", "").lowercase()
+
+    // L'onglet choisi n'a aucun effet sur la requête, mais il commande les
+    // libellés et l'aide : le caler sur l'adresse évite de lire le mode d'emploi
+    // d'Amazon en configurant du Backblaze.
+    val detected = when {
+        host.endsWith("backblazeb2.com") -> "b2"
+        host.endsWith("r2.cloudflarestorage.com") -> "r2"
+        host.endsWith("amazonaws.com") -> "s3"
+        else -> kind
+    }
+    if (detected != kind) notes += "Fournisseur reconnu : ${detected.uppercase()}."
+
+    if (rg.isEmpty()) {
+        // Les adresses de la forme s3.<région>.<fournisseur> portent la région.
+        val parts = host.split('.')
+        val guessed = when {
+            detected == "r2" -> "auto"
+            parts.size >= 3 && parts[0].startsWith("s3") -> parts[1]
+            else -> ""
+        }
+        if (guessed.isNotEmpty()) {
+            rg = guessed
+            notes += "Région déduite de l'adresse : $guessed."
+        }
+    }
+
+    // Interversion des deux clés. Chaque fournisseur a une forme reconnaissable :
+    // Backblaze préfixe son secret d'un K, Cloudflare donne un secret deux fois
+    // plus long que l'identifiant. On ne permute que si la forme est nette dans
+    // les deux champs à la fois — sinon on laisse la saisie intacte.
+    val swapped = when {
+        ak.startsWith("K00") && sk.startsWith("00") -> true
+        ak.length == 64 && sk.length == 32 -> true
+        else -> false
+    }
+    if (swapped) {
+        val keep = ak
+        ak = sk
+        sk = keep
+        notes += "Access key et Secret key étaient inversées : remises dans l'ordre."
+    }
+
+    return Tidy(ep, rg, bk, ak, sk, detected, notes)
+}
+
 /**
  * Traduit l'erreur renvoyée par le fournisseur en geste à faire.
  *
@@ -725,7 +846,14 @@ private fun failureHint(message: String, endpoint: String, accessKey: String): S
     // Un identifiant de compte Backblaze fait exactement douze caractères ; une
     // clé d'application en fait vingt-cinq. La longueur suffit à trancher.
     val looksLikeAccountId = accessKey.length == 12
+    // Sur Backblaze le secret commence par « K » suivi de la version de l'API :
+    // le voir dans le champ Access key signifie que les deux ont été échangés.
+    val fieldsSwapped = accessKey.startsWith("K00")
     return when {
+        fieldsSwapped ->
+            "Les deux champs semblent inversés : l'Access key doit être le " +
+                "« keyID » (25 caractères, commençant par 005), et la Secret key " +
+                "l'« applicationKey » (celle qui commence par K)."
         message.contains("Malformed Access Key", ignoreCase = true) &&
             (backblaze || looksLikeAccountId) ->
             "Backblaze refuse la clé maîtresse sur son API S3. L'Access key doit " +
