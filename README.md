@@ -29,6 +29,7 @@ titre n'est pas sur le serveur.
 | **Séries mal rangées** | Affichées telles quelles | **Réorganisées** via TMDB (numéros absolus → vraies saisons) |
 | **Métadonnées manquantes** | Vides | Complétées par TMDB (titres, résumés, vignettes, logos) |
 | **Sources autres que Jellyfin** | Aucune | Buckets **S3/R2/B2**, **WebDAV**, **FTP** — indexés et rangés sur l'accueil |
+| **Identifiants stockés** | En clair côté client | **Chiffrés AES-256-GCM**, clé tenue par le magasin de clés du système |
 | **Mises à jour** | À la main | **En direct** : publier prévient les apps ouvertes instantanément, **PC et Android** |
 | **Lecteur** | Contrôles de base | UI maison : vitesse, qualité, pistes, rendu, capture, statistiques de flux |
 
@@ -92,6 +93,44 @@ web ne peuvent pas les définir (les navigateurs l'interdisent) et doivent monte
 un proxy serveur. En natif, Lumen les envoie directement — **jusqu'aux segments
 et aux clés de chiffrement**, là où la plupart des implémentations échouent.
 
+### Vos identifiants ne sont pas stockés en clair
+
+Brancher un serveur Jellyfin, un bucket ou un partage WebDAV, c'est confier à
+l'app des jetons et des clés qui ouvrent votre médiathèque. Ils sont donc rangés
+chiffrés, dans un conteneur **`.lmn`** :
+
+- **AES-256-GCM**, nonce unique à chaque écriture, en-tête authentifié — modifier
+  le fichier, ne serait-ce que d'un octet, ou tenter d'y rétrograder le niveau de
+  chiffrement, rend le contenu illisible plutôt que d'ouvrir une brèche.
+- **Clé détenue par le système** : Android Keystore, avec **StrongBox** lorsque
+  l'appareil embarque une puce dédiée. La clé n'en sort jamais — copier les
+  fichiers de l'app sur un autre téléphone ne donne rien.
+- **Un second niveau, à mot de passe maître** : la clé est alors dérivée à chaque
+  ouverture (PBKDF2-HMAC-SHA256, 210 000 tours) et **vit uniquement en mémoire**.
+  Rien sur le disque ne permet plus de déchiffrer. Le moteur est en place ;
+  l'écran de saisie viendra.
+- Essais d'ouverture **freinés progressivement** (jusqu'à 5 minutes d'attente, et
+  le compteur survit au redémarrage), comparaisons à durée constante, clés
+  effacées de la mémoire au verrouillage.
+- L'appareil est **analysé** (root, débogueur attaché, émulateur, signature du
+  paquet altérée) et l'utilisateur en est **informé** — sans blocage : un blocage
+  se contourne, et pénaliserait surtout ceux qui maîtrisent leur matériel.
+
+La migration depuis les versions précédentes est automatique et silencieuse :
+les valeurs en clair sont reprises, chiffrées, puis effacées de leur ancien
+emplacement.
+
+**Deux choix assumés, plutôt que du théâtre de sécurité :**
+
+*Pas d'épinglage de certificat.* Vous vous connectez à **votre** serveur, souvent
+en adresse locale avec un certificat auto-signé : épingler casserait la fonction
+principale de l'app pour un gain nul dans ce scénario.
+
+*Pas d'algorithme caché.* La solidité vient de la clé, jamais du secret de la
+méthode — un chiffrement qu'il faut dissimuler pour tenir ne tient pas, et sur un
+projet open source il ne le resterait pas dix minutes. Le code est lisible ; c'est
+ce qui permet de le vérifier.
+
 ### Profils du foyer
 
 Bibliothèque partagée, **reprise de lecture séparée**. Chaque profil a son avatar,
@@ -122,6 +161,7 @@ lumen/
 │   ├── domain/      profils, réglages, réorganisation des épisodes,
 │   │                clients S3/WebDAV/FTP et indexeur de bucket
 │   ├── player/      PlayerEngine commun + moteur torrent + proxy de flux
+│   ├── security/    coffre chiffré .lmn, clés système, contrôles d'exécution
 │   ├── update/      mises à jour en direct (SSE), PC et Android
 │   └── ui/          écrans Compose et design system
 ├── androidApp/      Media3 / ExoPlayer
@@ -178,7 +218,7 @@ Un fichier Python, sans dépendance :
 
 ```bash
 python3 server/server.py                 # port 8500
-server/publish.sh 0.3.0 "Correctif A|Correctif B" lumen.jar
+server/publish.sh 1.9.3 "Correctif A|Correctif B" lumen.jar lumen.apk
 ```
 
 À la publication, **toutes les apps ouvertes sont prévenues instantanément**
@@ -214,10 +254,16 @@ avatars/
 Fonctionnel et utilisé au quotidien. Ce qui tourne : connexion et Quick Connect,
 accueil éditorial, fiches films et séries, pages acteur, lecteur complet,
 addons Stremio avec moteur torrent, profils, paramètres, import de dossiers HLS,
-stockages perso (S3/WebDAV/FTP) avec indexation, mises à jour en direct sur PC
-et Android.
+stockages perso (S3/WebDAV/FTP) avec indexation, chiffrement des identifiants,
+mises à jour en direct sur PC et Android.
 
 Ce qui n'est pas encore là, dit franchement :
+
+- l'**écran de mot de passe maître** : le niveau de chiffrement le plus fort est
+  implémenté et testé, mais rien ne permet encore de l'activer depuis l'app —
+  celle-ci tourne donc au niveau lié à l'appareil ;
+- les identifiants **S3, WebDAV et FTP** sont encore dans la base locale en
+  clair : seuls les jetons Jellyfin et les addons sont passés au coffre ;
 
 - le **mode TV** (navigation à la télécommande) ;
 - le **téléchargement hors-ligne** ;
