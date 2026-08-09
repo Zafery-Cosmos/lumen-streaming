@@ -103,7 +103,7 @@ kotlin {
             implementation(libs.media3.ui)
             implementation(libs.zxing.core)
             implementation(libs.commons.net)
-            implementation(libs.sshj)
+            implementation(libs.jsch)
             // FileProvider : sert l'APK de mise à jour à l'installateur système.
             implementation(libs.androidx.core)
         }
@@ -122,7 +122,7 @@ kotlin {
             implementation(libs.sqldelight.jvm)
             implementation(libs.zxing.core)
             implementation(libs.commons.net)
-            implementation(libs.sshj)
+            implementation(libs.jsch)
         }
     }
 }

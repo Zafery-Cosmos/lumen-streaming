@@ -43,7 +43,10 @@ vlcj = { module = "uk.co.caprica:vlcj", version = "4.11.0" }
 zxing-core = { module = "com.google.zxing:core", version = "3.5.3" }
 commons-net = { module = "commons-net:commons-net", version = "3.11.1" }
 androidx-core = { module = "androidx.core:core", version = "1.17.0" }
-sshj = { module = "com.hierynomus:sshj", version = "0.39.0" }
+# JSch (fork maintenu) : archive NON signee, et pas de BouncyCastle.
+# sshj entrainait BouncyCastle, dont les jars signes rendaient le JAR
+# fusionne illisible par la machine virtuelle.
+jsch = { module = "com.github.mwiede:jsch", version = "0.2.18" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

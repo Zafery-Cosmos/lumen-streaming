@@ -1,8 +1,8 @@
 package app.lumen.domain
 
 import java.io.OutputStream
-import net.schmizz.sshj.SSHClient
-import net.schmizz.sshj.transport.verification.PromiscuousVerifier
+import com.jcraft.jsch.ChannelSftp
+import com.jcraft.jsch.JSch
 import org.apache.commons.net.ftp.FTP
 import org.apache.commons.net.ftp.FTPClient
 
@@ -31,33 +31,26 @@ class RemoteReader {
                 client.completePendingCommand()
             }
             else -> withSftp(target) { sf ->
-                sf.open(path).use { file ->
-                    // Lecture par blocs à partir de l'offset demandé : c'est ce
-                    // qui rend le saut dans la vidéo possible sans tout relire.
-                    val buffer = ByteArray(128 * 1024)
-                    var offset = start
-                    while (true) {
-                        val read = file.read(offset, buffer, 0, buffer.size)
-                        if (read <= 0) break
-                        sink.write(buffer, 0, read)
-                        offset += read
-                    }
-                }
+                // `skip` positionne la lecture à l'octet demandé : c'est ce qui
+                // rend le saut dans la vidéo possible sans tout relire.
+                sf.get(path, null, start).use { it.copyTo(sink, 128 * 1024) }
             }
         }
     }
 
-    private fun <T> withSftp(target: UploadTarget, block: (net.schmizz.sshj.sftp.SFTPClient) -> T): T {
-        val ssh = SSHClient().apply {
-            addHostKeyVerifier(PromiscuousVerifier())
-            connectTimeout = 10_000
-            connect(target.host, target.port)
-            authPassword(target.username, target.password)
+    private fun <T> withSftp(target: UploadTarget, block: (ChannelSftp) -> T): T {
+        val session = JSch().getSession(target.username, target.host, target.port).apply {
+            setPassword(target.password)
+            setConfig("StrictHostKeyChecking", "no")
+            connect(10_000)
         }
+        val channel = session.openChannel("sftp") as ChannelSftp
+        channel.connect(10_000)
         try {
-            return ssh.newSFTPClient().use(block)
+            return block(channel)
         } finally {
-            runCatching { ssh.disconnect() }
+            runCatching { channel.disconnect() }
+            runCatching { session.disconnect() }
         }
     }
 

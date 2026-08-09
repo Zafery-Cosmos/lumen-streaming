@@ -3,22 +3,47 @@ package app.lumen.domain
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import net.schmizz.sshj.SSHClient
-import net.schmizz.sshj.sftp.SFTPClient
-import net.schmizz.sshj.transport.verification.PromiscuousVerifier
+import com.jcraft.jsch.ChannelSftp
+import com.jcraft.jsch.JSch
+import com.jcraft.jsch.Session
 import org.apache.commons.net.ftp.FTP
 import org.apache.commons.net.ftp.FTPClient
 
 actual class Uploader actual constructor() {
 
-    private fun sftp(target: UploadTarget): SSHClient = SSHClient().apply {
-        // L'empreinte de l'hôte n'est pas vérifiée : ces serveurs sont des NAS
-        // domestiques sans certificat, et refuser la connexion rendrait la
-        // fonction inutilisable. Le mot de passe reste chiffré côté client.
-        addHostKeyVerifier(PromiscuousVerifier())
-        connectTimeout = 10_000
-        connect(target.host, target.port)
-        authPassword(target.username, target.password)
+    /**
+     * L'empreinte de l'hôte n'est pas vérifiée : ces serveurs sont des NAS
+     * domestiques sans certificat, et refuser la connexion rendrait la
+     * fonction inutilisable. Le mot de passe, lui, reste chiffré côté client.
+     */
+    private fun open(target: UploadTarget): Pair<Session, ChannelSftp> {
+        val session = JSch().getSession(target.username, target.host, target.port).apply {
+            setPassword(target.password)
+            setConfig("StrictHostKeyChecking", "no")
+            connect(10_000)
+        }
+        val channel = session.openChannel("sftp") as ChannelSftp
+        channel.connect(10_000)
+        return session to channel
+    }
+
+    private inline fun <T> withSftp(target: UploadTarget, block: (ChannelSftp) -> T): T {
+        val (session, channel) = open(target)
+        try {
+            return block(channel)
+        } finally {
+            runCatching { channel.disconnect() }
+            runCatching { session.disconnect() }
+        }
+    }
+
+    /** Crée un dossier distant et tous ses parents — JSch n'a pas d'équivalent. */
+    private fun ChannelSftp.mkdirs(path: String) {
+        var current = ""
+        path.trim('/').split('/').forEach { part ->
+            current += "/" + part
+            runCatching { mkdir(current) }
+        }
     }
 
     actual suspend fun test(target: UploadTarget): Result<String> = withContext(Dispatchers.IO) {
@@ -30,23 +55,17 @@ actual class Uploader actual constructor() {
         }
     }
 
-    private fun testSftp(target: UploadTarget): String {
-        val ssh = sftp(target)
-        try {
-            ssh.newSFTPClient().use { sf ->
-                val dir = target.remoteDir.ifBlank { "." }
-                val entries = sf.ls(dir)
-                // Écriture réelle : lister ne prouve pas qu'on peut déposer.
-                val probe = "$dir/.lumen-write-test"
-                val tmp = File.createTempFile("lumen", ".probe").apply { writeText("ok"); deleteOnExit() }
-                sf.put(tmp.absolutePath, probe)
-                sf.rm(probe)
-                tmp.delete()
-                return "${entries.size} élément${if (entries.size > 1) "s" else ""} — écriture autorisée"
-            }
-        } finally {
-            runCatching { ssh.disconnect() }
-        }
+    private fun testSftp(target: UploadTarget): String = withSftp(target) { sf ->
+        val dir = target.remoteDir.ifBlank { "." }
+        val entries = sf.ls(dir)
+        // Écriture réelle : lister ne prouve pas qu'on puisse déposer.
+        val probe = "$dir/.lumen-write-test"
+        val tmp = File.createTempFile("lumen", ".probe").apply { writeText("ok"); deleteOnExit() }
+        sf.put(tmp.absolutePath, probe)
+        sf.rm(probe)
+        tmp.delete()
+        val count = entries.size
+        "$count élément${if (count > 1) "s" else ""} — écriture autorisée"
     }
 
     private fun testFtp(target: UploadTarget): String {
@@ -96,22 +115,17 @@ actual class Uploader actual constructor() {
         remoteRoot: String,
         onProgress: (UploadProgress) -> Unit,
     ) {
-        val ssh = sftp(target)
-        try {
-            ssh.newSFTPClient().use { sf ->
-                sf.mkdirs(remoteRoot)
-                var sent = 0L
-                files.forEachIndexed { i, f ->
-                    val relative = f.relativeTo(root).path.replace(File.separatorChar, '/')
-                    val remote = "$remoteRoot/$relative"
-                    remote.substringBeforeLast('/').let { if (it != remoteRoot) sf.mkdirs(it) }
-                    sf.put(f.absolutePath, remote)
-                    sent += f.length()
-                    onProgress(UploadProgress(i + 1, files.size, sent, total, f.name))
-                }
+        withSftp(target) { sf ->
+            sf.mkdirs(remoteRoot)
+            var sent = 0L
+            files.forEachIndexed { i, f ->
+                val relative = f.relativeTo(root).path.replace(File.separatorChar, '/')
+                val remote = "$remoteRoot/$relative"
+                remote.substringBeforeLast('/').let { if (it != remoteRoot) sf.mkdirs(it) }
+                sf.put(f.absolutePath, remote)
+                sent += f.length()
+                onProgress(UploadProgress(i + 1, files.size, sent, total, f.name))
             }
-        } finally {
-            runCatching { ssh.disconnect() }
         }
     }
 
