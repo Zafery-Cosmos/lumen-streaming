@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* Palette reprise à l'identique de LumenColors.kt (app/lumen/ui/theme/Theme.kt) :
+   même noir profond, même rouge d'accent, pour que le site et l'app se
+   reconnaissent comme le même produit. */
+:root {
+  --color-lumen-bg: #000000;
+  --color-lumen-surface: #0c0c0c;
+  --color-lumen-surface-high: #161616;
+  --color-lumen-accent: #e8443a;
+  --color-lumen-fg: #f2f2f5;
+  --color-lumen-muted: #9a9aa6;
+}
+
+@theme inline {
+  --color-lumen-bg: var(--color-lumen-bg);
+  --color-lumen-surface: var(--color-lumen-surface);
+  --color-lumen-surface-high: var(--color-lumen-surface-high);
+  --color-lumen-accent: var(--color-lumen-accent);
+  --color-lumen-fg: var(--color-lumen-fg);
+  --color-lumen-muted: var(--color-lumen-muted);
+}
+
+body {
+  background: var(--color-lumen-bg);
+  color: var(--color-lumen-fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}

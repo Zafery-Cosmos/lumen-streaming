@@ -9,3 +9,8 @@ captures/
 keystore.properties
 *.keystore
 *.jks
+
+# Site vitrine (Next.js)
+site/node_modules/
+site/.next/
+site/out/
