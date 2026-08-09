@@ -128,7 +128,7 @@ principale de l'app pour un gain nul dans ce scénario.
 
 *Pas d'algorithme caché.* La solidité vient de la clé, jamais du secret de la
 méthode — un chiffrement qu'il faut dissimuler pour tenir ne tient pas, et sur un
-projet à code ouvert il ne le resterait pas dix minutes. Le code est lisible ; c'est
+projet open source il ne le resterait pas dix minutes. Le code est lisible ; c'est
 ce qui permet de le vérifier.
 
 ### Profils du foyer
@@ -289,26 +289,29 @@ Lumen Streaming est un **client logiciel**, comme un navigateur web.
 
 ## Licence
 
-**PolyForm Noncommercial 1.0.0** — texte complet dans [LICENSE](LICENSE).
+**GNU General Public License v3.0** — texte complet dans [LICENSE](LICENSE).
 
-En clair, ce que vous pouvez faire :
+Copyright © 2026 Zafery-Cosmos
 
-- **télécharger, lire et utiliser** le code, sans rien demander ;
-- le **modifier** : changer l'interface, ajouter des fonctions, retirer ce qui
+Ce que vous pouvez faire, librement et sans rien demander :
+
+- **télécharger, lire, utiliser** le code ;
+- le **modifier** : changer l'interface, ajouter des fonctions, enlever ce qui
   ne vous sert pas ;
-- **publier et partager** vos versions modifiées, y compris publiquement.
+- **publier et redistribuer** vos versions, y compris publiquement.
 
-La seule limite : **aucun usage commercial**. Le code ne peut être ni vendu, ni
-intégré à un produit ou service payant, ni monétisé d'une façon ou d'une autre.
-Si vous redistribuez, gardez cette licence avec le code.
+La contrepartie, et c'est la seule : si vous distribuez une version modifiée,
+vous devez **publier son code source sous cette même licence**. Personne ne peut
+donc reprendre Lumen pour en faire un produit fermé — toute amélioration reste
+accessible à tous. Le nom des auteurs et cet avis de licence doivent être
+conservés.
 
-L'usage personnel, les projets amateurs, l'étude, la recherche, et l'usage par
-les associations, écoles et organismes publics sont expressément autorisés.
+> **Pourquoi la GPL plutôt qu'une licence « pas de revente » ?** Le lecteur du
+> bureau s'appuie sur **vlcj**, lui-même publié sous GPLv3 : distribuer Lumen
+> sous une licence qui interdirait l'usage commercial serait juridiquement
+> incompatible avec cette dépendance. La GPL n'interdit pas de vendre, mais elle
+> interdit de **fermer** le code — c'est ce qui protège réellement le projet.
+> Elle est en prime reconnue par F-Droid, contrairement aux licences
+> non commerciales.
 
-> Une précision de vocabulaire, pour être exact : cette licence **restreint un
-> domaine d'usage**, ce que la définition officielle de l'*open source* (OSI)
-> n'admet pas. Lumen est donc du **code source ouvert et modifiable**, mais pas
-> « open source » au sens strict du terme. Le code est là, lisible et
-> modifiable — il n'est simplement pas à vendre.
-
-Besoin d'un usage commercial ? Écrivez-moi : une licence séparée reste possible.
+Lumen est donc pleinement **libre et open source** (OSI).
