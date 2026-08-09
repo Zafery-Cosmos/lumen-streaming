@@ -116,6 +116,11 @@ chiffrés, dans un conteneur **`.lmn`** :
   paquet altérée) et l'utilisateur en est **informé** — sans blocage : un blocage
   se contourne, et pénaliserait surtout ceux qui maîtrisent leur matériel.
 
+Sont concernés **tous les identifiants de connexion** : jetons Jellyfin, adresses
+et clés d'API des addons, clés d'accès des buckets, mots de passe WebDAV et FTP.
+La base locale ne conserve que des **références** vers le coffre — copiée ou
+exfiltrée, elle ne contient aucun secret exploitable.
+
 La migration depuis les versions précédentes est automatique et silencieuse :
 les valeurs en clair sont reprises, chiffrées, puis effacées de leur ancien
 emplacement.
@@ -262,8 +267,7 @@ Ce qui n'est pas encore là, dit franchement :
 - l'**écran de mot de passe maître** : le niveau de chiffrement le plus fort est
   implémenté et testé, mais rien ne permet encore de l'activer depuis l'app —
   celle-ci tourne donc au niveau lié à l'appareil ;
-- les identifiants **S3, WebDAV et FTP** sont encore dans la base locale en
-  clair : seuls les jetons Jellyfin et les addons sont passés au coffre ;
+- l'**internationalisation** : l'interface n'existe qu'en français ;
 
 - le **mode TV** (navigation à la télécommande) ;
 - le **téléchargement hors-ligne** ;

@@ -2,6 +2,7 @@ package app.lumen.domain
 
 import app.lumen.db.LumenDb
 import app.lumen.db.epochMillis
+import app.lumen.security.SecretRef
 import kotlin.random.Random
 
 /** Une source de stockage perso enregistrée localement. */
@@ -26,8 +27,8 @@ class StorageSourceRepository(private val db: LumenDb) {
                 endpoint = it.endpoint,
                 region = it.region,
                 bucket = it.bucket,
-                accessKey = it.accessKey,
-                secretKey = it.secretKey,
+                accessKey = SecretRef.resolve(it.accessKey),
+                secretKey = SecretRef.resolve(it.secretKey),
                 folders = it.folders.lines().filter(String::isNotBlank),
             ),
         )
@@ -38,13 +39,20 @@ class StorageSourceRepository(private val db: LumenDb) {
         val id = buildString { repeat(10) { append("0123456789abcdef"[Random.nextInt(16)]) } }
         db.lumenQueries.insertStorageSource(
             id, config.label, config.kind, config.endpoint, config.region,
-            config.bucket, config.accessKey, config.secretKey, epochMillis(),
+            config.bucket,
+            SecretRef.store(id, "s3.access", config.accessKey),
+            SecretRef.store(id, "s3.secret", config.secretKey),
+            epochMillis(),
             config.folders.joinToString("\n"),
         )
         return StorageSource(id, config)
     }
 
     fun remove(id: String) {
+        db.lumenQueries.selectStorageSources().executeAsList().firstOrNull { it.id == id }?.let {
+            SecretRef.forget(it.accessKey)
+            SecretRef.forget(it.secretKey)
+        }
         db.lumenQueries.deleteStorageSource(id)
     }
 }
