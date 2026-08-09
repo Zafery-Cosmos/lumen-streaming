@@ -51,6 +51,16 @@ expect object StreamProxy {
         masterKey: String,
     ): String
 
+    /**
+     * Dossier HLS posé sur un serveur (SFTP/FTP) : renvoie l'URL locale du
+     * master. C'est ce qui remplace `file://` — le contenu vit sur le serveur,
+     * et le lecteur ne voit qu'une adresse HTTP ordinaire.
+     */
+    fun registerRemoteHls(
+        target: app.lumen.domain.UploadTarget,
+        masterPath: String,
+    ): String
+
     /** Adresse de base du proxy, ou null s'il ne tourne pas. */
     fun baseUrl(): String?
 }

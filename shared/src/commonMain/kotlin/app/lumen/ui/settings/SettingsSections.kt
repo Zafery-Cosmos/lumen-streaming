@@ -741,9 +741,13 @@ private fun AdvancedSection(
 ) {
     val tmdb = remember { app.lumen.api.TmdbClient(client.http) }
     val hlsRepo = remember(db) { app.lumen.domain.HlsLibraryRepository(db) }
+    val targetRepo = remember(db) { app.lumen.domain.UploadTargetRepository(db) }
+
+    SubHeader("Destination d'envoi")
+    UploadTargetSection(targetRepo)
 
     SubHeader("Dossiers HLS")
-    app.lumen.ui.settings.HlsImportSection(tmdb, hlsRepo, onLibraryChanged)
+    app.lumen.ui.settings.HlsImportSection(tmdb, hlsRepo, targetRepo, onLibraryChanged)
 
     SubHeader("Segmentation")
     app.lumen.ui.settings.HlsConvertSection(tmdb, hlsRepo, onLibraryChanged)

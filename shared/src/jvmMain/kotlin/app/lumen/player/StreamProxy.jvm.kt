@@ -19,6 +19,8 @@ private sealed class ProxiedSource {
     data class Ftp(val config: FtpConfig, val path: String, val sizeBytes: Long?) : ProxiedSource()
     /** Dossier HLS d'un bucket : [dirPrefix] est le dossier du master ("" ou "…/"). */
     data class S3Hls(val config: app.lumen.domain.PrivateStorageConfig, val dirPrefix: String) : ProxiedSource()
+    /** Dossier HLS posé sur un serveur SFTP/FTP. */
+    data class RemoteHls(val target: app.lumen.domain.UploadTarget, val dir: String) : ProxiedSource()
 }
 
 actual object StreamProxy {
@@ -71,6 +73,12 @@ actual object StreamProxy {
         return "http://127.0.0.1:$port$PREFIX$id/${masterKey.substringAfterLast('/')}"
     }
 
+    actual fun registerRemoteHls(target: app.lumen.domain.UploadTarget, masterPath: String): String {
+        val dir = masterPath.substringBeforeLast('/', "")
+        val id = store(newId(), ProxiedSource.RemoteHls(target, dir))
+        return "http://127.0.0.1:$port$PREFIX$id/${masterPath.substringAfterLast('/')}"
+    }
+
     actual fun baseUrl(): String? = server?.let { "http://127.0.0.1:$port" }
 
     private fun handle(exchange: HttpExchange) {
@@ -85,6 +93,35 @@ actual object StreamProxy {
             is ProxiedSource.Http -> handleHttp(exchange, stream)
             is ProxiedSource.Ftp -> handleFtp(exchange, stream)
             is ProxiedSource.S3Hls -> handleS3Hls(exchange, stream)
+            is ProxiedSource.RemoteHls -> handleRemoteHls(exchange, stream)
+        }
+    }
+
+    /**
+     * Sert un fichier du dossier HLS distant. Le lecteur demande les segments
+     * en relatif : ils sont résolus dans le même dossier, sur le serveur.
+     */
+    private fun handleRemoteHls(exchange: HttpExchange, stream: ProxiedSource.RemoteHls) {
+        try {
+            val rest = exchange.requestURI.path.removePrefix(PREFIX).substringAfter('/')
+            val path = stream.dir + "/" + java.net.URLDecoder.decode(rest, "UTF-8")
+            val start = exchange.requestHeaders["Range"]?.firstOrNull()
+                ?.removePrefix("bytes=")?.substringBefore('-')?.toLongOrNull() ?: 0L
+
+            val reader = app.lumen.domain.RemoteReader()
+            val size = reader.size(stream.target, path)
+            exchange.responseHeaders.add("Accept-Ranges", "bytes")
+            val remaining = size?.let { it - start } ?: 0L
+            val status = if (start > 0 && size != null) 206 else 200
+            if (status == 206 && size != null) {
+                exchange.responseHeaders.add("Content-Range", "bytes $start-${size - 1}/$size")
+            }
+            exchange.sendResponseHeaders(status, if (remaining > 0) remaining else 0L)
+            exchange.responseBody.use { sink -> reader.copyTo(stream.target, path, start, sink) }
+        } catch (_: Exception) {
+            runCatching { exchange.sendResponseHeaders(502, -1) }
+        } finally {
+            exchange.close()
         }
     }
 

@@ -141,6 +141,7 @@ fun Shell(
     val hlsRepo = remember(db) { app.lumen.domain.HlsLibraryRepository(db) }
     val bucketRepo = remember(db) { app.lumen.domain.BucketLibraryRepository(db) }
     val storageRepo = remember(db) { app.lumen.domain.StorageSourceRepository(db) }
+    val targetRepo = remember(db) { app.lumen.domain.UploadTargetRepository(db) }
     val shellScope = androidx.compose.runtime.rememberCoroutineScope()
     // Une carte « hls: » pointe un dossier importé : lecture directe du master.
     // Une carte « bucket: » pointe un objet S3 : URL signée (fichier) ou proxy
@@ -148,10 +149,27 @@ fun Shell(
     val openDetail: (String) -> Unit = { id ->
         if (id.startsWith("hls:")) {
             hlsRepo.list().firstOrNull { "hls:${it.id}" == id }?.let { entry ->
-                playing = app.lumen.domain.PlayRequest(
-                    hlsMasterPath = entry.masterPath,
-                    title = entry.title,
-                )
+                if (entry.targetId.isBlank()) {
+                    playing = app.lumen.domain.PlayRequest(
+                        hlsMasterPath = entry.masterPath,
+                        title = entry.title,
+                    )
+                } else {
+                    // Dossier posé sur le serveur : servi par le proxy local,
+                    // donc une adresse http ordinaire côté lecteur.
+                    targetRepo.byId(entry.targetId)?.let { dest ->
+                        shellScope.launch {
+                            val url = if (app.lumen.player.StreamProxy.ensureRunning()) {
+                                app.lumen.player.StreamProxy.registerRemoteHls(dest, entry.masterPath)
+                            } else {
+                                ""
+                            }
+                            if (url.isNotEmpty()) {
+                                playing = app.lumen.domain.PlayRequest(url = url, title = entry.title)
+                            }
+                        }
+                    }
+                }
             } ?: run { playing = null }
         } else if (id.startsWith("bucket:")) {
             bucketRepo.list().firstOrNull { "bucket:${it.id}" == id }?.let { entry ->

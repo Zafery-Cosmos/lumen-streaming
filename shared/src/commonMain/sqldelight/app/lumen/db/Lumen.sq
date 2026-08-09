@@ -24,7 +24,8 @@ CREATE TABLE hls_entry (
     durationSeconds REAL NOT NULL,
     resolution TEXT,
     segmentFormat TEXT NOT NULL,
-    importedAt INTEGER NOT NULL
+    importedAt INTEGER NOT NULL,
+    targetId TEXT NOT NULL DEFAULT ''   -- vide = dossier local ; sinon serveur
 );
 
 -- Sources de stockage perso (S3/R2/B2…), importees via QR code ou saisie
@@ -67,6 +68,20 @@ CREATE TABLE bucket_entry (
     backdropUrl TEXT,
     overview TEXT,
     indexedAt INTEGER NOT NULL
+);
+
+-- Destination d envoi : le serveur qui heberge la mediatheque. Les dossiers
+-- HLS y sont deposes, puis relus a distance — plus rien ne depend du PC.
+CREATE TABLE upload_target (
+    id TEXT NOT NULL PRIMARY KEY,
+    label TEXT NOT NULL,
+    kind TEXT NOT NULL,          -- sftp | ftp
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    password TEXT NOT NULL,
+    remoteDir TEXT NOT NULL,
+    importedAt INTEGER NOT NULL
 );
 
 -- Connexions FTP perso. Meme principe que storage_source/webdav_source.
@@ -131,8 +146,8 @@ SELECT * FROM hls_entry ORDER BY importedAt DESC;
 insertHlsEntry:
 INSERT OR REPLACE INTO hls_entry(
     id, title, year, masterPath, posterUrl, backdropUrl, overview,
-    durationSeconds, resolution, segmentFormat, importedAt
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    durationSeconds, resolution, segmentFormat, importedAt, targetId
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteHlsEntry:
 DELETE FROM hls_entry WHERE id = ?;
@@ -171,6 +186,17 @@ DELETE FROM bucket_entry WHERE id = ?;
 
 deleteBucketEntriesForSource:
 DELETE FROM bucket_entry WHERE sourceId = ?;
+
+selectUploadTargets:
+SELECT * FROM upload_target ORDER BY importedAt DESC;
+
+insertUploadTarget:
+INSERT OR REPLACE INTO upload_target(
+    id, label, kind, host, port, username, password, remoteDir, importedAt
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteUploadTarget:
+DELETE FROM upload_target WHERE id = ?;
 
 selectFtpSources:
 SELECT * FROM ftp_source ORDER BY importedAt DESC;

@@ -44,7 +44,7 @@ compose.desktop {
             )
 
             packageName = "lumen"
-            packageVersion = "1.9.7"
+            packageVersion = "1.10.0"
             description = "Lumen Streaming — client Jellyfin natif"
             vendor = "Zafery-Cosmos"
 

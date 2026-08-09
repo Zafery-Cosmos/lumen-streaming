@@ -24,6 +24,18 @@ fun ensureLumenTables(driver: SqlDriver) {
             durationSeconds REAL NOT NULL,
             resolution TEXT,
             segmentFormat TEXT NOT NULL,
+            importedAt INTEGER NOT NULL,
+            targetId TEXT NOT NULL DEFAULT ''
+        )""",
+        """CREATE TABLE IF NOT EXISTS upload_target (
+            id TEXT NOT NULL PRIMARY KEY,
+            label TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            host TEXT NOT NULL,
+            port INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            password TEXT NOT NULL,
+            remoteDir TEXT NOT NULL,
             importedAt INTEGER NOT NULL
         )""",
         """CREATE TABLE IF NOT EXISTS storage_source (
@@ -74,5 +86,6 @@ fun ensureLumenTables(driver: SqlDriver) {
     // ignore donc l'échec — c'est ce qui rend l'opération rejouable.
     listOf(
         "ALTER TABLE storage_source ADD COLUMN folders TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE hls_entry ADD COLUMN targetId TEXT NOT NULL DEFAULT ''",
     ).forEach { runCatching { driver.execute(null, it, 0) } }
 }

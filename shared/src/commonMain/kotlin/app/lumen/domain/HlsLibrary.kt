@@ -16,6 +16,8 @@ data class HlsEntry(
     val durationSeconds: Double,
     val resolution: String?,
     val segmentFormat: String,
+    /** Vide = dossier local. Sinon : identifiant du serveur qui l'héberge. */
+    val targetId: String = "",
 )
 
 /** La médiathèque HLS locale : des dossiers déjà transcodés, indexés. */
@@ -33,6 +35,7 @@ class HlsLibraryRepository(private val db: LumenDb) {
             durationSeconds = it.durationSeconds,
             resolution = it.resolution,
             segmentFormat = it.segmentFormat,
+            targetId = it.targetId,
         )
     }
 
@@ -44,6 +47,7 @@ class HlsLibraryRepository(private val db: LumenDb) {
         backdropUrl: String?,
         overview: String?,
         analysis: HlsAnalysis,
+        targetId: String = "",
     ): HlsEntry {
         val entry = HlsEntry(
             id = buildString { repeat(10) { append("0123456789abcdef"[Random.nextInt(16)]) } },
@@ -56,12 +60,13 @@ class HlsLibraryRepository(private val db: LumenDb) {
             durationSeconds = analysis.durationSeconds,
             resolution = analysis.bestResolution,
             segmentFormat = analysis.segmentFormat,
+            targetId = targetId,
         )
         db.lumenQueries.insertHlsEntry(
             entry.id, entry.title, entry.year?.toLong(), entry.masterPath,
             entry.posterUrl, entry.backdropUrl, entry.overview,
             entry.durationSeconds, entry.resolution, entry.segmentFormat,
-            epochMillis(),
+            epochMillis(), entry.targetId,
         )
         return entry
     }

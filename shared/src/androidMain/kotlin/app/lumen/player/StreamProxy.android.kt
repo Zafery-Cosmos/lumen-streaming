@@ -8,5 +8,6 @@ actual object StreamProxy {
     actual fun registerFtp(config: app.lumen.domain.FtpConfig, path: String, sizeBytes: Long?, extension: String): String = ""
     // Idem : le HLS d'un bucket exige la signature des segments a la volee.
     actual fun registerS3Hls(config: app.lumen.domain.PrivateStorageConfig, masterKey: String): String = ""
+    actual fun registerRemoteHls(target: app.lumen.domain.UploadTarget, masterPath: String): String = ""
     actual fun baseUrl(): String? = null
 }

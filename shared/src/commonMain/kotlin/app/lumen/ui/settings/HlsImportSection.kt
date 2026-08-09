@@ -67,8 +67,16 @@ import kotlinx.coroutines.withContext
  * sera lisible tel quel.
  */
 @Composable
-fun HlsImportSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: () -> Unit) {
+fun HlsImportSection(
+    tmdb: TmdbClient,
+    repo: HlsLibraryRepository,
+    targets: app.lumen.domain.UploadTargetRepository,
+    onChanged: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
+    val destinations = targets.list()
+    var targetId by remember { mutableStateOf(destinations.firstOrNull()?.id.orEmpty()) }
+    var upload by remember { mutableStateOf<app.lumen.domain.UploadProgress?>(null) }
     var entries by remember { mutableStateOf(repo.list()) }
     var analysis by remember { mutableStateOf<HlsAnalysis?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -85,13 +93,62 @@ fun HlsImportSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: ()
 
     Text(
         "Importe un dossier contenant un master.m3u8 et ses segments (.ts ou " +
-            "fMP4). Le contenu est déjà transcodé : Lumen l'indexe et le lit " +
-            "tel quel, sans qu'aucun serveur ne ré-encode.",
+            "fMP4). Le contenu est déjà transcodé : rien n'est ré-encodé.",
         color = LumenColors.Muted, fontSize = 13.sp,
     )
 
+    // --- Étape 0 : où déposer ? -------------------------------------------
+    if (destinations.isEmpty()) {
+        Text(
+            "Aucune destination configurée. Ajoute d'abord un serveur dans " +
+                "« Destination d'envoi » ci-dessus : le dossier y sera déposé, " +
+                "puis lu depuis le serveur — il ne dépendra plus de cet appareil.",
+            color = LumenColors.Accent, fontSize = 12.sp,
+        )
+    } else {
+        Text("Déposer sur", color = LumenColors.OnBackground, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            destinations.forEach { d ->
+                val selected = d.id == targetId
+                Text(
+                    d.config.label,
+                    color = if (selected) LumenColors.Accent else LumenColors.Muted,
+                    fontSize = 12.sp,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier
+                        .background(
+                            if (selected) LumenColors.SurfaceHigh else LumenColors.Surface,
+                            RoundedCornerShape(6.dp),
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { targetId = d.id }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+            }
+        }
+    }
+
+    // Progression de l'envoi — on annonce le fichier en cours ET le total.
+    upload?.let { p ->
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { p.fraction },
+                color = LumenColors.Accent,
+                trackColor = LumenColors.SurfaceHigh,
+                modifier = Modifier.fillMaxWidth().height(6.dp),
+            )
+            Text(
+                "Envoi ${p.fileIndex}/${p.fileCount} — ${p.currentName} · " +
+                    "${app.lumen.update.formatSize(p.bytesSent)} / ${app.lumen.update.formatSize(p.bytesTotal)}",
+                color = LumenColors.Muted, fontSize = 11.sp,
+            )
+        }
+    }
+
     // --- Étape 1 : choisir et analyser ------------------------------------
-    if (analysis == null) {
+    if (analysis == null && upload == null) {
         Button(
             onClick = {
                 scope.launch {
@@ -118,13 +175,13 @@ fun HlsImportSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: ()
                     chosen = matches.firstOrNull()
                 }
             },
-            enabled = !busy,
+            enabled = !busy && destinations.isNotEmpty(),
             colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
             shape = RoundedCornerShape(8.dp),
         ) {
             Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text(if (busy) "Analyse…" else "Importer un dossier HLS", fontWeight = FontWeight.SemiBold)
+            Text(if (busy) "Analyse…" else "Choisir un dossier HLS", fontWeight = FontWeight.SemiBold)
         }
         error?.let { Text(it, color = LumenColors.Accent, fontSize = 13.sp) }
     }
@@ -242,24 +299,40 @@ fun HlsImportSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: ()
                 Button(
                     onClick = {
                         val m = chosen
-                        repo.add(
-                            title = m?.displayName ?: query.ifBlank { "Sans titre" },
-                            year = m?.year,
-                            masterPath = a.masterPath,
-                            posterUrl = TmdbClient.posterUrl(m?.posterPath),
-                            backdropUrl = TmdbClient.backdropUrl(m?.backdropPath),
-                            overview = m?.overview,
-                            analysis = a,
-                        )
-                        entries = repo.list()
-                        onChanged()
-                        reset()
+                        val dest = targets.byId(targetId) ?: return@Button
+                        val localDir = a.masterPath.substringBeforeLast('/')
+                        scope.launch {
+                            error = null
+                            val sent = app.lumen.domain.Uploader()
+                                .uploadFolder(dest, localDir) { upload = it }
+                            upload = null
+                            sent.fold(
+                                onSuccess = { remoteDir ->
+                                    repo.add(
+                                        title = m?.displayName ?: query.ifBlank { "Sans titre" },
+                                        year = m?.year,
+                                        // Le chemin enregistré est celui du SERVEUR :
+                                        // la lecture passera par le proxy local.
+                                        masterPath = "$remoteDir/" + a.masterPath.substringAfterLast('/'),
+                                        posterUrl = TmdbClient.posterUrl(m?.posterPath),
+                                        backdropUrl = TmdbClient.backdropUrl(m?.backdropPath),
+                                        overview = m?.overview,
+                                        analysis = a,
+                                        targetId = targetId,
+                                    )
+                                    entries = repo.list()
+                                    onChanged()
+                                    reset()
+                                },
+                                onFailure = { error = "Envoi échoué : ${it.message}" },
+                            )
+                        }
                     },
-                    enabled = query.isNotBlank(),
+                    enabled = query.isNotBlank() && targetId.isNotBlank() && upload == null,
                     colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
                     shape = RoundedCornerShape(8.dp),
                 ) {
-                    Text("Ajouter à ma médiathèque", fontWeight = FontWeight.SemiBold)
+                    Text("Envoyer sur le serveur", fontWeight = FontWeight.SemiBold)
                 }
                 Text(
                     "Annuler",
