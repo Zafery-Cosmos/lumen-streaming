@@ -64,6 +64,7 @@ import app.lumen.auth.StoredSession
 import app.lumen.domain.toCard
 import app.lumen.ui.components.MediaCard
 import app.lumen.ui.theme.LocalSidePadding
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 
@@ -132,7 +133,7 @@ fun DetailScreen(
                 onPlayTrailer = onPlayTrailer,
             )
             is DetailData.Failed -> Text(
-                "Impossible de charger cette fiche.",
+                T["detail.impossibleDeChargerCetteFiche"],
                 color = LumenColors.Muted,
                 modifier = Modifier.align(Alignment.Center),
             )
@@ -377,7 +378,7 @@ private fun DetailHeader(
     val parsed = if (item.type == "Episode") app.lumen.domain.parseEpisodeFileName(item.path) else null
     val displayTitle = parsed?.title ?: item.name
     val episodeSubtitle = when {
-        parsed != null -> "${item.seriesName ?: ""} · Saison ${parsed.season} · Épisode ${parsed.episode}"
+        parsed != null -> T.format("detail.saisonEpisode", item.seriesName ?: "", parsed.season, parsed.episode)
         item.type == "Episode" -> "${item.seriesName ?: ""} · S${item.parentIndexNumber ?: "?"}E${item.indexNumber ?: "?"}"
         else -> null
     }
@@ -577,7 +578,7 @@ private fun EpisodeRow(
             val label = when {
                 extra?.title != null -> if (n != null) "$n. ${extra.title}" else extra.title
                 n == null -> ep.name
-                Regex("^[ÉE]pisode\\s*0*\\d+$", RegexOption.IGNORE_CASE).matches(ep.name.trim()) -> "Épisode $n"
+                Regex("^[ÉE]pisode\\s*0*\\d+$", RegexOption.IGNORE_CASE).matches(ep.name.trim()) -> T.format("detail.episodeN", n)
                 else -> "$n. ${ep.name}"
             }
             Text(
@@ -600,7 +601,7 @@ private fun EpisodeRow(
             }
             onSources?.let { open ->
                 Text(
-                    "Sources (addons)",
+                    T["detail.sourcesAddons"],
                     color = LumenColors.Accent,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -726,7 +727,7 @@ private fun TmdbDetailBody(
                             ),
                             shape = RoundedCornerShape(6.dp),
                         ) {
-                            Text("Pas dans votre médiathèque", color = LumenColors.Muted, fontSize = 14.sp)
+                            Text(T["detail.pasDansVotreMediatheque"], color = LumenColors.Muted, fontSize = 14.sp)
                         }
                     }
                 }
@@ -770,7 +771,7 @@ private fun PeopleSection(directors: List<String>, cast: List<PersonCardData>, o
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(horizontal = LocalSidePadding.current),
             ) {
-                Text("Réalisation :", color = LumenColors.Muted, fontSize = 14.sp)
+                Text(T["detail.realisation"], color = LumenColors.Muted, fontSize = 14.sp)
                 Text(
                     directors.joinToString(", "),
                     color = LumenColors.OnBackground,
@@ -861,7 +862,7 @@ private fun SimilarSection(
         modifier = Modifier.padding(top = 26.dp),
     ) {
         Text(
-            "Titres similaires",
+            T["detail.titresSimilaires"],
             color = LumenColors.OnBackground,
             fontSize = 19.sp,
             fontWeight = FontWeight.Bold,

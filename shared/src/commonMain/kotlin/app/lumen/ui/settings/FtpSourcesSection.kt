@@ -41,6 +41,7 @@ import app.lumen.domain.FtpSource
 import app.lumen.domain.FtpSourceRepository
 import app.lumen.domain.PlayRequest
 import app.lumen.player.StreamProxy
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.launch
 
@@ -55,8 +56,7 @@ fun FtpSourcesSection(repo: FtpSourceRepository, onPlay: (PlayRequest) -> Unit) 
     var browsing by remember { mutableStateOf<FtpSource?>(null) }
 
     Text(
-        "Un serveur FTP perso. La lecture passe par un petit proxy local — " +
-            "aucun lecteur vidéo ne sait lire du FTP directement.",
+        T["ftpSources.unServeurFtpPersoLaLecture"],
         color = LumenColors.Muted, fontSize = 13.sp,
     )
 
@@ -100,7 +100,7 @@ fun FtpSourcesSection(repo: FtpSourceRepository, onPlay: (PlayRequest) -> Unit) 
         ) { showAdd = true }.padding(vertical = 6.dp),
     ) {
         Icon(Icons.Filled.Add, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
-        Text("Ajouter un serveur FTP", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(T["ftpSources.ajouterUnServeurFtp"], color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 
     if (showAdd) {
@@ -130,7 +130,7 @@ private fun FtpBrowserDialog(config: FtpConfig, onPlay: (PlayRequest) -> Unit, o
         error = null
         client.list(config, path).fold(
             onSuccess = { entries = it },
-            onFailure = { error = it.message ?: "Échec de connexion" },
+            onFailure = { error = it.message ?: T["ftpSources.echecDeConnexion"] },
         )
         loading = false
     }
@@ -163,7 +163,7 @@ private fun FtpBrowserDialog(config: FtpConfig, onPlay: (PlayRequest) -> Unit, o
                 when {
                     loading || starting -> CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(24.dp))
                     error != null -> Text(error ?: "", color = LumenColors.Accent, fontSize = 13.sp)
-                    entries.isEmpty() -> Text("Dossier vide", color = LumenColors.Muted, fontSize = 13.sp)
+                    entries.isEmpty() -> Text(T["ftpSources.dossierVide"], color = LumenColors.Muted, fontSize = 13.sp)
                     else -> Column {
                         entries.forEach { entry ->
                             Row(
@@ -184,7 +184,7 @@ private fun FtpBrowserDialog(config: FtpConfig, onPlay: (PlayRequest) -> Unit, o
                                                     onPlay(PlayRequest(url = url, title = entry.name))
                                                     onDismiss()
                                                 } else {
-                                                    error = "Lecture FTP indisponible sur cette plateforme"
+                                                    error = T["ftpSources.lectureFtpIndisponibleSurCettePlateforme"]
                                                     starting = false
                                                 }
                                             }
@@ -233,14 +233,14 @@ private fun AddFtpDialog(onDismiss: () -> Unit, onSave: (FtpConfig) -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = LumenColors.Surface,
-        title = { Text("Ajouter un serveur FTP", color = LumenColors.OnBackground) },
+        title = { Text(T["ftpSources.ajouterUnServeurFtp"], color = LumenColors.OnBackground) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 DialogField("Nom", label) { label = it }
-                DialogField("Hôte", host) { host = it; testResult = null }
+                DialogField(T["ftpSources.hote"], host) { host = it; testResult = null }
                 DialogField("Port", port) { port = it.filter(Char::isDigit); testResult = null }
                 DialogField("Utilisateur", username) { username = it; testResult = null }
-                DialogField("Mot de passe", password, password = true) { password = it; testResult = null }
+                DialogField(T["ftpSources.motDePasse"], password, password = true) { password = it; testResult = null }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -261,11 +261,11 @@ private fun AddFtpDialog(onDismiss: () -> Unit, onSave: (FtpConfig) -> Unit) {
                     if (testing) {
                         CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(14.dp))
                     } else {
-                        Text("Tester la connexion", color = LumenColors.Accent, fontSize = 13.sp)
+                        Text(T["ftpSources.testerLaConnexion"], color = LumenColors.Accent, fontSize = 13.sp)
                     }
                     testResult?.let {
                         Text(
-                            if (it) "✓ connecté" else "✗ échec",
+                            if (it) T["ftpSources.connecte"] else T["ftpSources.echec"],
                             color = if (it) androidx.compose.ui.graphics.Color(0xFF3ECF6B) else LumenColors.Accent,
                             fontSize = 12.sp,
                         )

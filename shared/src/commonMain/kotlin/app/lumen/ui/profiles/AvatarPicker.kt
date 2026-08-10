@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import app.lumen.api.JellyfinClient
 import app.lumen.domain.AvatarBank
 import app.lumen.domain.AvatarIndex
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 
@@ -75,14 +76,14 @@ fun AvatarPicker(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
         ) {
             Text(
-                "Banque d'avatars injoignable — le serveur du NAS ne répond pas.",
+                T["avatarPicker.banqueDAvatarsInjoignableLeServeur"],
                 color = LumenColors.Accent, fontSize = 13.sp,
             )
             current.exceptionOrNull()?.message?.let {
                 Text(it, color = LumenColors.Muted, fontSize = 11.sp)
             }
             Text(
-                "Réessayer",
+                T["avatarPicker.reessayer"],
                 color = LumenColors.Accent,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -103,7 +104,7 @@ fun AvatarPicker(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            "Avatar — ${idx.count} images triées par film et série",
+            T.format("avatarPicker.avatarCount", idx.count),
             color = LumenColors.OnBackground,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,

@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import app.lumen.api.StremioClient
 import app.lumen.api.StremioStream
 import app.lumen.domain.AddonEntry
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -129,8 +130,7 @@ fun SourcesOverlay(
             ) {
                 when {
                     enabled.isEmpty() -> Text(
-                        "Aucun addon installé. Ajoute Torrentio, Frenchio ou un autre" +
-                            " addon Stremio dans Paramètres → Addons Stremio.",
+                        T["sources.aucunAddonInstalleAjouteTorrentioFrenchio"],
                         color = LumenColors.Muted, fontSize = 14.sp,
                     )
                     results == null -> Row(
@@ -138,7 +138,7 @@ fun SourcesOverlay(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(20.dp))
-                        Text("Interrogation des addons…", color = LumenColors.Muted, fontSize = 13.sp)
+                        Text(T["sources.interrogationDesAddons"], color = LumenColors.Muted, fontSize = 13.sp)
                     }
                     else -> results.orEmpty().forEach { (addon, streams) ->
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -149,8 +149,8 @@ fun SourcesOverlay(
                                 fontWeight = FontWeight.Bold,
                             )
                             when {
-                                streams == null -> Text("Erreur d'interrogation", color = LumenColors.Muted, fontSize = 12.sp)
-                                streams.isEmpty() -> Text("Aucune source", color = LumenColors.Muted, fontSize = 12.sp)
+                                streams == null -> Text(T["sources.erreurDInterrogation"], color = LumenColors.Muted, fontSize = 12.sp)
+                                streams.isEmpty() -> Text(T["sources.aucuneSource"], color = LumenColors.Muted, fontSize = 12.sp)
                                 else -> streams.take(25).forEach { stream ->
                                     StreamRow(
                                         stream,
@@ -216,7 +216,7 @@ private fun StreamRow(
             )
             if (!playable && infoHash != null) {
                 Text(
-                    "Torrent — lu par le moteur intégré (démarrage selon les pairs)",
+                    T["sources.torrentLuParLeMoteurIntegre"],
                     color = LumenColors.Muted.copy(alpha = 0.8f),
                     fontSize = 10.sp,
                 )

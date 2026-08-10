@@ -48,6 +48,7 @@ import app.lumen.auth.StoredSession
 import app.lumen.domain.OrganizedEpisode
 import app.lumen.domain.label
 import app.lumen.domain.organizeSeries
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 
@@ -89,7 +90,7 @@ fun EpisodesPanel(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Épisodes",
+                T["episodes.episodes"],
                 color = LumenColors.OnBackground,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
@@ -201,7 +202,7 @@ private fun EpisodeLine(
                 ) {
                     Icon(
                         Icons.Filled.PlayArrow,
-                        contentDescription = "En cours",
+                        contentDescription = T["episodes.enCours"],
                         tint = LumenColors.Accent,
                         modifier = Modifier.size(22.dp),
                     )

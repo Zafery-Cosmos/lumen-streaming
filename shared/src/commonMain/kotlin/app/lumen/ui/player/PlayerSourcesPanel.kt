@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import app.lumen.api.StremioClient
 import app.lumen.api.StremioStream
 import app.lumen.domain.AddonEntry
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -104,18 +105,18 @@ fun PlayerSourcesPanel(
             )
         }
         Text(
-            "La lecture reprend à la même seconde.",
+            T["playerSources.laLectureReprendALaMeme"],
             color = LumenColors.Muted,
             fontSize = 11.sp,
         )
 
         when {
             type == null || mediaId == null -> Text(
-                "Ce titre vient de votre médiathèque : aucune source d'addon à proposer.",
+                T["playerSources.ceTitreVientDeVotreMediatheque"],
                 color = LumenColors.Muted, fontSize = 13.sp,
             )
             enabled.isEmpty() -> Text(
-                "Aucun addon installé (Paramètres → Addons Stremio).",
+                T["playerSources.aucunAddonInstalleParametresAddonsStremio"],
                 color = LumenColors.Muted, fontSize = 13.sp,
             )
             results == null -> Row(
@@ -123,7 +124,7 @@ fun PlayerSourcesPanel(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(18.dp))
-                Text("Interrogation des addons…", color = LumenColors.Muted, fontSize = 12.sp)
+                Text(T["playerSources.interrogationDesAddons"], color = LumenColors.Muted, fontSize = 12.sp)
             }
             else -> LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -140,10 +141,10 @@ fun PlayerSourcesPanel(
                     }
                     when {
                         streams == null -> item(key = "e-${addon.manifestUrl}") {
-                            Text("Erreur d'interrogation", color = LumenColors.Muted, fontSize = 11.sp)
+                            Text(T["playerSources.erreurDInterrogation"], color = LumenColors.Muted, fontSize = 11.sp)
                         }
                         streams.isEmpty() -> item(key = "v-${addon.manifestUrl}") {
-                            Text("Aucune source", color = LumenColors.Muted, fontSize = 11.sp)
+                            Text(T["playerSources.aucuneSource"], color = LumenColors.Muted, fontSize = 11.sp)
                         }
                         else -> items(streams.take(25).size) { i ->
                             val stream = streams[i]

@@ -42,6 +42,7 @@ import app.lumen.ui.components.MediaCard
 import app.lumen.ui.detail.SourcesOverlay
 import app.lumen.ui.detail.SourcesTarget
 import app.lumen.ui.theme.LocalSidePadding
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -51,8 +52,8 @@ import kotlinx.coroutines.launch
 /** Les catégories de l'onglet Découvrir. */
 private val DISCOVER_TYPES = listOf(
     "Films" to listOf("movie"),
-    "Séries" to listOf("series"),
-    "Chaînes TV" to listOf("tv", "channel"),
+    T["discover.series"] to listOf("series"),
+    T["discover.chainesTv"] to listOf("tv", "channel"),
 )
 
 /**
@@ -135,9 +136,9 @@ fun DiscoverScreen(
                         item(key = "empty") {
                             Text(
                                 if (list.isEmpty()) {
-                                    "Aucun addon installé — ajoute-en dans Paramètres → Addons Stremio."
+                                    T["discover.aucunAddonInstalleAjouteEnDans"]
                                 } else {
-                                    "Aucun catalogue de ce type dans tes addons."
+                                    T["discover.aucunCatalogueDeCeTypeDans"]
                                 },
                                 color = LumenColors.Muted,
                                 fontSize = 14.sp,

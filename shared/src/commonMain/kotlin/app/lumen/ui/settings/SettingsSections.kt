@@ -57,6 +57,7 @@ import app.lumen.api.UserConfig
 import app.lumen.auth.StoredSession
 import app.lumen.domain.AppSettings
 import app.lumen.ui.theme.LocalSidePadding
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.launch
 
@@ -78,14 +79,14 @@ fun SettingsSectionScreen(
 ) {
     SectionScaffold(
         title = when (sectionKey) {
-            "display" -> "Affichage et accueil"
-            "playback" -> "Lecture, qualité et audio"
-            "streaming" -> "Streaming et cache"
-            "simkl" -> "Simkl — suivi de visionnage"
-            "advanced" -> "Avancé"
-            "quickconnect" -> "Connexion rapide"
+            "display" -> T["settingsSections.affichageEtAccueil"]
+            "playback" -> T["settingsSections.lectureQualiteEtAudio"]
+            "streaming" -> T["settingsSections.streamingEtCache"]
+            "simkl" -> T["settingsSections.simklSuiviDeVisionnage"]
+            "advanced" -> T["settingsSections.avance"]
+            "quickconnect" -> T["settingsSections.connexionRapide"]
             "server" -> "Service"
-            else -> "Paramètres"
+            else -> T["settingsSections.parametres"]
         },
         onBack = onBack,
     ) {
@@ -143,47 +144,47 @@ private fun DisplaySection() {
     Text(app.lumen.i18n.T["lang.note"], color = LumenColors.Muted, fontSize = 12.sp)
 
     SwitchRow(
-        title = "Noir pur (OLED)",
-        description = "Fond entièrement noir — appliqué immédiatement.",
+        title = T["settingsSections.noirPurOled"],
+        description = T["settingsSections.fondEntierementNoirAppliqueImmediatement"],
         checked = AppSettings.oledBlack.value,
         onChecked = { AppSettings.oledBlack.set(it) },
     )
     SwitchRow(
-        title = "Animations réduites",
-        description = "Le hero de l'accueil ne défile plus automatiquement.",
+        title = T["settingsSections.animationsReduites"],
+        description = T["settingsSections.leHeroDeLAccueilNe"],
         checked = AppSettings.reducedMotion.value,
         onChecked = { AppSettings.reducedMotion.set(it) },
     )
     NumberRow(
-        title = "Intervalle du hero",
+        title = T["settingsSections.intervalleDuHero"],
         suffix = "secondes",
         value = AppSettings.heroIntervalSec.value,
         range = 2..120,
         onValue = { AppSettings.heroIntervalSec.set(it) },
     )
     NumberRow(
-        title = "Taille des pages de la médiathèque",
-        suffix = "éléments",
+        title = T["settingsSections.tailleDesPagesDeLaMediatheque"],
+        suffix = T["settingsSections.elements"],
         value = AppSettings.browsePageSize.value,
         range = 20..2000,
         onValue = { AppSettings.browsePageSize.set(it) },
     )
     SwitchRow(
-        title = "Utiliser l'image de l'épisode dans « À suivre » et « Reprendre »",
-        description = "Sinon, la vignette de la série est utilisée.",
+        title = T["settingsSections.utiliserLImageDeLEpisode"],
+        description = T["settingsSections.sinonLaVignetteDeLaSerie"],
         checked = AppSettings.useEpisodeImages.value,
         onChecked = { AppSettings.useEpisodeImages.set(it) },
     )
-    SubHeader("Écran de veille")
+    SubHeader(T["settingsSections.ecranDeVeille"])
     SwitchRow(
-        title = "Écran de veille",
-        description = "S'affiche après une période d'inactivité, n'importe où dans l'app.",
+        title = T["settingsSections.ecranDeVeille"],
+        description = T["settingsSections.sAfficheApresUnePeriodeD"],
         checked = AppSettings.screensaverEnabled.value,
         onChecked = { AppSettings.screensaverEnabled.set(it) },
     )
     NumberRow(
-        title = "Délai de l'écran de veille",
-        suffix = "minutes d'inactivité",
+        title = T["settingsSections.delaiDeLEcranDeVeille"],
+        suffix = T["settingsSections.minutesDInactivite"],
         value = AppSettings.screensaverDelayMin.value,
         range = 1..120,
         onValue = { AppSettings.screensaverDelayMin.set(it) },
@@ -191,11 +192,11 @@ private fun DisplaySection() {
 }
 
 private val HOME_SECTIONS = listOf(
-    "resume" to "Reprendre la lecture",
-    "nextup" to "À suivre",
-    "recent" to "Nouveautés (médiathèque)",
-    "top10" to "Top 10 cette semaine (TMDB)",
-    "genres" to "Rangées par genre (TMDB)",
+    "resume" to T["settingsSections.reprendreLaLecture"],
+    "nextup" to T["settingsSections.aSuivre"],
+    "recent" to T["settingsSections.nouveautesMediatheque"],
+    "top10" to T["settingsSections.top10CetteSemaineTmdb"],
+    "genres" to T["settingsSections.rangeesParGenreTmdb"],
 )
 
 @Composable
@@ -203,7 +204,7 @@ private fun HomeSection(client: JellyfinClient, session: StoredSession) {
     val (config, saveConfig) = rememberServerConfig(client, session)
 
     Text(
-        "Réordonne les sections avec les flèches, active ou masque chacune — appliqué en direct.",
+        T["settingsSections.reordonneLesSectionsAvecLesFleches"],
         color = LumenColors.Muted, fontSize = 13.sp,
     )
 
@@ -279,11 +280,11 @@ private fun HomeSection(client: JellyfinClient, session: StoredSession) {
         }
     }
 
-    SubHeader("Synchronisé avec le serveur")
+    SubHeader(T["settingsSections.synchroniseAvecLeServeur"])
     ServerConfigOrLoading(config) { cfg ->
         SwitchRow(
-            title = "Masquer le contenu déjà vu dans « Nouveautés »",
-            description = "Aussi appliqué dans le client web Jellyfin.",
+            title = T["settingsSections.masquerLeContenuDejaVuDans"],
+            description = T["settingsSections.aussiAppliqueDansLeClientWeb"],
             checked = AppSettings.hidePlayedInRecent.value,
             onChecked = {
                 AppSettings.hidePlayedInRecent.set(it)
@@ -291,20 +292,20 @@ private fun HomeSection(client: JellyfinClient, session: StoredSession) {
             },
         )
         SwitchRow(
-            title = "Afficher les épisodes manquants dans les saisons",
-            description = "Préférence serveur (DisplayMissingEpisodes).",
+            title = T["settingsSections.afficherLesEpisodesManquantsDansLes"],
+            description = T["settingsSections.preferenceServeurDisplaymissingepisodes"],
             checked = cfg.displayMissingEpisodes,
             onChecked = { saveConfig(cfg.copy(displayMissingEpisodes = it)) },
         )
         SwitchRow(
-            title = "Autoriser le contenu déjà vu dans « À suivre »",
-            description = "Inclut les épisodes déjà vus dans la section À suivre.",
+            title = T["settingsSections.autoriserLeContenuDejaVuDans"],
+            description = T["settingsSections.inclutLesEpisodesDejaVusDans"],
             checked = cfg.enableRewatchingInNextUp,
             onChecked = { saveConfig(cfg.copy(enableRewatchingInNextUp = it)) },
         )
         NumberRow(
-            title = "Délai d'expiration dans « À suivre »",
-            suffix = "jours d'inactivité avant retrait d'une série",
+            title = T["settingsSections.delaiDExpirationDansASuivre"],
+            suffix = T["settingsSections.joursDInactiviteAvantRetraitD"],
             value = cfg.maxDaysForNextUp,
             range = 1..3650,
             onValue = { saveConfig(cfg.copy(maxDaysForNextUp = it)) },
@@ -316,9 +317,9 @@ private fun HomeSection(client: JellyfinClient, session: StoredSession) {
 @Composable
 private fun PlaybackQualityAudioSection(client: JellyfinClient, session: StoredSession) {
     PlaybackSection(client, session)
-    SubHeader("Qualité et réseau")
+    SubHeader(T["settingsSections.qualiteEtReseau"])
     QualitySection()
-    SubHeader("Audio et sous-titres")
+    SubHeader(T["settingsSections.audioEtSousTitres"])
     AudioSection(client, session)
 }
 
@@ -327,91 +328,88 @@ private fun PlaybackSection(client: JellyfinClient, session: StoredSession) {
     val (config, saveConfig) = rememberServerConfig(client, session)
 
     SwitchRow(
-        title = "Reprendre automatiquement",
-        description = "Sinon, la lecture repart toujours du début.",
+        title = T["settingsSections.reprendreAutomatiquement"],
+        description = T["settingsSections.sinonLaLectureRepartToujoursDu"],
         checked = AppSettings.resumeAlways.value,
         onChecked = { AppSettings.resumeAlways.set(it) },
     )
     NumberRow(
-        title = "Durée du saut en arrière",
+        title = T["settingsSections.dureeDuSautEnArriere"],
         suffix = "secondes",
         value = AppSettings.seekBackSec.value,
         range = 1..600,
         onValue = { AppSettings.seekBackSec.set(it) },
     )
     NumberRow(
-        title = "Durée du saut en avant",
+        title = T["settingsSections.dureeDuSautEnAvant"],
         suffix = "secondes",
         value = AppSettings.seekForwardSec.value,
         range = 1..600,
         onValue = { AppSettings.seekForwardSec.set(it) },
     )
     NumberRow(
-        title = "Vitesse de lecture par défaut",
-        suffix = "% (100 = normale)",
+        title = T["settingsSections.vitesseDeLectureParDefaut"],
+        suffix = T["settingsSections.100Normale"],
         value = AppSettings.defaultRatePct.value,
         range = 25..400,
         onValue = { AppSettings.defaultRatePct.set(it) },
     )
 
     ChoiceRow(
-        title = "Lecteur vidéo préféré",
-        options = listOf("Automatique" to "auto", "libVLC (natif)" to "vlc", "libmpv" to "mpv"),
+        title = T["settingsSections.lecteurVideoPrefere"],
+        options = listOf("Automatique" to "auto", T["settingsSections.libvlcNatif"] to "vlc", "libmpv" to "mpv"),
         selected = AppSettings.playerEngine.value,
         onSelect = { AppSettings.playerEngine.set(it) },
     )
     Text(
-        "libmpv sera utilisé dès qu'il est installé (mpv-libs) ; en attendant, " +
-            "repli automatique sur libVLC — le moteur actif est affiché dans " +
-            "« Session » des options du lecteur.",
+        T["settingsSections.libmpvSeraUtiliseDesQuIl"],
         color = LumenColors.Muted, fontSize = 12.sp,
     )
     ChoiceRow(
-        title = "Normalisation du volume",
-        options = listOf("Désactivée" to "none", "Gain de piste" to "track", "Gain d'album" to "album"),
+        title = T["settingsSections.normalisationDuVolume"],
+        options = listOf(T["settingsSections.desactivee"] to "none", T["settingsSections.gainDePiste"] to "track", T["settingsSections.gainDAlbum"] to "album"),
         selected = AppSettings.audioNormalization.value,
         onSelect = { AppSettings.audioNormalization.set(it) },
     )
 
-    SubHeader("Vidéo et audio avancé")
+    SubHeader(T["settingsSections.videoEtAudioAvance"])
     Text(
-        "Utilisés par le profil de capacités envoyé au serveur pour négocier le" +
-            " Direct Play (finalisé au lot L5).",
+        T["settingsSections.utilisesParLeProfilDeCapacites"],
         color = LumenColors.Muted, fontSize = 12.sp,
     )
-    SwitchRow("Préférer le conteneur fMP4 pour le HLS", null, AppSettings.preferFmp4.value) { AppSettings.preferFmp4.set(it) }
-    SwitchRow("Activer le DTS (DCA)", null, AppSettings.enableDts.value) { AppSettings.enableDts.set(it) }
-    SwitchRow("Activer le TrueHD", null, AppSettings.enableTrueHd.value) { AppSettings.enableTrueHd.set(it) }
+    SwitchRow(T["settingsSections.prefererLeConteneurFmp4PourLe"], null, AppSettings.preferFmp4.value) { AppSettings.preferFmp4.set(it) }
+    SwitchRow(T["settingsSections.activerLeDtsDca"], null, AppSettings.enableDts.value) { AppSettings.enableDts.set(it) }
+    SwitchRow(T["settingsSections.activerLeTruehd"], null, AppSettings.enableTrueHd.value) { AppSettings.enableTrueHd.set(it) }
     ChoiceRow(
-        title = "Codec vidéo de transcodage préféré",
+        title = T["settingsSections.codecVideoDeTranscodagePrefere"],
         options = listOf("Auto" to "auto", "H.264" to "h264", "HEVC" to "hevc", "AV1" to "av1"),
         selected = AppSettings.preferredVideoCodec.value,
         onSelect = { AppSettings.preferredVideoCodec.set(it) },
     )
     ChoiceRow(
-        title = "Codec audio de transcodage préféré",
+        title = T["settingsSections.codecAudioDeTranscodagePrefere"],
         options = listOf("Auto" to "auto", "AAC" to "aac", "AC3" to "ac3", "Opus" to "opus"),
         selected = AppSettings.preferredAudioCodec.value,
         onSelect = { AppSettings.preferredAudioCodec.set(it) },
     )
 
-    SubHeader("Segments de média")
+    SubHeader(T["settingsSections.segmentsDeMedia"])
     Text(
-        "Comportement quand le serveur signale un segment (générique, récap…).",
+        T["settingsSections.comportementQuandLeServeurSignaleUn"],
         color = LumenColors.Muted, fontSize = 12.sp,
     )
-    val segmentOptions = listOf("Aucun" to "none", "Demander à passer" to "ask", "Passer automatiquement" to "auto")
-    ChoiceRow("Générique d'intro", segmentOptions, AppSettings.segmentIntro.value) { AppSettings.segmentIntro.set(it) }
-    ChoiceRow("Générique de fin", segmentOptions, AppSettings.segmentOutro.value) { AppSettings.segmentOutro.set(it) }
-    ChoiceRow("Récapitulatif", segmentOptions, AppSettings.segmentRecap.value) { AppSettings.segmentRecap.set(it) }
-    ChoiceRow("Prévisualisation", segmentOptions, AppSettings.segmentPreview.value) { AppSettings.segmentPreview.set(it) }
-    ChoiceRow("Publicité", segmentOptions, AppSettings.segmentCommercial.value) { AppSettings.segmentCommercial.set(it) }
+    val segmentOptions = listOf("Aucun" to "none", T["settingsSections.demanderAPasser"] to "ask", T["settingsSections.passerAutomatiquement"] to "auto")
+    ChoiceRow(T["settingsSections.generiqueDIntro"], segmentOptions, AppSettings.segmentIntro.value) { AppSettings.segmentIntro.set(it) }
+    ChoiceRow(T["settingsSections.generiqueDeFin"], segmentOptions, AppSettings.segmentOutro.value) { AppSettings.segmentOutro.set(it) }
+    ChoiceRow(T["settingsSections.recapitulatif"], segmentOptions, AppSettings.segmentRecap.value) { AppSettings.segmentRecap.set(it) }
+    ChoiceRow(T["settingsSections.previsualisation"], segmentOptions, AppSettings.segmentPreview.value) { AppSettings.segmentPreview.set(it) }
+    ChoiceRow(T["settingsSections.publicite"], segmentOptions, AppSettings.segmentCommercial.value) { AppSettings.segmentCommercial.set(it) }
 
-    SubHeader("Synchronisé avec le serveur")
+    SubHeader(T["settingsSections.synchroniseAvecLeServeur"])
     ServerConfigOrLoading(config) { cfg ->
         SwitchRow(
-            title = "Lancer l'épisode suivant automatiquement",
-            description = "Préférence serveur, partagée avec le client web.",
+            title = T["settingsSections.lancerLEpisodeSuivantAutomatiquement"],
+            description = T["settingsSections.preferenceServeurPartageeAvecLeClient"],
             checked = cfg.enableNextEpisodeAutoPlay,
             onChecked = {
                 AppSettings.autoPlayNext.set(it)
@@ -419,19 +417,19 @@ private fun PlaybackSection(client: JellyfinClient, session: StoredSession) {
             },
         )
         SwitchRow(
-            title = "Lire la piste audio par défaut quelle que soit la langue",
+            title = T["settingsSections.lireLaPisteAudioParDefaut"],
             description = null,
             checked = cfg.playDefaultAudioTrack,
             onChecked = { saveConfig(cfg.copy(playDefaultAudioTrack = it)) },
         )
         SwitchRow(
-            title = "Se souvenir de la piste audio de l'élément précédent",
+            title = T["settingsSections.seSouvenirDeLaPisteAudio"],
             description = null,
             checked = cfg.rememberAudioSelections,
             onChecked = { saveConfig(cfg.copy(rememberAudioSelections = it)) },
         )
         SwitchRow(
-            title = "Se souvenir des sous-titres de l'élément précédent",
+            title = T["settingsSections.seSouvenirDesSousTitresDe"],
             description = null,
             checked = cfg.rememberSubtitleSelections,
             onChecked = { saveConfig(cfg.copy(rememberSubtitleSelections = it)) },
@@ -445,20 +443,20 @@ private fun PlaybackSection(client: JellyfinClient, session: StoredSession) {
  * chose aux deux endroits.
  */
 private fun approxResolutionForBitrate(mbps: Int): String = when {
-    mbps <= 0 -> "Automatique — aucun plafond"
-    mbps >= 16 -> "2160p (4K) et plus"
+    mbps <= 0 -> T["settingsSections.automatiqueAucunPlafond"]
+    mbps >= 16 -> T["settingsSections.2160p4kEtPlus"]
     mbps >= 8 -> "1080p"
     mbps >= 4 -> "720p"
     mbps >= 2 -> "480p"
-    else -> "360p ou moins"
+    else -> T["settingsSections.360pOuMoins"]
 }
 
 @Composable
 private fun QualitySection() {
     val mbps = (AppSettings.defaultMaxBitrate.value / 1_000_000L).toInt()
     NumberRow(
-        title = "Plafond de débit",
-        suffix = "Mbps (0 = automatique)",
+        title = T["settingsSections.plafondDeDebit"],
+        suffix = T["settingsSections.mbps0Automatique"],
         value = mbps,
         range = 0..1000,
         onValue = { AppSettings.defaultMaxBitrate.set(it * 1_000_000L) },
@@ -470,14 +468,11 @@ private fun QualitySection() {
         color = LumenColors.Accent, fontSize = 12.sp, fontWeight = FontWeight.Medium,
     )
     Text(
-        "Valeur libre, appliquée au lancement de chaque lecture ; modifiable en " +
-            "cours de lecture dans les options du lecteur.",
+        T["settingsSections.valeurLibreAppliqueeAuLancementDe"],
         color = LumenColors.Muted, fontSize = 12.sp,
     )
     Text(
-        "À savoir : ce plafond ne s'applique qu'aux titres lus depuis ton serveur " +
-            "Jellyfin — lui seul peut ré-encoder à la volée. Les flux d'addons, " +
-            "les torrents et les fichiers locaux sont toujours lus tels quels.",
+        T["settingsSections.aSavoirCePlafondNeS"],
         color = LumenColors.Muted, fontSize = 12.sp,
     )
 }
@@ -487,52 +482,52 @@ private fun AudioSection(client: JellyfinClient, session: StoredSession) {
     val (config, saveConfig) = rememberServerConfig(client, session)
 
     ChoiceRow(
-        title = "Langue audio préférée (app)",
-        options = listOf("Automatique" to "auto", "Français" to "fr", "Anglais (VO)" to "en"),
+        title = T["settingsSections.langueAudioPrefereeApp"],
+        options = listOf("Automatique" to "auto", T["settingsSections.francais"] to "fr", T["settingsSections.anglaisVo"] to "en"),
         selected = AppSettings.preferredAudioLang.value,
         onSelect = { AppSettings.preferredAudioLang.set(it) },
     )
     ChoiceRow(
-        title = "Sous-titres préférés (app)",
-        options = listOf("Désactivés" to "off", "Français" to "fr", "Anglais" to "en"),
+        title = T["settingsSections.sousTitresPreferesApp"],
+        options = listOf(T["settingsSections.desactives"] to "off", T["settingsSections.francais"] to "fr", "Anglais" to "en"),
         selected = AppSettings.preferredSubLang.value,
         onSelect = { AppSettings.preferredSubLang.set(it) },
     )
 
-    SubHeader("Apparence des sous-titres")
+    SubHeader(T["settingsSections.apparenceDesSousTitres"])
     NumberRow(
-        title = "Taille du texte",
-        suffix = "% (100 = normal)",
+        title = T["settingsSections.tailleDuTexte"],
+        suffix = T["settingsSections.100Normal"],
         value = AppSettings.subtitleScalePct.value,
         range = 30..400,
         onValue = { AppSettings.subtitleScalePct.set(it) },
     )
     ChoiceRow(
-        title = "Couleur du texte",
+        title = T["settingsSections.couleurDuTexte"],
         options = listOf("Blanc" to "white", "Jaune" to "yellow", "Cyan" to "cyan", "Vert" to "green"),
         selected = AppSettings.subtitleColor.value,
         onSelect = { AppSettings.subtitleColor.set(it) },
     )
     NumberRow(
-        title = "Position verticale",
-        suffix = "pixels depuis le bas (0 = défaut)",
+        title = T["settingsSections.positionVerticale"],
+        suffix = T["settingsSections.pixelsDepuisLeBas0Defaut"],
         value = AppSettings.subtitleMarginPx.value,
         range = 0..500,
         onValue = { AppSettings.subtitleMarginPx.set(it) },
     )
     Text(
-        "L'apparence s'applique à la prochaine lecture (moteur libvlc).",
+        T["settingsSections.lApparenceSAppliqueALa"],
         color = LumenColors.Muted, fontSize = 12.sp,
     )
 
-    SubHeader("Synchronisé avec le serveur")
+    SubHeader(T["settingsSections.synchroniseAvecLeServeur"])
     ServerConfigOrLoading(config) { cfg ->
         ChoiceRow(
-            title = "Mode des sous-titres (serveur)",
+            title = T["settingsSections.modeDesSousTitresServeur"],
             options = listOf(
-                "Par défaut" to "Default",
+                T["settingsSections.parDefaut"] to "Default",
                 "Intelligent" to "Smart",
-                "Uniquement forcés" to "OnlyForced",
+                T["settingsSections.uniquementForces"] to "OnlyForced",
                 "Toujours" to "Always",
                 "Aucun" to "None",
             ),
@@ -540,12 +535,12 @@ private fun AudioSection(client: JellyfinClient, session: StoredSession) {
             onSelect = { saveConfig(cfg.copy(subtitleMode = it)) },
         )
         TextFieldRow(
-            title = "Langue audio préférée (code ISO, ex. fra, eng, jpn)",
+            title = T["settingsSections.langueAudioPrefereeCodeIsoEx"],
             value = cfg.audioLanguagePreference.orEmpty(),
             onValue = { saveConfig(cfg.copy(audioLanguagePreference = it.ifBlank { null })) },
         )
         TextFieldRow(
-            title = "Langue de sous-titres préférée (code ISO)",
+            title = T["settingsSections.langueDeSousTitresPrefereeCode"],
             value = cfg.subtitleLanguagePreference.orEmpty(),
             onValue = { saveConfig(cfg.copy(subtitleLanguagePreference = it.ifBlank { null })) },
         )
@@ -563,8 +558,7 @@ private fun StreamingSection() {
     LaunchedEffect(Unit) { refresh() }
 
     Text(
-        "Le moteur de streaming lit les torrents des addons pendant leur " +
-            "téléchargement. Ces réglages pilotent son cache disque.",
+        T["settingsSections.leMoteurDeStreamingLitLes"],
         color = LumenColors.Muted, fontSize = 13.sp,
     )
 
@@ -575,16 +569,16 @@ private fun StreamingSection() {
             .padding(horizontal = 18.dp, vertical = 14.dp),
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Serveur de streaming", color = LumenColors.OnBackground, fontSize = 15.sp)
+            Text(T["settingsSections.serveurDeStreaming"], color = LumenColors.OnBackground, fontSize = 15.sp)
             Text(
-                status?.endpoint?.ifBlank { "non démarré" } ?: "vérification…",
+                status?.endpoint?.ifBlank { T["settingsSections.nonDemarre"] } ?: T["settingsSections.verification"],
                 color = LumenColors.Muted, fontSize = 12.sp,
             )
         }
         Text(
             when (status?.running) {
-                true -> "En ligne"
-                false -> "Hors ligne"
+                true -> T["settingsSections.enLigne"]
+                false -> T["settingsSections.horsLigne"]
                 null -> "…"
             },
             color = if (status?.running == true) Color(0xFF3ECF6B) else LumenColors.Muted,
@@ -595,17 +589,16 @@ private fun StreamingSection() {
 
     var serverUrl by remember { mutableStateOf(AppSettings.torrentServerUrl.value) }
     TextFieldRow(
-        title = "Adresse du serveur de streaming (vide = local, automatique)",
+        title = T["settingsSections.adresseDuServeurDeStreamingVide"],
         value = serverUrl,
         onValue = { serverUrl = it },
     )
     Text(
-        "Pour utiliser un TorrServer qui tourne déjà ailleurs (un NAS, par " +
-            "exemple) au lieu du sidecar local — laisser vide sinon.",
+        T["settingsSections.pourUtiliserUnTorrserverQuiTourne"],
         color = LumenColors.Muted, fontSize = 12.sp,
     )
     Text(
-        "Appliquer et reconnecter",
+        T["settingsSections.appliquerEtReconnecter"],
         color = LumenColors.Accent,
         fontSize = 13.sp,
         fontWeight = FontWeight.SemiBold,
@@ -624,30 +617,29 @@ private fun StreamingSection() {
     )
 
     NumberRow(
-        title = "Taille du cache",
-        suffix = "Gio (appliqué au prochain démarrage du moteur)",
+        title = T["settingsSections.tailleDuCache"],
+        suffix = T["settingsSections.gioAppliqueAuProchainDemarrageDu"],
         value = AppSettings.torrentCacheGib.value,
         range = 1..500,
         onValue = { AppSettings.torrentCacheGib.set(it) },
     )
     ChoiceRow(
-        title = "Profil de torrent",
-        options = listOf("Par défaut" to "default", "Mémoire vive" to "ram"),
+        title = T["settingsSections.profilDeTorrent"],
+        options = listOf(T["settingsSections.parDefaut"] to "default", T["settingsSections.memoireVive"] to "ram"),
         selected = AppSettings.torrentProfile.value,
         onSelect = { AppSettings.torrentProfile.set(it) },
     )
     Text(
-        "« Mémoire vive » n'écrit rien sur le disque — idéal pour un SSD, " +
-            "au prix de la RAM consommée.",
+        T["settingsSections.memoireViveNEcritRienSur"],
         color = LumenColors.Muted, fontSize = 12.sp,
     )
     TextFieldRow(
-        title = "Dossier du cache (vide = ~/.local/share/lumen)",
+        title = T["settingsSections.dossierDuCacheVideLocalShare"],
         value = AppSettings.torrentCacheDir.value,
         onValue = { AppSettings.torrentCacheDir.set(it) },
     )
     TextFieldRow(
-        title = "Dossier de téléchargement (vide = ~/Téléchargements)",
+        title = T["settingsSections.dossierDeTelechargementVideTelechargements"],
         value = AppSettings.downloadDir.value,
         onValue = { AppSettings.downloadDir.set(it) },
     )
@@ -655,16 +647,16 @@ private fun StreamingSection() {
     // Profil de transcodage : uniquement les périphériques réellement présents.
     val hw = remember { app.lumen.player.availableTranscodeProfiles() }
     ChoiceRow(
-        title = "Profil de transcodage",
-        options = listOf("Désactivé" to "none") + hw.map { it to it },
+        title = T["settingsSections.profilDeTranscodage"],
+        options = listOf(T["settingsSections.desactive"] to "none") + hw.map { it to it },
         selected = AppSettings.transcodeProfile.value,
         onSelect = { AppSettings.transcodeProfile.set(it) },
     )
     Text(
         if (hw.isEmpty()) {
-            "Aucune accélération matérielle détectée sur cette machine."
+            T["settingsSections.aucuneAccelerationMaterielleDetecteeSurCette"]
         } else {
-            "Décodage matériel : soulage le processeur sur les flux 4K et HEVC."
+            T["settingsSections.decodageMaterielSoulageLeProcesseurSur"]
         },
         color = LumenColors.Muted, fontSize = 12.sp,
     )
@@ -676,14 +668,14 @@ private fun StreamingSection() {
             .padding(horizontal = 18.dp, vertical = 14.dp),
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Cache occupé", color = LumenColors.OnBackground, fontSize = 15.sp)
+            Text(T["settingsSections.cacheOccupe"], color = LumenColors.OnBackground, fontSize = 15.sp)
             Text(
                 status?.let { app.lumen.update.formatSize(it.cacheBytes) + " dans " + it.cacheDir }
                     ?: "calcul…",
                 color = LumenColors.Muted, fontSize = 12.sp,
             )
             freed?.let {
-                Text("${app.lumen.update.formatSize(it)} libérés", color = LumenColors.Accent, fontSize = 12.sp)
+                Text(T.format("settingsSections.liberes", app.lumen.update.formatSize(it)), color = LumenColors.Accent, fontSize = 12.sp)
             }
         }
         Button(
@@ -699,7 +691,7 @@ private fun StreamingSection() {
             colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
             shape = RoundedCornerShape(8.dp),
         ) {
-            Text(if (busy) "Purge…" else "Vider le cache", fontWeight = FontWeight.SemiBold)
+            Text(if (busy) "Purge…" else T["settingsSections.viderLeCache"], fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -714,10 +706,10 @@ private fun AdvancedSection(
     val hlsRepo = remember(db) { app.lumen.domain.HlsLibraryRepository(db) }
     val targetRepo = remember(db) { app.lumen.domain.UploadTargetRepository(db) }
 
-    SubHeader("Destination d'envoi")
+    SubHeader(T["settingsSections.destinationDEnvoi"])
     UploadTargetSection(targetRepo)
 
-    SubHeader("Dossiers HLS")
+    SubHeader(T["settingsSections.dossiersHls"])
     app.lumen.ui.settings.HlsImportSection(tmdb, hlsRepo, targetRepo, onLibraryChanged)
 
     SubHeader("Segmentation")
@@ -734,8 +726,7 @@ private fun SimklSection(client: JellyfinClient) {
     val connected = AppSettings.simklToken.value.isNotBlank()
 
     Text(
-        "Simkl garde l'historique de TOUT ce que tu regardes — y compris les " +
-            "titres lus par addon, que ton serveur Jellyfin ignore complètement.",
+        T["settingsSections.simklGardeLHistoriqueDeTout"],
         color = LumenColors.Muted, fontSize = 13.sp,
     )
 
@@ -748,13 +739,13 @@ private fun SimklSection(client: JellyfinClient) {
             Text("Compte", color = LumenColors.OnBackground, fontSize = 15.sp)
             Spacer(Modifier.weight(1f))
             Text(
-                AppSettings.simklUser.value.ifBlank { "connecté" },
+                AppSettings.simklUser.value.ifBlank { T["settingsSections.connecte"] },
                 color = LumenColors.Muted, fontSize = 13.sp,
             )
         }
         SwitchRow(
-            title = "Envoyer automatiquement",
-            description = "Un titre terminé à plus de 90 % part dans l'historique Simkl.",
+            title = T["settingsSections.envoyerAutomatiquement"],
+            description = T["settingsSections.unTitreTermineAPlusDe"],
             checked = AppSettings.simklScrobble.value,
             onChecked = { AppSettings.simklScrobble.set(it) },
         )
@@ -770,7 +761,7 @@ private fun SimklSection(client: JellyfinClient) {
             },
         ) {
             Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
-            Text("Déconnecter Simkl", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(T["settingsSections.deconnecterSimkl"], color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         }
         return
     }
@@ -783,7 +774,7 @@ private fun SimklSection(client: JellyfinClient) {
                     scope.launch {
                         val requested = simkl.requestPin()
                         if (requested == null) {
-                            error = "Simkl injoignable — réessaie plus tard"
+                            error = T["settingsSections.simklInjoignableReessaiePlusTard"]
                             return@launch
                         }
                         pin = requested
@@ -803,7 +794,7 @@ private fun SimklSection(client: JellyfinClient) {
                             }
                         }
                         if (waiting) {
-                            error = "Code expiré — relance la connexion"
+                            error = T["settingsSections.codeExpireRelanceLaConnexion"]
                             waiting = false
                             pin = null
                         }
@@ -812,7 +803,7 @@ private fun SimklSection(client: JellyfinClient) {
                 colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
                 shape = RoundedCornerShape(8.dp),
             ) {
-                Text("Connecter mon compte Simkl", fontWeight = FontWeight.SemiBold)
+                Text(T["settingsSections.connecterMonCompteSimkl"], fontWeight = FontWeight.SemiBold)
             }
             error?.let { Text(it, color = LumenColors.Accent, fontSize = 13.sp) }
         }
@@ -834,7 +825,7 @@ private fun SimklSection(client: JellyfinClient) {
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(18.dp))
-                Text("En attente de validation…", color = LumenColors.Muted, fontSize = 13.sp)
+                Text(T["settingsSections.enAttenteDeValidation"], color = LumenColors.Muted, fontSize = 13.sp)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
@@ -844,7 +835,7 @@ private fun SimklSection(client: JellyfinClient) {
                 ) {
                     Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, tint = LumenColors.OnBackground, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Ouvrir la page", color = LumenColors.OnBackground)
+                    Text(T["settingsSections.ouvrirLaPage"], color = LumenColors.OnBackground)
                 }
                 Text(
                     "Annuler",
@@ -867,14 +858,14 @@ private fun QuickConnectSection(client: JellyfinClient, session: StoredSession) 
     var result by remember { mutableStateOf<Boolean?>(null) }
 
     Text(
-        "Saisis le code affiché par un autre appareil pour l'autoriser sur ton compte.",
+        T["settingsSections.saisisLeCodeAfficheParUn"],
         color = LumenColors.Muted, fontSize = 13.sp,
     )
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedTextField(
             value = code,
             onValueChange = { v -> if (v.length <= 6 && v.all { it.isDigit() }) { code = v; result = null } },
-            label = { Text("Code à 6 chiffres", color = LumenColors.Muted) },
+            label = { Text(T["settingsSections.codeA6Chiffres"], color = LumenColors.Muted) },
             singleLine = true,
             colors = fieldColors(),
             modifier = Modifier.width(220.dp),
@@ -890,7 +881,7 @@ private fun QuickConnectSection(client: JellyfinClient, session: StoredSession) 
     }
     result?.let {
         Text(
-            if (it) "Appareil autorisé — il est en train de se connecter." else "Code refusé par le serveur.",
+            if (it) T["settingsSections.appareilAutoriseIlEstEnTrain"] else T["settingsSections.codeRefuseParLeServeur"],
             color = if (it) LumenColors.Muted else LumenColors.Accent,
             fontSize = 13.sp,
         )
@@ -911,8 +902,7 @@ private fun ServerSection(
     onLibraryChanged: () -> Unit,
 ) {
     Text(
-        "Bascule d'un serveur à l'autre sans te reconnecter — la session de " +
-            "chaque serveur est mémorisée.",
+        T["settingsSections.basculeDUnServeurAL"],
         color = LumenColors.Muted, fontSize = 13.sp,
     )
     servers.forEach { server ->
@@ -949,7 +939,7 @@ private fun ServerSection(
             } else {
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = "Oublier ce serveur",
+                    contentDescription = T["settingsSections.oublierCeServeur"],
                     tint = LumenColors.Muted,
                     modifier = Modifier.size(18.dp).clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -969,7 +959,7 @@ private fun ServerSection(
         ).padding(vertical = 6.dp),
     ) {
         Icon(Icons.Filled.Add, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
-        Text("Ajouter un serveur", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(T["settingsSections.ajouterUnServeur"], color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 
     val storageRepo = remember(db) { app.lumen.domain.StorageSourceRepository(db) }
@@ -978,7 +968,7 @@ private fun ServerSection(
     val bucketRepo = remember(db) { app.lumen.domain.BucketLibraryRepository(db) }
     val tmdb = remember { app.lumen.api.TmdbClient(client.http) }
 
-    SubHeader("Stockage perso — S3, R2, B2")
+    SubHeader(T["settingsSections.stockagePersoS3R2B2"])
     StorageSourcesSection(storageRepo, bucketRepo, tmdb, onPlay, onLibraryChanged)
 
     SubHeader("WebDAV")
@@ -998,7 +988,7 @@ private fun ServerSection(
         ),
     ) {
         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
-        Text("Se déconnecter du serveur actuel", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(T["settingsSections.seDeconnecterDuServeurActuel"], color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -1087,10 +1077,10 @@ private fun SaveSettingsRow() {
             colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
             shape = RoundedCornerShape(8.dp),
         ) {
-            Text(if (saving) "Application…" else "Sauvegarder les paramètres", fontWeight = FontWeight.SemiBold)
+            Text(if (saving) "Application…" else T["settingsSections.sauvegarderLesParametres"], fontWeight = FontWeight.SemiBold)
         }
         if (saved) {
-            Text("Paramètres appliqués", color = LumenColors.Muted, fontSize = 13.sp)
+            Text(T["settingsSections.parametresAppliques"], color = LumenColors.Muted, fontSize = 13.sp)
         }
     }
 }

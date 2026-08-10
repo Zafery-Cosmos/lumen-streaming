@@ -49,6 +49,7 @@ import app.lumen.resources.logo
 import org.jetbrains.compose.resources.painterResource
 import app.lumen.auth.ConnectFlow
 import app.lumen.auth.ConnectStep
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.launch
 
@@ -98,14 +99,14 @@ private fun ServerStep(flow: ConnectFlow, step: ConnectStep.Server) {
     ) {
         Wordmark()
         Text(
-            "Adresse de votre serveur Jellyfin",
+            T["connectScreens.adresseDeVotreServeurJellyfin"],
             color = LumenColors.Muted,
             fontSize = 14.sp,
         )
         LumenTextField(
             value = address,
             onValueChange = { address = it },
-            label = "jellyfin.example.com ou 192.168.1.x",
+            label = T["connectScreens.jellyfinExampleComOu192168"],
             enabled = !step.busy,
             imeAction = ImeAction.Go,
             onSubmit = { if (address.isNotBlank()) scope.launch { flow.submitServer(address) } },
@@ -128,7 +129,7 @@ private fun ProfilesStep(flow: ConnectFlow, step: ConnectStep.Profiles) {
         modifier = Modifier.padding(32.dp),
     ) {
         Text(
-            "Qui regarde ?",
+            T["connectScreens.quiRegarde"],
             color = LumenColors.OnBackground,
             fontSize = 30.sp,
             fontWeight = FontWeight.Bold,
@@ -144,7 +145,7 @@ private fun ProfilesStep(flow: ConnectFlow, step: ConnectStep.Profiles) {
             }
         }
         TextButton(onClick = { flow.backToServer() }) {
-            Text("Changer de serveur", color = LumenColors.Muted)
+            Text(T["connectScreens.changerDeServeur"], color = LumenColors.Muted)
         }
     }
 }
@@ -192,12 +193,12 @@ private fun CredentialsStep(flow: ConnectFlow, step: ConnectStep.Credentials) {
             fontWeight = FontWeight.Bold,
         )
         if (step.userName == null) {
-            LumenTextField(username, { username = it }, label = "Nom d'utilisateur", enabled = !step.busy)
+            LumenTextField(username, { username = it }, label = T["connectScreens.nomDUtilisateur"], enabled = !step.busy)
         }
         LumenTextField(
             value = password,
             onValueChange = { password = it },
-            label = "Mot de passe",
+            label = T["connectScreens.motDePasse"],
             enabled = !step.busy,
             password = true,
             imeAction = ImeAction.Done,
@@ -205,12 +206,12 @@ private fun CredentialsStep(flow: ConnectFlow, step: ConnectStep.Credentials) {
         )
         step.error?.let { ErrorText(it) }
         PrimaryButton(
-            text = if (step.busy) "Connexion…" else "Se connecter",
+            text = if (step.busy) "Connexion…" else T["connectScreens.seConnecter"],
             enabled = canSubmit,
             onClick = { scope.launch { flow.login(username, password) } },
         )
         TextButton(onClick = { scope.launch { flow.startQuickConnect() } }) {
-            Text("Utiliser Quick Connect", color = LumenColors.Accent)
+            Text(T["connectScreens.utiliserQuickConnect"], color = LumenColors.Accent)
         }
         TextButton(onClick = { flow.backToProfiles() }) {
             Text("Retour", color = LumenColors.Muted)
@@ -225,9 +226,9 @@ private fun QuickConnectStep(flow: ConnectFlow, step: ConnectStep.QuickConnect) 
         verticalArrangement = Arrangement.spacedBy(20.dp),
         modifier = Modifier.padding(32.dp),
     ) {
-        Text("Quick Connect", color = LumenColors.OnBackground, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        Text(T["connectScreens.quickConnect"], color = LumenColors.OnBackground, fontSize = 26.sp, fontWeight = FontWeight.Bold)
         Text(
-            "Saisissez ce code dans « Paramètres → Quick Connect »\nd'un appareil déjà connecté :",
+            T["connectScreens.quickConnectInstructions"],
             color = LumenColors.Muted,
             fontSize = 14.sp,
             textAlign = TextAlign.Center,

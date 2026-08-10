@@ -39,6 +39,7 @@ import app.lumen.domain.WebDavConfig
 import app.lumen.domain.WebDavEntry
 import app.lumen.domain.WebDavSource
 import app.lumen.domain.WebDavSourceRepository
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.launch
 
@@ -50,8 +51,7 @@ fun WebDavSourcesSection(repo: WebDavSourceRepository, onPlay: (PlayRequest) -> 
     var browsing by remember { mutableStateOf<WebDavSource?>(null) }
 
     Text(
-        "Un partage WebDAV (Nextcloud, Synology, mod_dav…) : Lumen le parcourt " +
-            "comme un dossier distant.",
+        T["webDavSources.unPartageWebdavNextcloudSynologyMod"],
         color = LumenColors.Muted, fontSize = 13.sp,
     )
 
@@ -95,7 +95,7 @@ fun WebDavSourcesSection(repo: WebDavSourceRepository, onPlay: (PlayRequest) -> 
         ) { showAdd = true }.padding(vertical = 6.dp),
     ) {
         Icon(Icons.Filled.Add, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
-        Text("Ajouter un partage WebDAV", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(T["webDavSources.ajouterUnPartageWebdav"], color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 
     if (showAdd) {
@@ -123,7 +123,7 @@ private fun WebDavBrowserDialog(config: WebDavConfig, onPlay: (PlayRequest) -> U
         error = null
         client.list(config, path).fold(
             onSuccess = { entries = it },
-            onFailure = { error = it.message ?: "Échec de connexion" },
+            onFailure = { error = it.message ?: T["webDavSources.echecDeConnexion"] },
         )
         loading = false
     }
@@ -158,7 +158,7 @@ private fun WebDavBrowserDialog(config: WebDavConfig, onPlay: (PlayRequest) -> U
                 when {
                     loading -> CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(24.dp))
                     error != null -> Text(error ?: "", color = LumenColors.Accent, fontSize = 13.sp)
-                    entries.isEmpty() -> Text("Dossier vide", color = LumenColors.Muted, fontSize = 13.sp)
+                    entries.isEmpty() -> Text(T["webDavSources.dossierVide"], color = LumenColors.Muted, fontSize = 13.sp)
                     else -> Column {
                         entries.forEach { entry ->
                             Row(
@@ -223,13 +223,13 @@ private fun AddWebDavDialog(onDismiss: () -> Unit, onSave: (WebDavConfig) -> Uni
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = LumenColors.Surface,
-        title = { Text("Ajouter un partage WebDAV", color = LumenColors.OnBackground) },
+        title = { Text(T["webDavSources.ajouterUnPartageWebdav"], color = LumenColors.OnBackground) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 DialogField("Nom", label) { label = it }
-                DialogField("URL (https://…/dav/…)", baseUrl) { baseUrl = it; testResult = null }
+                DialogField(T["webDavSources.urlHttpsDav"], baseUrl) { baseUrl = it; testResult = null }
                 DialogField("Utilisateur", username) { username = it; testResult = null }
-                DialogField("Mot de passe", password, password = true) { password = it; testResult = null }
+                DialogField(T["webDavSources.motDePasse"], password, password = true) { password = it; testResult = null }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -251,11 +251,11 @@ private fun AddWebDavDialog(onDismiss: () -> Unit, onSave: (WebDavConfig) -> Uni
                     if (testing) {
                         CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(14.dp))
                     } else {
-                        Text("Tester la connexion", color = LumenColors.Accent, fontSize = 13.sp)
+                        Text(T["webDavSources.testerLaConnexion"], color = LumenColors.Accent, fontSize = 13.sp)
                     }
                     testResult?.let {
                         Text(
-                            if (it) "✓ connecté" else "✗ échec",
+                            if (it) T["webDavSources.connecte"] else T["webDavSources.echec"],
                             color = if (it) androidx.compose.ui.graphics.Color(0xFF3ECF6B) else LumenColors.Accent,
                             fontSize = 12.sp,
                         )

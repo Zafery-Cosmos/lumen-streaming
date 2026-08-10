@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumen.domain.LocalProfile
 import app.lumen.ui.components.ProfileAvatar
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 
 /**
@@ -54,7 +55,7 @@ fun ProfileGate(
                 verticalArrangement = Arrangement.spacedBy(36.dp),
             ) {
                 Text(
-                    "Qui regarde ?",
+                    T["profileGate.quiRegarde"],
                     color = LumenColors.OnBackground,
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
@@ -84,7 +85,7 @@ fun ProfileGate(
                         ) {
                             Icon(
                                 Icons.Filled.Add,
-                                contentDescription = "Ajouter un profil",
+                                contentDescription = T["profileGate.ajouterUnProfil"],
                                 tint = LumenColors.Muted,
                                 modifier = Modifier.size(40.dp),
                             )
@@ -93,7 +94,7 @@ fun ProfileGate(
                     }
                 }
                 Text(
-                    "Gérer les profils",
+                    T["profileGate.gererLesProfils"],
                     color = LumenColors.Muted,
                     fontSize = 14.sp,
                     modifier = Modifier
@@ -137,7 +138,7 @@ fun ProfileBadge(profile: LocalProfile, size: Int = 104, onClick: () -> Unit) {
             if (profile.hasPin) {
                 Icon(
                     Icons.Filled.Lock,
-                    contentDescription = "Verrouillé",
+                    contentDescription = T["profileGate.verrouille"],
                     tint = Color.White.copy(alpha = 0.95f),
                     modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).size(18.dp),
                 )
@@ -179,7 +180,7 @@ fun PinPad(title: String, onCancel: () -> Unit, onSubmit: (String) -> Boolean) {
             }
         }
         if (error) {
-            Text("Code incorrect", color = LumenColors.Accent, fontSize = 13.sp)
+            Text(T["profileGate.codeIncorrect"], color = LumenColors.Accent, fontSize = 13.sp)
         }
 
         // "DEL" est un sentinel interne — rendu en icône vectorielle, jamais en texte.

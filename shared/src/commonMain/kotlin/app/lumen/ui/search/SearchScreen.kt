@@ -41,6 +41,7 @@ import app.lumen.ui.components.MediaCard
 import app.lumen.ui.detail.SourcesOverlay
 import app.lumen.ui.detail.SourcesTarget
 import app.lumen.ui.theme.LocalSidePadding
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -122,8 +123,8 @@ fun SearchScreen(
             ) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
-                        if (list.isEmpty()) "Aucun résultat dans la médiathèque pour « $query »"
-                        else "Dans votre médiathèque",
+                        if (list.isEmpty()) T.format("search.aucunResultat", query)
+                        else T["search.dansVotreMediatheque"],
                         color = if (list.isEmpty()) LumenColors.Muted else LumenColors.OnBackground,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -144,7 +145,7 @@ fun SearchScreen(
                 if (addonResults.isNotEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }, key = "addons-header") {
                         Text(
-                            "Depuis les addons",
+                            T["search.depuisLesAddons"],
                             color = LumenColors.OnBackground,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,

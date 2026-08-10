@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.lumen.ui.theme.LocalSidePadding
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.launch
 
@@ -81,7 +82,7 @@ fun ScrollableRow(
             visible = hovered && state.canScrollBackward,
             alignment = Alignment.CenterStart,
             icon = Icons.Filled.ChevronLeft,
-            label = "Précédent",
+            label = T["scrollableRow.precedent"],
             width = arrowWidth,
             iconSize = iconSize,
             scrimColor = scrimColor,

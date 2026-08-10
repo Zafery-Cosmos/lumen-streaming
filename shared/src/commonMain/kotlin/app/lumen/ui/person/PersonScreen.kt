@@ -38,6 +38,7 @@ import app.lumen.api.TmdbPersonDetail
 import app.lumen.domain.toCard
 import app.lumen.ui.components.MediaCard
 import app.lumen.ui.theme.LocalSidePadding
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 
@@ -108,7 +109,7 @@ private fun PersonBody(person: TmdbPersonDetail, onOpen: (String) -> Unit) {
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         person.birthday?.let {
-                            Text("Né(e) le $it", color = LumenColors.Muted, fontSize = 13.sp)
+                            Text(T.format("person.neLe", it), color = LumenColors.Muted, fontSize = 13.sp)
                         }
                         person.placeOfBirth?.let {
                             Text(it, color = LumenColors.Muted, fontSize = 13.sp)
@@ -136,7 +137,7 @@ private fun PersonBody(person: TmdbPersonDetail, onOpen: (String) -> Unit) {
         }
         if (shows.isNotEmpty()) {
             item(key = "shows") {
-                FilmographyRail("Séries", shows.map { it.toCard() }, onOpen)
+                FilmographyRail(T["person.series"], shows.map { it.toCard() }, onOpen)
             }
         }
         item(key = "bottom") { Spacer(Modifier.height(16.dp)) }

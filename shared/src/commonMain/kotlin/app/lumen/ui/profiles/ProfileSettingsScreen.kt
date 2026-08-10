@@ -49,6 +49,7 @@ import app.lumen.db.sha256Hex
 import app.lumen.ui.components.Avatars
 import app.lumen.ui.components.ProfileAvatar
 import app.lumen.ui.theme.LocalSidePadding
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import org.jetbrains.compose.resources.painterResource
 
@@ -159,7 +160,7 @@ fun ProfileSettingsScreen(client: app.lumen.api.JellyfinClient, repo: ProfileRep
                         .padding(vertical = 6.dp),
                 ) {
                     Icon(Icons.Filled.Add, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
-                    Text("Ajouter un profil", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Text(T["profileSettings.ajouterUnProfil"], color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -193,7 +194,7 @@ fun ProfileEditor(
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
-            label = { Text("Nom du profil", color = LumenColors.Muted) },
+            label = { Text(T["profileSettings.nomDuProfil"], color = LumenColors.Muted) },
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = LumenColors.Accent,
@@ -209,9 +210,9 @@ fun ProfileEditor(
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Profil enfant", color = LumenColors.OnBackground, fontSize = 15.sp)
+                Text(T["profileSettings.profilEnfant"], color = LumenColors.OnBackground, fontSize = 15.sp)
                 Text(
-                    "Masque tout contenu au-dessus de la limite d'âge (et le non-classifié)",
+                    T["profileSettings.masqueToutContenuAuDessusDe"],
                     color = LumenColors.Muted,
                     fontSize = 12.sp,
                 )
@@ -228,7 +229,7 @@ fun ProfileEditor(
                 listOf(0, 7, 10, 13, 16).forEach { age ->
                     val selected = age == maxAge
                     Text(
-                        if (age == 0) "Tout public" else "$age+",
+                        if (age == 0) T["profileSettings.toutPublic"] else "$age+",
                         color = if (selected) Color.Black else LumenColors.OnBackground,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -253,7 +254,7 @@ fun ProfileEditor(
                 onValueChange = { v -> if (v.length <= 4 && v.all { it.isDigit() }) { pin = v; removePin = false } },
                 label = {
                     Text(
-                        if (initial?.hasPin == true) "Nouveau PIN (vide = inchangé)" else "Code PIN (4 chiffres, vide = aucun)",
+                        if (initial?.hasPin == true) T["profileSettings.nouveauPinVideInchange"] else T["profileSettings.codePin4ChiffresVideAucun"],
                         color = LumenColors.Muted,
                     )
                 },
@@ -269,7 +270,7 @@ fun ProfileEditor(
             )
             if (initial?.hasPin == true) {
                 Text(
-                    if (removePin) "PIN sera retiré" else "Retirer le PIN",
+                    if (removePin) T["profileSettings.pinSeraRetire"] else T["profileSettings.retirerLePin"],
                     color = if (removePin) LumenColors.Muted else LumenColors.Accent,
                     fontSize = 13.sp,
                     modifier = Modifier.clickable(
@@ -300,7 +301,7 @@ fun ProfileEditor(
                 Spacer(Modifier.weight(1f))
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = "Supprimer le profil",
+                    contentDescription = T["profileSettings.supprimerLeProfil"],
                     tint = LumenColors.Accent,
                     modifier = Modifier.size(22.dp).clickable(
                         interactionSource = remember { MutableInteractionSource() },

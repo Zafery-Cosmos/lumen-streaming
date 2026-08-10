@@ -53,6 +53,7 @@ import app.lumen.parentFolderName
 import app.lumen.pickDirectory
 import app.lumen.readLocalText
 import app.lumen.resolveSibling
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
@@ -92,21 +93,18 @@ fun HlsImportSection(
     }
 
     Text(
-        "Importe un dossier contenant un master.m3u8 et ses segments (.ts ou " +
-            "fMP4). Le contenu est déjà transcodé : rien n'est ré-encodé.",
+        T["hlsImport.importeUnDossierContenantUnMaster"],
         color = LumenColors.Muted, fontSize = 13.sp,
     )
 
     // --- Étape 0 : où déposer ? -------------------------------------------
     if (destinations.isEmpty()) {
         Text(
-            "Aucune destination configurée. Ajoute d'abord un serveur dans " +
-                "« Destination d'envoi » ci-dessus : le dossier y sera déposé, " +
-                "puis lu depuis le serveur — il ne dépendra plus de cet appareil.",
+            T["hlsImport.aucuneDestinationConfigureeAjouteDAbord"],
             color = LumenColors.Accent, fontSize = 12.sp,
         )
     } else {
-        Text("Déposer sur", color = LumenColors.OnBackground, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(T["hlsImport.deposerSur"], color = LumenColors.OnBackground, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             destinations.forEach { d ->
                 val selected = d.id == targetId
@@ -152,7 +150,7 @@ fun HlsImportSection(
         Button(
             onClick = {
                 scope.launch {
-                    val dir = pickDirectory("Choisir un dossier HLS") ?: return@launch
+                    val dir = pickDirectory(T["hlsImport.choisirUnDossierHls"]) ?: return@launch
                     busy = true
                     error = null
                     val result = withContext(Dispatchers.Default) {
@@ -165,7 +163,7 @@ fun HlsImportSection(
                     }
                     busy = false
                     if (result == null) {
-                        error = "Aucun master.m3u8 lisible dans ce dossier"
+                        error = T["hlsImport.aucunMasterM3u8LisibleDansCe"]
                         return@launch
                     }
                     analysis = result
@@ -181,7 +179,7 @@ fun HlsImportSection(
         ) {
             Icon(Icons.Filled.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text(if (busy) "Analyse…" else "Choisir un dossier HLS", fontWeight = FontWeight.SemiBold)
+            Text(if (busy) "Analyse…" else T["hlsImport.choisirUnDossierHls"], fontWeight = FontWeight.SemiBold)
         }
         error?.let { Text(it, color = LumenColors.Accent, fontSize = 13.sp) }
     }
@@ -194,12 +192,12 @@ fun HlsImportSection(
                 .background(LumenColors.Surface, RoundedCornerShape(10.dp))
                 .padding(16.dp),
         ) {
-            Text("Analyse du dossier", color = LumenColors.OnBackground, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            InfoLine("Durée", "${(a.durationSeconds / 60).toInt()} min")
+            Text(T["hlsImport.analyseDuDossier"], color = LumenColors.OnBackground, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            InfoLine(T["hlsImport.duree"], "${(a.durationSeconds / 60).toInt()} min")
             InfoLine("Segments", "${a.segmentCount} (${if (a.segmentFormat == "fmp4") "fMP4" else "MPEG-TS"})")
-            InfoLine("Qualités", a.variants.joinToString(", ") { it.resolution ?: "?" }.ifEmpty { "une seule" })
+            InfoLine(T["hlsImport.qualites"], a.variants.joinToString(", ") { it.resolution ?: "?" }.ifEmpty { T["hlsImport.uneSeule"] })
             if (a.audioTracks.isNotEmpty()) {
-                InfoLine("Pistes audio", a.audioTracks.joinToString(", ") { it.name })
+                InfoLine(T["hlsImport.pistesAudio"], a.audioTracks.joinToString(", ") { it.name })
             }
             if (a.subtitleTracks.isNotEmpty()) {
                 InfoLine("Sous-titres", a.subtitleTracks.joinToString(", ") { it.name })
@@ -214,7 +212,7 @@ fun HlsImportSection(
                     modifier = Modifier.size(18.dp),
                 )
                 Text(
-                    if (a.directPlay) "Lisible en Direct Play — aucun transcodage" else "Problèmes détectés",
+                    if (a.directPlay) T["hlsImport.lisibleEnDirectPlayAucunTranscodage"] else T["hlsImport.problemesDetectes"],
                     color = if (a.directPlay) Color(0xFF3ECF6B) else LumenColors.Accent,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -309,7 +307,7 @@ fun HlsImportSection(
                             sent.fold(
                                 onSuccess = { remoteDir ->
                                     repo.add(
-                                        title = m?.displayName ?: query.ifBlank { "Sans titre" },
+                                        title = m?.displayName ?: query.ifBlank { T["hlsImport.sansTitre"] },
                                         year = m?.year,
                                         // Le chemin enregistré est celui du SERVEUR :
                                         // la lecture passera par le proxy local.
@@ -324,7 +322,7 @@ fun HlsImportSection(
                                     onChanged()
                                     reset()
                                 },
-                                onFailure = { error = "Envoi échoué : ${it.message}" },
+                                onFailure = { error = T.format("hlsImport.envoiEchoue", it.message ?: "") },
                             )
                         }
                     },
@@ -332,7 +330,7 @@ fun HlsImportSection(
                     colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
                     shape = RoundedCornerShape(8.dp),
                 ) {
-                    Text("Envoyer sur le serveur", fontWeight = FontWeight.SemiBold)
+                    Text(T["hlsImport.envoyerSurLeServeur"], fontWeight = FontWeight.SemiBold)
                 }
                 Text(
                     "Annuler",
@@ -350,7 +348,7 @@ fun HlsImportSection(
     // --- Les dossiers déjà importés ---------------------------------------
     if (entries.isNotEmpty()) {
         Text(
-            "Dossiers importés",
+            T["hlsImport.dossiersImportes"],
             color = LumenColors.OnBackground,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,

@@ -86,6 +86,7 @@ import app.lumen.domain.parseEpisodeFileName
 import app.lumen.player.MediaTrack
 import app.lumen.player.VideoSurface
 import app.lumen.player.rememberPlayerEngine
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.CoroutineScope
@@ -132,6 +133,9 @@ fun PlayerScreen(
     val addonStore = remember { app.lumen.domain.AddonStore() }
     var stats by remember { mutableStateOf<app.lumen.player.PlayerStats?>(null) }
     var playMethod by remember { mutableStateOf("…") }
+    // Le mode negocie, sous forme de code : comparer le LIBELLE affiche
+    // devenait faux des que la langue changeait en cours de lecture.
+    var playMode by remember { mutableStateOf("") }
 
     var torrentStats by remember { mutableStateOf<app.lumen.player.TorrentStats?>(null) }
 
@@ -161,12 +165,17 @@ fun PlayerScreen(
     suspend fun startPlayback(startMs: Long) {
         if (itemId == null) return
         val info = client.playbackInfo(session.baseUrl, session.userId, itemId, maxBitrate)
-        val source = info.mediaSources.firstOrNull() ?: error("Aucune source de lecture")
+        val source = info.mediaSources.firstOrNull() ?: error(T["player.aucuneSourceDeLecture"])
         playSessionId = info.playSessionId
-        playMethod = when {
-            source.supportsDirectPlay -> "Direct Play"
-            source.supportsDirectStream -> "Direct Stream"
-            else -> "Transcodage"
+        playMode = when {
+            source.supportsDirectPlay -> "direct"
+            source.supportsDirectStream -> "stream"
+            else -> "transcode"
+        }
+        playMethod = when (playMode) {
+            "direct" -> T["player.directPlay"]
+            "stream" -> T["player.directStream"]
+            else -> T["player.transcodage"]
         }
         val upstream = client.streamUrl(session.baseUrl, itemId, source)
         streamUrl = upstream
@@ -190,7 +199,8 @@ fun PlayerScreen(
             // L'URI doit être ENCODÉE (cf. localFileUri) : un espace dans le
             // chemin suffisait à casser la résolution des segments.
             title = request.title
-            playMethod = "HLS local — Direct Play"
+            playMode = "direct"
+            playMethod = T["player.hlsLocalDirectPlay"]
             val uri = app.lumen.localFileUri(request.hlsMasterPath)
             streamUrl = uri
             engine.play(uri)
@@ -198,12 +208,12 @@ fun PlayerScreen(
         }
         if (request.torrentHash != null) {
             title = request.title
-            playMethod = "Torrent — moteur intégré"
+            playMethod = T["player.torrentMoteurIntegre"]
             val ok = app.lumen.player.ensureTorrentEngine()
             if (!ok) {
                 // Repli honnête : magnet remis au client torrent du système.
                 app.lumen.platformOpenUrl("magnet:?xt=urn:btih:${request.torrentHash}")
-                loadError = "Moteur torrent indisponible — magnet ouvert dans le client système"
+                loadError = T["player.moteurTorrentIndisponibleMagnetOuvertDans"]
                 return@LaunchedEffect
             }
             streamUrl = app.lumen.player.torrentStreamUrl(request.torrentHash, request.title)
@@ -228,13 +238,13 @@ fun PlayerScreen(
             }
             // Flux d'addon Stremio : lecture directe, en-têtes côté client (§4).
             title = request.title
-            playMethod = if (request.isTrailer) "Bande-annonce" else "Flux direct (addon)"
+            playMethod = if (request.isTrailer) T["player.bandeAnnonce"] else T["player.fluxDirectAddon"]
             streamUrl = request.url
             engine.play(proxied, request.headers, audioSlaveUrl = proxiedAudio)
             return@LaunchedEffect
         }
         if (itemId == null) {
-            loadError = "Rien à lire"
+            loadError = T["player.rienALire"]
             return@LaunchedEffect
         }
         try {
@@ -259,7 +269,7 @@ fun PlayerScreen(
             startPlayback(startMs)
             client.reportPlaybackStart(session.baseUrl, itemId, playSessionId)
         } catch (e: Exception) {
-            loadError = "Impossible de lancer la lecture"
+            loadError = T["player.impossibleDeLancerLaLecture"]
         }
     }
 
@@ -270,8 +280,7 @@ fun PlayerScreen(
         delay(20_000)
         val s = engine.state.value
         if (!s.playing && s.positionMs == 0L && loadError == null && s.error == null) {
-            loadError = "Lecture impossible — le fichier n'a pas pu être ouvert. " +
-                "Reviens en arrière et réessaie."
+            loadError = T["player.lectureImpossibleLeFichierNA"]
             controlsVisible = true
         }
     }
@@ -289,7 +298,7 @@ fun PlayerScreen(
             fun matches(label: String, lang: String): Boolean {
                 val l = label.lowercase()
                 return when (lang) {
-                    "fr" -> listOf("fr", "vf", "french", "français", "francais").any { l.contains(it) }
+                    "fr" -> listOf("fr", "vf", "french", T["player.francais"], "francais").any { l.contains(it) }
                     "en" -> listOf("en", "vo", "english", "anglais").any { l.contains(it) }
                     else -> false
                 }
@@ -407,7 +416,7 @@ fun PlayerScreen(
     suspend fun switchSource(url: String?, headers: Map<String, String>, hash: String?, resumeMs: Long) {
         when {
             hash != null -> {
-                playMethod = "Torrent — moteur intégré"
+                playMethod = T["player.torrentMoteurIntegre"]
                 if (app.lumen.player.ensureTorrentEngine()) {
                     val direct = app.lumen.player.torrentStreamUrl(hash, title)
                     engine.play(
@@ -417,11 +426,11 @@ fun PlayerScreen(
                         startMs = resumeMs,
                     )
                 } else {
-                    loadError = "Moteur torrent indisponible"
+                    loadError = T["player.moteurTorrentIndisponible"]
                 }
             }
             url != null -> {
-                playMethod = "Flux direct (addon)"
+                playMethod = T["player.fluxDirectAddon"]
                 val proxied = if (app.lumen.player.StreamProxy.ensureRunning()) {
                     app.lumen.player.StreamProxy.register(url, headers, app.lumen.player.guessStreamExtension(url))
                 } else url
@@ -509,37 +518,37 @@ fun PlayerScreen(
                     .background(Color.Black.copy(alpha = 0.8f))
                     .padding(16.dp),
             ) {
-                Text("Statistiques du flux", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(T["player.statistiquesDuFlux"], color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 StatLine("Session", playMethod)
                 val s = stats
                 StatLine(
-                    "Débit d'arrivée",
+                    T["player.debitDArrivee"],
                     s?.let { "${(it.inputKbps / 100) / 10.0} Mb/s" } ?: "—",
                 )
                 StatLine(
-                    "Données reçues",
+                    T["player.donneesRecues"],
                     s?.let { "${it.inputBytesRead / 1_000_000} Mo" } ?: "—",
                 )
                 StatLine(
-                    "Débit utile",
+                    T["player.debitUtile"],
                     s?.let { "${(it.demuxKbps / 100) / 10.0} Mb/s" } ?: "—",
                 )
-                StatLine("Images perdues", s?.picturesLost?.toString() ?: "—")
+                StatLine(T["player.imagesPerdues"], s?.picturesLost?.toString() ?: "—")
                 // Torrent via le moteur intégré : pairs, débit et % RÉELS.
                 val t = torrentStats
                 if (request.torrentHash != null) {
                     StatLine("Pairs", t?.let { "${it.connectedPeers} / ${it.totalPeers}" } ?: "connexion…")
                     StatLine(
-                        "Débit torrent",
+                        T["player.debitTorrent"],
                         t?.let { "${(it.downloadSpeedBps * 8 / 100_000) / 10.0} Mb/s" } ?: "—",
                     )
                     StatLine(
-                        "Téléchargé",
+                        T["player.telecharge"],
                         t?.let { "${(it.downloadedPercent * 10).toInt() / 10.0} %" } ?: "—",
                     )
                 } else {
-                    StatLine("Pairs", "— (flux HTTP direct)")
-                    StatLine("Téléchargé", "— (flux HTTP direct)")
+                    StatLine("Pairs", T["player.fluxHttpDirect"])
+                    StatLine(T["player.telecharge"], T["player.fluxHttpDirect"])
                 }
             }
         }
@@ -630,12 +639,13 @@ fun PlayerScreen(
                 // Seul un item Jellyfin passe par PlaybackInfo : lui seul peut
                 // être transcodé à la demande.
                 qualityControllable = itemId != null,
+                playMode = playMode,
                 playMethod = buildString {
                     append(playMethod)
                     append(" · ")
                     append(engine.name)
                     if (app.lumen.domain.AppSettings.playerEngine.value == "mpv") {
-                        append(" (libmpv indisponible — repli)")
+                        append(T["player.libmpvIndisponibleRepli"])
                     }
                 },
             )
@@ -715,6 +725,8 @@ private fun SettingsPanel(
     onFill: (Boolean) -> Unit,
     onSnapshot: () -> Unit,
     playMethod: String,
+    /** Code du mode négocié : « direct », « stream », « transcode ». */
+    playMode: String,
     streamUrl: String?,
     playerTitle: String,
     /** Le transcodage n'existe QUE pour un item du serveur Jellyfin. */
@@ -734,7 +746,7 @@ private fun SettingsPanel(
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
     ) {
-        Text("Options de lecture", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(T["player.optionsDeLecture"], color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
 
         SettingSection(Icons.Filled.Speed, "Vitesse") {
             ChipRow(
@@ -744,14 +756,13 @@ private fun SettingsPanel(
             )
         }
 
-        SettingSection(Icons.Filled.HighQuality, "Qualité") {
+        SettingSection(Icons.Filled.HighQuality, T["player.qualite"]) {
             if (!qualityControllable) {
                 // Honnêteté : sur un flux d'addon, un torrent ou un fichier
                 // local, AUCUN serveur ne peut ré-encoder à la volée. Afficher
                 // des paliers ici serait purement décoratif.
                 Text(
-                    "Flux lu tel quel — la qualité dépend de la source, " +
-                        "il n'y a pas de serveur pour la convertir.",
+                    T["player.fluxLuTelQuelLaQualite"],
                     color = LumenColors.Muted,
                     fontSize = 12.sp,
                 )
@@ -759,29 +770,29 @@ private fun SettingsPanel(
                 // L'état RÉEL, renvoyé par le serveur après négociation.
                 Text(
                     when {
-                        playMethod.startsWith("Direct Play") -> "Actuellement : Direct Play — aucun ré-encodage"
-                        playMethod.startsWith("Direct Stream") -> "Actuellement : Direct Stream — remuxage seul"
-                        else -> "Actuellement : transcodage par le serveur"
+                        playMode == "direct" -> T["player.actuellementDirectPlayAucunReEncodage"]
+                        playMode == "stream" -> T["player.actuellementDirectStreamRemuxageSeul"]
+                        else -> T["player.actuellementTranscodageParLeServeur"]
                     },
                     color = LumenColors.Muted,
                     fontSize = 12.sp,
                 )
                 ChipRow(
                     options = listOf(
-                        "Direct Play" to null,
-                        "1080p · 20 Mbps" to 20_000_000L,
-                        "1080p · 8 Mbps" to 8_000_000L,
-                        "720p · 4 Mbps" to 4_000_000L,
-                        "480p · 2 Mbps" to 2_000_000L,
+                        T["player.directPlay"] to null,
+                        T["player.1080p20Mbps"] to 20_000_000L,
+                        T["player.1080p8Mbps"] to 8_000_000L,
+                        T["player.720p4Mbps"] to 4_000_000L,
+                        T["player.480p2Mbps"] to 2_000_000L,
                     ),
                     isSelected = { it == maxBitrate },
                     onSelect = onMaxBitrate,
                 )
                 Text(
                     if (maxBitrate == null) {
-                        "Le serveur envoie le fichier tel quel tant que ton appareil sait le lire."
+                        T["player.leServeurEnvoieLeFichierTel"]
                     } else {
-                        "Le serveur ré-encode à la volée pour tenir sous ce débit."
+                        T["player.leServeurReEncodeALa"]
                     },
                     color = LumenColors.Muted,
                     fontSize = 11.sp,
@@ -789,9 +800,9 @@ private fun SettingsPanel(
             }
         }
 
-        SettingSection(Icons.Filled.Audiotrack, "Piste audio") {
+        SettingSection(Icons.Filled.Audiotrack, T["player.pisteAudio"]) {
             if (audioTracks.isEmpty()) {
-                Text("Piste unique", color = LumenColors.Muted, fontSize = 13.sp)
+                Text(T["player.pisteUnique"], color = LumenColors.Muted, fontSize = 13.sp)
             } else {
                 ChipRow(
                     options = audioTracks.map { it.label to it.id },
@@ -803,7 +814,7 @@ private fun SettingsPanel(
 
         SettingSection(Icons.Filled.Subtitles, "Sous-titres") {
             ChipRow(
-                options = listOf("Désactivés" to -1) + subTracks.filter { it.id >= 0 }.map { it.label to it.id },
+                options = listOf(T["player.desactives"] to -1) + subTracks.filter { it.id >= 0 }.map { it.label to it.id },
                 isSelected = { it == selectedSub },
                 onSelect = { selectedSub = it; onSubTrack(it) },
             )
@@ -847,9 +858,9 @@ private fun SettingsPanel(
             )
         }
 
-        SettingSection(Icons.Filled.PhotoCamera, "Capture d'écran") {
+        SettingSection(Icons.Filled.PhotoCamera, T["player.captureDEcran"]) {
             Text(
-                "Enregistrer l'image actuelle",
+                T["player.enregistrerLImageActuelle"],
                 color = LumenColors.Accent,
                 fontSize = 13.sp,
                 modifier = Modifier.clickable(
@@ -860,7 +871,7 @@ private fun SettingsPanel(
             )
         }
 
-        SettingSection(Icons.Filled.Cast, "Diffuser (Cast)") {
+        SettingSection(Icons.Filled.Cast, T["player.diffuserCast"]) {
             CastSection(streamUrl = streamUrl, title = playerTitle)
         }
 
@@ -888,9 +899,7 @@ private fun CastSection(streamUrl: String?, title: String) {
     val local = streamUrl == null || streamUrl.startsWith("file://")
     if (local) {
         Text(
-            "Ce flux est local : le téléviseur ne pourrait pas aller le " +
-                "chercher. La diffusion vaut pour les titres du serveur et " +
-                "ceux des addons.",
+            T["player.ceFluxEstLocalLeTeleviseur"],
             color = LumenColors.Muted, fontSize = 12.sp,
         )
         return
@@ -898,7 +907,7 @@ private fun CastSection(streamUrl: String?, title: String) {
 
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            if (scanning) "Recherche…" else "Chercher des appareils",
+            if (scanning) "Recherche…" else T["player.chercherDesAppareils"],
             color = if (scanning) LumenColors.Muted else Color.White,
             fontSize = 13.sp,
             modifier = Modifier
@@ -909,14 +918,14 @@ private fun CastSection(streamUrl: String?, title: String) {
                     scope.launch {
                         devices = app.lumen.cast.discoverCastDevices()
                         scanning = false
-                        if (devices.orEmpty().isEmpty()) message = "Aucun appareil trouvé sur le réseau"
+                        if (devices.orEmpty().isEmpty()) message = T["player.aucunAppareilTrouveSurLeReseau"]
                     }
                 }
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         )
         active?.let {
             Text(
-                "Arrêter",
+                T["player.arreter"],
                 color = LumenColors.Accent,
                 fontSize = 13.sp,
                 modifier = Modifier
@@ -926,7 +935,7 @@ private fun CastSection(streamUrl: String?, title: String) {
                         scope.launch {
                             app.lumen.cast.castStop(device)
                             active = null
-                            message = "Diffusion arrêtée"
+                            message = T["player.diffusionArretee"]
                         }
                     }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -937,7 +946,7 @@ private fun CastSection(streamUrl: String?, title: String) {
     devices.orEmpty().forEach { device ->
         val selected = active?.id == device.id
         Text(
-            device.label + if (selected) "  ● en cours" else "",
+            device.label + if (selected) T["player.enCours"] else "",
             color = if (selected) LumenColors.Accent else Color.White,
             fontSize = 13.sp,
             modifier = Modifier.fillMaxWidth()
@@ -948,7 +957,7 @@ private fun CastSection(streamUrl: String?, title: String) {
                     scope.launch {
                         val ok = app.lumen.cast.castPlay(device, url, title)
                         active = if (ok) device else null
-                        message = if (ok) "Lecture lancée sur ${device.name}" else "${device.name} a refusé le flux"
+                        message = if (ok) T.format("player.lectureLanceeSur", device.name) else T.format("player.aRefuseLeFlux", device.name)
                     }
                 }
                 .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -1027,7 +1036,7 @@ private fun StreamActionsMenu(title: String, streamUrl: String?) {
     }
 
     Box {
-        RoundControl(Icons.Filled.MoreVert, "Plus d'actions", 22.dp, onClick = { open = true })
+        RoundControl(Icons.Filled.MoreVert, T["player.plusDActions"], 22.dp, onClick = { open = true })
         androidx.compose.material3.DropdownMenu(
             expanded = open,
             onDismissRequest = { open = false },
@@ -1037,7 +1046,7 @@ private fun StreamActionsMenu(title: String, streamUrl: String?) {
                 enabled = streamUrl != null && !local,
                 text = {
                     Text(
-                        "Télécharger la vidéo",
+                        T["player.telechargerLaVideo"],
                         color = if (streamUrl != null && !local) Color.White else LumenColors.Muted,
                         fontSize = 14.sp,
                     )
@@ -1056,9 +1065,9 @@ private fun StreamActionsMenu(title: String, streamUrl: String?) {
                     val extension = app.lumen.player.guessStreamExtension(url)
                     val safe = title.replace(Regex("""[/\\:*?"<>|]"""), " ").trim()
                     feedback = if (app.lumen.platformDownload(url, "$safe.$extension")) {
-                        "Téléchargement lancé"
+                        T["player.telechargementLance"]
                     } else {
-                        "Téléchargement impossible"
+                        T["player.telechargementImpossible"]
                     }
                 },
             )
@@ -1066,7 +1075,7 @@ private fun StreamActionsMenu(title: String, streamUrl: String?) {
                 enabled = streamUrl != null,
                 text = {
                     Text(
-                        "Copier le lien de stream vidéo",
+                        T["player.copierLeLienDeStreamVideo"],
                         color = if (streamUrl != null) Color.White else LumenColors.Muted,
                         fontSize = 14.sp,
                     )
@@ -1083,7 +1092,7 @@ private fun StreamActionsMenu(title: String, streamUrl: String?) {
                     open = false
                     streamUrl?.let {
                         clipboard.setText(androidx.compose.ui.text.AnnotatedString(it))
-                        feedback = "Lien copié"
+                        feedback = T["player.lienCopie"]
                     }
                 },
             )
@@ -1147,12 +1156,12 @@ private fun ControlsOverlay(
             )
             Spacer(Modifier.width(16.dp))
             onOpenEpisodes?.let {
-                RoundControl(Icons.Filled.Subscriptions, "Épisodes", 20.dp, onClick = it)
+                RoundControl(Icons.Filled.Subscriptions, T["player.episodes"], 20.dp, onClick = it)
                 Spacer(Modifier.width(10.dp))
             }
-            RoundControl(Icons.Filled.Layers, "Changer de source", 20.dp, onClick = onOpenSources)
+            RoundControl(Icons.Filled.Layers, T["player.changerDeSource"], 20.dp, onClick = onOpenSources)
             Spacer(Modifier.width(10.dp))
-            RoundControl(Icons.Filled.Equalizer, "Statistiques du flux", 20.dp, onClick = onToggleStats)
+            RoundControl(Icons.Filled.Equalizer, T["player.statistiquesDuFlux"], 20.dp, onClick = onToggleStats)
             Spacer(Modifier.width(10.dp))
             RoundControl(Icons.Filled.Tune, "Options", 22.dp, onClick = onOpenSettings)
             Spacer(Modifier.width(10.dp))

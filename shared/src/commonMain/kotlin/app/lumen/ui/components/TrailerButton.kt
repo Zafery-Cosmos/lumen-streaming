@@ -32,6 +32,7 @@ import app.lumen.api.YouTubeClient
 import app.lumen.domain.PlayRequest
 import app.lumen.domain.TrailerPicker
 import app.lumen.player.resolveYouTubeStream
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.launch
@@ -69,17 +70,16 @@ fun TrailerButton(
                     if (pick == null) {
                         busy = false
                         message = if (results.isEmpty()) {
-                            "Recherche YouTube indisponible"
+                            T["trailerButton.rechercheYoutubeIndisponible"]
                         } else {
-                            "Aucune bande-annonce VF trouvée (les versions " +
-                                "sous-titrées sont volontairement écartées)"
+                            T["trailerButton.aucuneBandeAnnonceVfTrouveeLes"]
                         }
                         return@launch
                     }
                     val stream = resolveYouTubeStream(pick.video.id)
                     busy = false
                     if (stream == null) {
-                        message = "Lecture des bandes-annonces indisponible sur cette plateforme"
+                        message = T["trailerButton.lectureDesBandesAnnoncesIndisponibleSur"]
                         return@launch
                     }
                     onPlay(
@@ -116,7 +116,7 @@ fun TrailerButton(
             }
             Spacer(Modifier.width(8.dp))
             Text(
-                if (busy) "Recherche de la VF…" else "Bande-annonce",
+                if (busy) T["trailerButton.rechercheDeLaVf"] else "Bande-annonce",
                 color = LumenColors.OnBackground,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,

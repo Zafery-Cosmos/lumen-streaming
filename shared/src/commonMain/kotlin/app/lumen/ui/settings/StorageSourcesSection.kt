@@ -49,6 +49,7 @@ import app.lumen.domain.StorageConfigCodec
 import app.lumen.domain.StorageSource
 import app.lumen.domain.StorageSourceRepository
 import app.lumen.ui.components.QrCodeView
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.launch
 
@@ -74,11 +75,12 @@ fun StorageSourcesSection(
     var qrFor by remember { mutableStateOf<StorageSource?>(null) }
     var browsing by remember { mutableStateOf<StorageSource?>(null) }
     var indexing by remember { mutableStateOf<String?>(null) }          // id en cours
-    var indexResult by remember { mutableStateOf<Pair<String, String>?>(null) }  // id → message
+    // id → (message, échec ?) : l'issue est portée par l'état, pas devinée
+    // en relisant le texte affiché — une phrase traduite ne s'analyse pas.
+    var indexResult by remember { mutableStateOf<Triple<String, String, Boolean>?>(null) }
 
     Text(
-        "Un bucket S3, R2 ou B2 personnel. Lumen s'y connecte comme à un serveur " +
-            "de plus — rien n'est partagé automatiquement.",
+        T["storageSources.unBucketS3R2OuB2"],
         color = LumenColors.Muted, fontSize = 13.sp,
     )
 
@@ -99,7 +101,7 @@ fun StorageSourcesSection(
                     Text(
                         "${s.config.kind.uppercase()} · ${s.config.bucket} · " +
                             if (s.config.folders.isEmpty()) {
-                                "tout le bucket"
+                                T["storageSources.toutLeBucket"]
                             } else {
                                 s.config.folders.joinToString(", ") { it.trimEnd('/') }
                             },
@@ -126,9 +128,9 @@ fun StorageSourcesSection(
                                 val result = app.lumen.domain.BucketIndexer.index(
                                     s, app.lumen.domain.S3Client(), tmdb, bucketRepo,
                                 )
-                                indexResult = s.id to result.fold(
-                                    onSuccess = { n -> "$n titre${if (n > 1) "s" else ""} sur l'accueil" },
-                                    onFailure = { "Échec : ${it.message}" },
+                                indexResult = result.fold(
+                                    onSuccess = { n -> Triple(s.id, T.format("storageSources.titresSurAccueil", n), false) },
+                                    onFailure = { Triple(s.id, T.format("storageSources.echecAvecCause", it.message ?: ""), true) },
                                 )
                                 indexing = null
                                 if (result.isSuccess) onLibraryChanged()
@@ -139,7 +141,7 @@ fun StorageSourcesSection(
                 Spacer(Modifier.width(14.dp))
                 Icon(
                     Icons.Filled.QrCode,
-                    contentDescription = "Exporter en QR code",
+                    contentDescription = T["storageSources.exporterEnQrCode"],
                     tint = LumenColors.Muted,
                     modifier = Modifier.size(18.dp).clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -163,10 +165,10 @@ fun StorageSourcesSection(
                     },
                 )
             }
-            indexResult?.takeIf { it.first == s.id }?.let { (_, message) ->
+            indexResult?.takeIf { it.first == s.id }?.let { (_, message, failed) ->
                 Text(
                     message,
-                    color = if (message.startsWith("Échec")) LumenColors.Accent else LumenColors.Muted,
+                    color = if (failed) LumenColors.Accent else LumenColors.Muted,
                     fontSize = 11.sp,
                     modifier = Modifier.padding(top = 6.dp),
                 )
@@ -183,7 +185,7 @@ fun StorageSourcesSection(
         ) { showAdd = true }.padding(vertical = 6.dp),
     ) {
         Icon(Icons.Filled.Add, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
-        Text("Ajouter un bucket", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(T["storageSources.ajouterUnBucket"], color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -194,7 +196,7 @@ fun StorageSourcesSection(
         ) { showImport = true }.padding(vertical = 6.dp),
     ) {
         Icon(Icons.Filled.QrCode, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
-        Text("Importer un code", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(T["storageSources.importerUnCode"], color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 
     if (showAdd) {
@@ -230,7 +232,7 @@ private fun S3BrowserDialog(config: PrivateStorageConfig, onPlay: (PlayRequest) 
         error = null
         client.list(config, prefix).fold(
             onSuccess = { entries = it },
-            onFailure = { error = it.message ?: "Échec de connexion" },
+            onFailure = { error = it.message ?: T["storageSources.echecDeConnexion"] },
         )
         loading = false
     }
@@ -266,7 +268,7 @@ private fun S3BrowserDialog(config: PrivateStorageConfig, onPlay: (PlayRequest) 
                         color = LumenColors.Accent, modifier = Modifier.size(24.dp),
                     )
                     error != null -> Text(error ?: "", color = LumenColors.Accent, fontSize = 13.sp)
-                    entries.isEmpty() -> Text("Bucket vide", color = LumenColors.Muted, fontSize = 13.sp)
+                    entries.isEmpty() -> Text(T["storageSources.bucketVide"], color = LumenColors.Muted, fontSize = 13.sp)
                     else -> Column {
                         entries.forEach { entry ->
                             Row(
@@ -332,8 +334,7 @@ private fun QrExportDialog(config: PrivateStorageConfig, onDismiss: () -> Unit) 
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Ce QR contient la clé d'accès en clair — ne le montre qu'à " +
-                        "quelqu'un en qui tu as confiance, comme un mot de passe Wi-Fi.",
+                    T["storageSources.ceQrContientLaCleD"],
                     color = LumenColors.Muted, fontSize = 12.sp,
                 )
                 QrCodeView(code, modifier = Modifier.widthIn(max = 260.dp))
@@ -349,7 +350,7 @@ private fun QrExportDialog(config: PrivateStorageConfig, onDismiss: () -> Unit) 
                 ) { clipboard.setText(AnnotatedString(code)) }.padding(8.dp),
             ) {
                 Icon(Icons.Filled.ContentCopy, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(16.dp))
-                Text("Copier le code", color = LumenColors.Accent)
+                Text(T["storageSources.copierLeCode"], color = LumenColors.Accent)
             }
         },
         dismissButton = {
@@ -372,10 +373,10 @@ private fun ImportBucketDialog(onDismiss: () -> Unit, onImport: (PrivateStorageC
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = LumenColors.Surface,
-        title = { Text("Importer un code", color = LumenColors.OnBackground) },
+        title = { Text(T["storageSources.importerUnCode"], color = LumenColors.OnBackground) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Colle le code reçu (exporté depuis un autre appareil).", color = LumenColors.Muted, fontSize = 12.sp)
+                Text(T["storageSources.colleLeCodeRecuExporteDepuis"], color = LumenColors.Muted, fontSize = 12.sp)
                 DialogField(value = text, onChange = { text = it; error = null })
                 error?.let { Text(it, color = LumenColors.Accent, fontSize = 12.sp) }
             }
@@ -388,7 +389,7 @@ private fun ImportBucketDialog(onDismiss: () -> Unit, onImport: (PrivateStorageC
                     indication = null,
                 ) {
                     val cfg = StorageConfigCodec.import(text)
-                    if (cfg == null) error = "Code invalide ou corrompu" else onImport(cfg)
+                    if (cfg == null) error = T["storageSources.codeInvalideOuCorrompu"] else onImport(cfg)
                 }.padding(8.dp),
             )
         },
@@ -446,7 +447,7 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
         scope.launch {
             client.list(config(), target).fold(
                 onSuccess = { entries = it },
-                onFailure = { browseError = it.message ?: "Lecture impossible" },
+                onFailure = { browseError = it.message ?: T["storageSources.lectureImpossible"] },
             )
             browsing = false
         }
@@ -457,7 +458,7 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
         containerColor = LumenColors.Surface,
         title = {
             Text(
-                if (step == 1) "Ajouter un bucket" else "Dossiers à indexer",
+                if (step == 1) T["storageSources.ajouterUnBucket"] else T["storageSources.dossiersAIndexer"],
                 color = LumenColors.OnBackground,
             )
         },
@@ -523,12 +524,12 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
                                 color = LumenColors.Accent, modifier = Modifier.size(14.dp),
                             )
                         } else {
-                            Text("Tester la connexion", color = LumenColors.Accent, fontSize = 13.sp)
+                            Text(T["storageSources.testerLaConnexion"], color = LumenColors.Accent, fontSize = 13.sp)
                         }
                         testResult?.fold(
                             onSuccess = {
                                 Text(
-                                    "✓ connecté — $it élément${if (it > 1) "s" else ""} à la racine",
+                                    T.format("storageSources.connecteElements", it),
                                     color = androidx.compose.ui.graphics.Color(0xFF3ECF6B), fontSize = 12.sp,
                                 )
                             },
@@ -540,7 +541,7 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
                     // Dire ce qui a été rectifié : une correction silencieuse
                     // donnerait l'impression que la saisie était bonne.
                     fixes.forEach {
-                        Text("↻ $it", color = LumenColors.Muted, fontSize = 11.sp)
+                        Text("↻ " + it, color = LumenColors.Muted, fontSize = 11.sp)
                     }
                     // Le message brut du fournisseur ne dit jamais quoi corriger.
                     testResult?.exceptionOrNull()?.let { error ->
@@ -552,9 +553,7 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Coche les dossiers qui contiennent tes films, séries ou " +
-                            "dossiers HLS. Tu peux en choisir plusieurs. Rien de coché = " +
-                            "tout le bucket sera parcouru.",
+                        T["storageSources.cocheLesDossiersQuiContiennentTes"],
                         color = LumenColors.Muted, fontSize = 12.sp,
                     )
                     Row(
@@ -585,7 +584,7 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
                         browseError != null -> Text(browseError ?: "", color = LumenColors.Accent, fontSize = 12.sp)
                         entries.none { it.isDirectory } && prefix.isEmpty() ->
                             Text(
-                                "Aucun dossier à la racine — les fichiers seront indexés tels quels.",
+                                T["storageSources.aucunDossierALaRacineLes"],
                                 color = LumenColors.Muted, fontSize = 12.sp,
                             )
                         else -> Column {
@@ -631,7 +630,7 @@ private fun AddBucketDialog(onDismiss: () -> Unit, onSave: (PrivateStorageConfig
                     }
                     if (chosen.isNotEmpty()) {
                         Text(
-                            "Sélection : " + chosen.sorted().joinToString(", ") { it.trimEnd('/') },
+                            T["storageSources.selection"] + chosen.sorted().joinToString(", ") { it.trimEnd('/') },
                             color = LumenColors.Accent, fontSize = 11.sp,
                         )
                     }
@@ -706,27 +705,27 @@ fun DialogField(label: String? = null, value: String, password: Boolean = false,
 // repères, on cherche des champs qui n'existent pas sous ce nom.
 
 private fun endpointHint(kind: String): String = when (kind) {
-    "b2" -> "Endpoint — visible sur la page du bucket, ligne « Endpoint »"
-    "r2" -> "Endpoint — https://<id-de-compte>.r2.cloudflarestorage.com"
-    else -> "Endpoint (https://…)"
+    "b2" -> T["storageSources.endpointVisibleSurLaPageDu"]
+    "r2" -> T["storageSources.endpointHttpsIdDeCompteR2"]
+    else -> T["storageSources.endpointHttps"]
 }
 
 private fun regionHint(kind: String): String = when (kind) {
-    "b2" -> "Région — celle contenue dans l'endpoint, ex. us-west-004"
-    "r2" -> "Région — laisser « auto »"
-    else -> "Région (optionnel)"
+    "b2" -> T["storageSources.regionCelleContenueDansLEndpoint"]
+    "r2" -> T["storageSources.regionLaisserAuto"]
+    else -> T["storageSources.regionOptionnel"]
 }
 
 private fun accessHint(kind: String): String = when (kind) {
-    "b2" -> "Access key = le « keyID » de ta clé d'application"
-    "r2" -> "Access key = « Access Key ID » du jeton R2"
-    else -> "Access key"
+    "b2" -> T["storageSources.accessKeyLeKeyidDeTa"]
+    "r2" -> T["storageSources.accessKeyAccessKeyIdDu"]
+    else -> T["storageSources.accessKey"]
 }
 
 private fun secretHint(kind: String): String = when (kind) {
-    "b2" -> "Secret key = la « applicationKey », affichée UNE seule fois"
-    "r2" -> "Secret key = « Secret Access Key » du jeton R2"
-    else -> "Secret key"
+    "b2" -> T["storageSources.secretKeyLaApplicationkeyAfficheeUne"]
+    "r2" -> T["storageSources.secretKeySecretAccessKeyDu"]
+    else -> T["storageSources.secretKey"]
 }
 
 // --- Redressement de la saisie ----------------------------------------------
@@ -763,12 +762,12 @@ internal fun tidyUp(
     var ak = accessKey.trim()
     var sk = secretKey.trim()
     if (listOf(endpoint, region, bucket, accessKey, secretKey) != listOf(ep, rg, bk, ak, sk)) {
-        notes += "Espaces superflus retirés."
+        notes += T["storageSources.espacesSuperflusRetires"]
     }
 
     if (ep.isNotEmpty() && !ep.startsWith("http", ignoreCase = true)) {
         ep = "https://$ep"
-        notes += "Adresse complétée en https://."
+        notes += T["storageSources.adresseCompleteeEnHttps"]
     }
 
     // Endpoint collé avec le chemin du bucket : on sépare les deux, et le nom
@@ -780,9 +779,9 @@ internal fun tidyUp(
         if (path.isNotEmpty()) {
             if (bk.isEmpty()) {
                 bk = path.substringBefore('/')
-                notes += "Bucket « $bk » repris de l'adresse."
+                notes += T.format("storageSources.bucketRepris", bk)
             } else {
-                notes += "Chemin retiré de l'adresse."
+                notes += T["storageSources.cheminRetireDeLAdresse"]
             }
         }
     }
@@ -810,7 +809,7 @@ internal fun tidyUp(
         }
         if (guessed.isNotEmpty()) {
             rg = guessed
-            notes += "Région déduite de l'adresse : $guessed."
+            notes += T.format("storageSources.regionDeduite", guessed)
         }
     }
 
@@ -827,7 +826,7 @@ internal fun tidyUp(
         val keep = ak
         ak = sk
         sk = keep
-        notes += "Access key et Secret key étaient inversées : remises dans l'ordre."
+        notes += T["storageSources.accessKeyEtSecretKeyEtaient"]
     }
 
     return Tidy(ep, rg, bk, ak, sk, detected, notes)
@@ -851,28 +850,18 @@ private fun failureHint(message: String, endpoint: String, accessKey: String): S
     val fieldsSwapped = accessKey.startsWith("K00")
     return when {
         fieldsSwapped ->
-            "Les deux champs semblent inversés : l'Access key doit être le " +
-                "« keyID » (25 caractères, commençant par 005), et la Secret key " +
-                "l'« applicationKey » (celle qui commence par K)."
+            T["storageSources.lesDeuxChampsSemblentInversesL"]
         message.contains("Malformed Access Key", ignoreCase = true) &&
             (backblaze || looksLikeAccountId) ->
-            "Backblaze refuse la clé maîtresse sur son API S3. L'Access key doit " +
-                "être le « keyID » d'une clé d'application (Account → Application " +
-                "Keys → Add a New Application Key), pas l'identifiant de compte " +
-                "de douze caractères."
+            T["storageSources.backblazeRefuseLaCleMaitresseSur"]
         message.contains("Malformed Access Key", ignoreCase = true) ->
-            "L'Access key n'a pas le format attendu par ce fournisseur — vérifie " +
-                "que c'est bien l'identifiant de clé, et non un identifiant de compte."
+            T["storageSources.lAccessKeyNAPas"]
         message.contains("SignatureDoesNotMatch", ignoreCase = true) ->
-            "L'Access key est reconnue, mais la Secret key ne correspond pas. Sur " +
-                "la plupart des fournisseurs elle n'est affichée qu'une fois : " +
-                "regénère une clé si tu ne l'as plus."
+            T["storageSources.lAccessKeyEstReconnueMais"]
         message.contains("403") && backblaze ->
-            "La clé existe mais n'a pas accès à ce bucket : à la création d'une " +
-                "clé d'application, choisis le bucket voulu ou « All »."
+            T["storageSources.laCleExisteMaisNA"]
         message.contains("NoSuchBucket", ignoreCase = true) ->
-            "Le bucket n'existe pas sous ce nom à cette adresse — vérifie le nom " +
-                "et que l'endpoint est celui de la bonne région."
+            T["storageSources.leBucketNExistePasSous"]
         else -> null
     }
 }
@@ -881,28 +870,20 @@ private fun failureHint(message: String, endpoint: String, accessKey: String): S
 private fun ProviderHelp(kind: String) {
     val steps = when (kind) {
         "b2" -> listOf(
-            "Backblaze appelle ces champs autrement : va dans « Account » → " +
-                "« Application Keys », puis « Add a New Application Key ».",
-            "Le « keyID » obtenu est l'Access key ; la « applicationKey » est la " +
-                "Secret key — elle n'est montrée qu'une fois, note-la tout de suite.",
-            "L'endpoint et la région se lisent sur la page du bucket, ligne " +
-                "« Endpoint » (par exemple s3.us-west-004.backblazeb2.com).",
-            "Donne à la clé l'accès au bucket voulu, en lecture au minimum.",
+            T["storageSources.backblazeAppelleCesChampsAutrementVa"],
+            T["storageSources.leKeyidObtenuEstLAccess"],
+            T["storageSources.lEndpointEtLaRegionSe"],
+            T["storageSources.donneALaCleLAcces"],
         )
         "r2" -> listOf(
-            "Dans le tableau de bord Cloudflare : R2 → « Manage R2 API Tokens » " +
-                "→ « Create API token ».",
-            "Le jeton fournit un « Access Key ID » et un « Secret Access Key » — " +
-                "ce sont les deux champs ci-dessous.",
-            "L'endpoint est affiché avec le jeton : https://<id-de-compte>." +
-                "r2.cloudflarestorage.com. La région reste « auto ».",
+            T["storageSources.dansLeTableauDeBordCloudflare"],
+            T["storageSources.leJetonFournitUnAccessKey"],
+            T["storageSources.lEndpointEstAfficheAvecLe"],
         )
         else -> listOf(
-            "Sur Amazon S3 : console IAM → ton utilisateur → « Security " +
-                "credentials » → « Create access key ».",
-            "L'endpoint suit la forme https://s3.<région>.amazonaws.com.",
-            "Sur un autre fournisseur compatible (Wasabi, Scaleway, MinIO…), " +
-                "cherche « clés d'accès S3 » ou « S3 credentials ».",
+            T["storageSources.surAmazonS3ConsoleIamTon"],
+            T["storageSources.lEndpointSuitLaFormeHttps"],
+            T["storageSources.surUnAutreFournisseurCompatibleWasabi"],
         )
     }
     Column(
@@ -911,7 +892,7 @@ private fun ProviderHelp(kind: String) {
             .background(LumenColors.SurfaceHigh, RoundedCornerShape(8.dp))
             .padding(10.dp),
     ) {
-        Text("Où trouver ces informations", color = LumenColors.OnBackground, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        Text(T["storageSources.ouTrouverCesInformations"], color = LumenColors.OnBackground, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         steps.forEach { Text("• $it", color = LumenColors.Muted, fontSize = 11.sp) }
     }
 }

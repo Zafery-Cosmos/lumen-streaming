@@ -61,6 +61,7 @@ import app.lumen.player.probeMedia
 import app.lumen.player.transcodeToHls
 import app.lumen.readLocalText
 import app.lumen.resolveSibling
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.launch
 
@@ -96,19 +97,14 @@ fun HlsConvertSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: (
 
     if (version == null) {
         Text(
-            "FFmpeg n'est pas installé sur cet appareil : la conversion est " +
-                "indisponible. L'import de dossiers DÉJÀ segmentés, lui, " +
-                "fonctionne sans FFmpeg.",
+            T["hlsConvert.ffmpegNEstPasInstalleSur"],
             color = LumenColors.Muted, fontSize = 12.sp,
         )
         return
     }
 
     Text(
-        "Transforme un fichier vidéo en dossier HLS lisible par Lumen. Les " +
-            "flux sont recopiés tels quels dès que le codec le permet : pas " +
-            "de ré-encodage, pas de perte, quelques secondes au lieu " +
-            "d'heures. FFmpeg $version détecté.",
+        T.format("hlsConvert.intro", version),
         color = LumenColors.Muted, fontSize = 13.sp,
     )
 
@@ -117,13 +113,13 @@ fun HlsConvertSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: (
         Button(
             onClick = {
                 scope.launch {
-                    val file = pickVideoFile("Choisir un fichier vidéo") ?: return@launch
+                    val file = pickVideoFile(T["hlsConvert.choisirUnFichierVideo"]) ?: return@launch
                     busy = true
                     error = null
                     val result = probeMedia(file)
                     busy = false
                     if (result == null || result.videoCodec == null) {
-                        error = "Fichier illisible par FFmpeg (pas de piste vidéo trouvée)"
+                        error = T["hlsConvert.fichierIllisibleParFfmpegPasDe"]
                         return@launch
                     }
                     input = file
@@ -148,7 +144,7 @@ fun HlsConvertSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: (
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                if (busy) "Analyse du fichier…" else "Convertir un fichier vidéo en HLS",
+                if (busy) T["hlsConvert.analyseDuFichier"] else T["hlsConvert.convertirUnFichierVideoEnHls"],
                 color = LumenColors.OnBackground, fontWeight = FontWeight.SemiBold,
             )
         }
@@ -166,14 +162,14 @@ fun HlsConvertSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: (
                 .padding(16.dp),
         ) {
             Text(
-                "Ce que contient le fichier",
+                T["hlsConvert.ceQueContientLeFichier"],
                 color = LumenColors.OnBackground, fontSize = 15.sp, fontWeight = FontWeight.Bold,
             )
-            ConvertLine("Durée", "${(p.durationSeconds / 60).toInt()} min")
-            ConvertLine("Vidéo", "${p.videoCodec?.uppercase()} ${p.resolution ?: ""}".trim())
+            ConvertLine(T["hlsConvert.duree"], "${(p.durationSeconds / 60).toInt()} min")
+            ConvertLine(T["hlsConvert.video"], "${p.videoCodec?.uppercase()} ${p.resolution ?: ""}".trim())
             ConvertLine(
                 "Audio",
-                p.audioTracks.joinToString(", ") { it.label }.ifEmpty { "aucune piste" },
+                p.audioTracks.joinToString(", ") { it.label }.ifEmpty { T["hlsConvert.aucunePiste"] },
             )
             if (p.subtitleTracks.isNotEmpty()) {
                 ConvertLine("Sous-titres", p.subtitleTracks.joinToString(", ") { it.label })
@@ -230,7 +226,7 @@ fun HlsConvertSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: (
             }
             chosen?.let {
                 Text(
-                    "Rapproché de « ${it.displayName}${it.year?.let { y -> " ($y)" } ?: ""} »",
+                    T.format("hlsConvert.rapprocheDe", it.displayName + (it.year?.let { y -> " ($y)" } ?: "")),
                     color = LumenColors.Muted, fontSize = 12.sp,
                 )
             }
@@ -263,9 +259,9 @@ fun HlsConvertSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: (
                     Text(
                         buildString {
                             append("${running?.percent ?: 0} %")
-                            running?.speedLabel?.let { append(" · ").append(it).append(" temps réel") }
+                            running?.speedLabel?.let { append(" · ").append(it).append(T["hlsConvert.tempsReel"]) }
                             running?.etaSeconds?.let {
-                                append(" · reste ")
+                                append(T["hlsConvert.reste"])
                                 append(if (it >= 60) "${it / 60} min ${it % 60} s" else "$it s")
                             }
                         },
@@ -274,7 +270,7 @@ fun HlsConvertSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: (
                 }
             }
             (progress as? TranscodeProgress.Failed)?.let {
-                Text("Échec : ${it.message}", color = LumenColors.Accent, fontSize = 12.sp)
+                Text(T.format("hlsConvert.echec", it.message ?: ""), color = LumenColors.Accent, fontSize = 12.sp)
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -283,14 +279,14 @@ fun HlsConvertSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: (
                         val source = input ?: return@Button
                         scope.launch {
                             val m = chosen
-                            val title = m?.displayName ?: query.ifBlank { "Sans titre" }
+                            val title = m?.displayName ?: query.ifBlank { T["hlsConvert.sansTitre"] }
                             val outYear = m?.year ?: year
                             val dir = prepareOutputDir(
                                 defaultHlsOutputParent(),
                                 HlsTranscode.outputFolderName(title, outYear),
                             )
                             if (dir == null) {
-                                progress = TranscodeProgress.Failed("Dossier de sortie inaccessible")
+                                progress = TranscodeProgress.Failed(T["hlsConvert.dossierDeSortieInaccessible"])
                                 return@launch
                             }
                             transcodeToHls(source, dir, pl, p.durationSeconds).collect { step ->
@@ -307,7 +303,7 @@ fun HlsConvertSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: (
                                     }
                                     if (analysis == null) {
                                         progress = TranscodeProgress.Failed(
-                                            "Manifeste produit mais illisible",
+                                            T["hlsConvert.manifesteProduitMaisIllisible"],
                                         )
                                         return@collect
                                     }
@@ -331,8 +327,8 @@ fun HlsConvertSection(tmdb: TmdbClient, repo: HlsLibraryRepository, onChanged: (
                     shape = RoundedCornerShape(8.dp),
                 ) {
                     Text(
-                        if (progress is TranscodeProgress.Running) "Conversion en cours…"
-                        else "Lancer la conversion",
+                        if (progress is TranscodeProgress.Running) T["hlsConvert.conversionEnCours"]
+                        else T["hlsConvert.lancerLaConversion"],
                         fontWeight = FontWeight.SemiBold,
                     )
                 }

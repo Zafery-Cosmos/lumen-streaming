@@ -35,11 +35,16 @@ object T {
             else -> if (systemLanguageCode().startsWith("fr")) Lang.FR else Lang.EN
         }
 
+    // Les tables sont scindées en deux fichiers (migration en deux temps) ;
+    // le second lot prime sur le premier en cas de doublon de clé.
+    private val frAll: Map<String, String> by lazy { FR + FR2 }
+    private val enAll: Map<String, String> by lazy { EN + EN2 }
+
     private val table: Map<String, String>
-        get() = if (lang == Lang.EN) EN else FR
+        get() = if (lang == Lang.EN) enAll else frAll
 
     /** Le texte pour cette clé, dans la langue courante. */
-    operator fun get(key: String): String = table[key] ?: FR[key] ?: key
+    operator fun get(key: String): String = table[key] ?: frAll[key] ?: key
 
     /** Idem, avec substitution des repères {0}, {1}… dans l'ordre donné. */
     fun format(key: String, vararg args: Any?): String {
@@ -49,7 +54,7 @@ object T {
     }
 
     /** Les clés connues — utilisé par la sonde de couverture. */
-    fun keys(l: Lang): Set<String> = if (l == Lang.EN) EN.keys else FR.keys
+    fun keys(l: Lang): Set<String> = if (l == Lang.EN) enAll.keys else frAll.keys
 }
 
 /** Code langue du système (« fr », « fr-FR », « en »…), selon la plateforme. */

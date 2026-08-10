@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import app.lumen.domain.UploadTarget
 import app.lumen.domain.UploadTargetRepository
 import app.lumen.domain.Uploader
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.launch
 
@@ -49,8 +50,7 @@ fun UploadTargetSection(repo: UploadTargetRepository) {
     var showAdd by remember { mutableStateOf(false) }
 
     Text(
-        "Le serveur où déposer tes dossiers HLS. Une fois envoyés, ils sont lus " +
-            "depuis le serveur : ils ne dépendent plus de cet appareil.",
+        T["uploadTarget.leServeurOuDeposerTesDossiers"],
         color = LumenColors.Muted, fontSize = 13.sp,
     )
 
@@ -89,7 +89,7 @@ fun UploadTargetSection(repo: UploadTargetRepository) {
         ) { showAdd = true }.padding(vertical = 6.dp),
     ) {
         Icon(Icons.Filled.Add, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
-        Text("Ajouter une destination", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(T["uploadTarget.ajouterUneDestination"], color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 
     if (showAdd) {
@@ -111,7 +111,7 @@ fun UploadTargetSection(repo: UploadTargetRepository) {
         AlertDialog(
             onDismissRequest = { showAdd = false },
             containerColor = LumenColors.Surface,
-            title = { Text("Destination d'envoi", color = LumenColors.OnBackground) },
+            title = { Text(T["uploadTarget.destinationDEnvoi"], color = LumenColors.OnBackground) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -135,19 +135,17 @@ fun UploadTargetSection(repo: UploadTargetRepository) {
                         }
                     }
                     Text(
-                        "SFTP est ouvert par défaut sur la plupart des NAS et chiffre la " +
-                            "connexion — à préférer quand tu as le choix.",
+                        T["uploadTarget.sftpEstOuvertParDefautSur"],
                         color = LumenColors.Muted, fontSize = 11.sp,
                     )
                     DialogField("Nom", label) { label = it }
-                    DialogField("Hôte", host) { host = it; result = null }
+                    DialogField(T["uploadTarget.hote"], host) { host = it; result = null }
                     DialogField("Port", port) { port = it.filter(Char::isDigit); result = null }
                     DialogField("Utilisateur", username) { username = it; result = null }
-                    DialogField("Mot de passe", password, password = true) { password = it; result = null }
-                    DialogField("Dossier distant", remoteDir) { remoteDir = it; result = null }
+                    DialogField(T["uploadTarget.motDePasse"], password, password = true) { password = it; result = null }
+                    DialogField(T["uploadTarget.dossierDistant"], remoteDir) { remoteDir = it; result = null }
                     Text(
-                        "Le dossier surveillé par ton serveur de médias, par exemple " +
-                            "/volume1/Films.",
+                        T["uploadTarget.leDossierSurveilleParTonServeur"],
                         color = LumenColors.Muted, fontSize = 11.sp,
                     )
 
@@ -170,10 +168,10 @@ fun UploadTargetSection(repo: UploadTargetRepository) {
                         if (testing) {
                             CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(14.dp))
                         } else {
-                            Text("Tester la connexion", color = LumenColors.Accent, fontSize = 13.sp)
+                            Text(T["uploadTarget.testerLaConnexion"], color = LumenColors.Accent, fontSize = 13.sp)
                         }
                         result?.fold(
-                            onSuccess = { Text("✓ $it", color = Color(0xFF3ECF6B), fontSize = 12.sp) },
+                            onSuccess = { Text(T.format("uploadTarget.ok", it), color = Color(0xFF3ECF6B), fontSize = 12.sp) },
                             onFailure = {
                                 Text("✗ ${it.message ?: "échec"}", color = LumenColors.Accent, fontSize = 12.sp)
                             },

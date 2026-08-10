@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumen.domain.HeroItem
 import app.lumen.ui.theme.LocalSidePadding
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
@@ -215,7 +216,7 @@ private fun HeroSlide(
                 ) {
                     Icon(Icons.Filled.Info, contentDescription = null, tint = LumenColors.OnBackground, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Plus d'infos", color = LumenColors.OnBackground, fontSize = 15.sp)
+                    Text(T["heroCarousel.plusDInfos"], color = LumenColors.OnBackground, fontSize = 15.sp)
                 }
             }
         }

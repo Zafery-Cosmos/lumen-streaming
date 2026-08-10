@@ -28,6 +28,7 @@ import app.lumen.domain.toHero
 import app.lumen.ui.components.CardContext
 import app.lumen.ui.components.HeroCarousel
 import app.lumen.ui.components.MediaRail
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -86,7 +87,7 @@ fun BrowseScreen(
             val libItems = library.await()
             val rails = buildList {
                 if (libItems.isNotEmpty()) {
-                    add(Rail("library", "Ma médiathèque", libItems.map { it.toCard(client, session) }))
+                    add(Rail("library", T["browse.maMediatheque"], libItems.map { it.toCard(client, session) }))
                 }
                 editorial.awaitAll().forEach { (label, items) ->
                     if (items.isNotEmpty()) {
