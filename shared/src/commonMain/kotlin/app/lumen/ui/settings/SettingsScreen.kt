@@ -18,15 +18,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.HighQuality
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayCircle
@@ -60,12 +56,8 @@ fun SettingsScreen(
     onSwitchProfile: () -> Unit,
 ) {
     val groups = listOf(
-        SettingsGroup("profiles", Icons.Filled.Group, "Profils du foyer", profileName ?: "Aucun profil"),
-        SettingsGroup("display", Icons.Filled.Palette, "Affichage", "Thème, noir OLED"),
-        SettingsGroup("home", Icons.Filled.Home, "Accueil", "Rangées affichées"),
-        SettingsGroup("playback", Icons.Filled.PlayCircle, "Lecture", "Reprise, sauts, épisode suivant"),
-        SettingsGroup("quality", Icons.Filled.HighQuality, "Qualité et réseau", "Plafond de débit"),
-        SettingsGroup("audio", Icons.AutoMirrored.Filled.VolumeUp, "Audio et sous-titres", "Langues préférées"),
+        SettingsGroup("display", Icons.Filled.Palette, "Affichage et accueil", "Thème, noir OLED, rangées affichées"),
+        SettingsGroup("playback", Icons.Filled.PlayCircle, "Lecture, qualité et audio", "Reprise, débit, langues, sous-titres"),
         SettingsGroup("addons", Icons.Filled.Extension, "Addons Stremio", "Sources externes — Torrentio, Frenchio…"),
         SettingsGroup("streaming", Icons.Filled.Storage, "Streaming et cache", "Moteur torrent, taille et purge"),
         SettingsGroup("simkl", Icons.Filled.Sync, "Simkl", "Historique unifié, addons compris"),

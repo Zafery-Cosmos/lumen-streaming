@@ -116,6 +116,12 @@ object AppSettings {
     val torrentProfile = StringPref("stream.profile", "default")
     /** Dossier du cache torrent ; vide = emplacement par défaut. */
     val torrentCacheDir = StringPref("stream.cachedir", "")
+    /**
+     * Adresse du moteur de streaming ; vide = sidecar local (127.0.0.1:8555).
+     * Permet de pointer vers un TorrServer qui tourne ailleurs sur le réseau
+     * (un NAS, par exemple) au lieu du binaire lancé automatiquement.
+     */
+    val torrentServerUrl = StringPref("stream.serverurl", "")
     /** Dossier des téléchargements ; vide = ~/Téléchargements. */
     val downloadDir = StringPref("stream.downloaddir", "")
     /** Où ranger les dossiers HLS produits par la conversion ; vide = ~/HLS. */

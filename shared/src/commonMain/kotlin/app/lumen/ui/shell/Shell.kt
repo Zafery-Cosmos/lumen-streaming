@@ -27,14 +27,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.ui.draw.clip
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.Icon
@@ -360,6 +365,15 @@ fun Shell(
             }
         }
 
+        // Le menu profil ouvre Paramètres avec ou sans sous-écran « profiles » :
+        // les deux actions partagent le même onglet, seul settingsSub change.
+        val onOpenProfile: () -> Unit = {
+            tab = ShellTab.Settings; settingsSub = "profiles"; searchOpen = false; detailStack = emptyList()
+        }
+        val onOpenSettings: () -> Unit = {
+            tab = ShellTab.Settings; settingsSub = null; searchOpen = false; detailStack = emptyList()
+        }
+
         if (compact) {
             CompactTopBar(
                 searchOpen = searchOpen,
@@ -370,7 +384,11 @@ fun Shell(
                 refreshKey = refreshKey,
                 onSync = { refreshKey++ },
                 settingsSelected = tab == ShellTab.Settings,
-                onSettings = { tab = ShellTab.Settings; searchOpen = false; detailStack = emptyList() },
+                profile = profile,
+                onProfile = onOpenProfile,
+                onSettings = onOpenSettings,
+                onSwitchProfile = onSwitchProfile,
+                onLogout = onLogout,
             )
             CompactBottomBar(
                 current = tab,
@@ -388,6 +406,11 @@ fun Shell(
                 onSearchChange = { searchQuery = it },
                 refreshKey = refreshKey,
                 onSync = { refreshKey++ },
+                profile = profile,
+                onProfile = onOpenProfile,
+                onSettings = onOpenSettings,
+                onSwitchProfile = onSwitchProfile,
+                onLogout = onLogout,
             )
         }
 
@@ -435,6 +458,11 @@ private fun TopBar(
     onSearchChange: (String) -> Unit,
     refreshKey: Int,
     onSync: () -> Unit,
+    profile: app.lumen.domain.LocalProfile?,
+    onProfile: () -> Unit,
+    onSettings: () -> Unit,
+    onSwitchProfile: () -> Unit,
+    onLogout: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -478,14 +506,13 @@ private fun TopBar(
                     onClick = onSync,
                 ),
         )
-        Icon(
-            Icons.Filled.Settings,
-            contentDescription = "Paramètres",
-            tint = if (current == ShellTab.Settings) LumenColors.OnBackground else LumenColors.Muted,
-            modifier = Modifier.size(22.dp).clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-            ) { onTab(ShellTab.Settings) },
+        ProfileMenuButton(
+            profile = profile,
+            selected = current == ShellTab.Settings,
+            onProfile = onProfile,
+            onSettings = onSettings,
+            onSwitchProfile = onSwitchProfile,
+            onLogout = onLogout,
         )
     }
 }
@@ -516,7 +543,11 @@ private fun CompactTopBar(
     refreshKey: Int,
     onSync: () -> Unit,
     settingsSelected: Boolean,
+    profile: app.lumen.domain.LocalProfile?,
+    onProfile: () -> Unit,
     onSettings: () -> Unit,
+    onSwitchProfile: () -> Unit,
+    onLogout: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -556,17 +587,85 @@ private fun CompactTopBar(
                     onClick = onSync,
                 ),
         )
-        Icon(
-            Icons.Filled.Settings,
-            contentDescription = "Paramètres",
-            tint = if (settingsSelected) LumenColors.OnBackground else LumenColors.Muted,
-            modifier = Modifier.size(22.dp).clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onSettings,
-            ),
+        ProfileMenuButton(
+            profile = profile,
+            selected = settingsSelected,
+            onProfile = onProfile,
+            onSettings = onSettings,
+            onSwitchProfile = onSwitchProfile,
+            onLogout = onLogout,
         )
     }
+}
+
+/**
+ * Avatar + chevron en haut à droite : point d'entrée unique vers le profil,
+ * les réglages, le changement de profil et la déconnexion — plutôt que
+ * disperser ces quatre actions dans des endroits différents.
+ */
+@Composable
+private fun ProfileMenuButton(
+    profile: app.lumen.domain.LocalProfile?,
+    selected: Boolean,
+    onProfile: () -> Unit,
+    onSettings: () -> Unit,
+    onSwitchProfile: () -> Unit,
+    onLogout: () -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { open = true }
+                .padding(4.dp),
+        ) {
+            app.lumen.ui.components.ProfileAvatar(
+                name = profile?.name ?: "?",
+                avatar = profile?.avatar,
+                colorIndex = profile?.colorIndex ?: 0,
+                size = 30,
+                cornerRadius = 15,
+            )
+            Icon(
+                Icons.Filled.ArrowDropDown,
+                contentDescription = "Menu du profil",
+                tint = if (selected) LumenColors.OnBackground else LumenColors.Muted,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        androidx.compose.material3.DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            modifier = Modifier.background(LumenColors.Surface),
+        ) {
+            ProfileMenuItem(Icons.Filled.Person, "Profil") { open = false; onProfile() }
+            ProfileMenuItem(Icons.Filled.Settings, "Paramètres") { open = false; onSettings() }
+            ProfileMenuItem(Icons.Filled.SwapHoriz, "Changer de profil") { open = false; onSwitchProfile() }
+            androidx.compose.material3.HorizontalDivider(color = LumenColors.SurfaceHigh)
+            ProfileMenuItem(Icons.AutoMirrored.Filled.Logout, "Déconnecter", tint = LumenColors.Accent) {
+                open = false; onLogout()
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileMenuItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    tint: Color = LumenColors.OnBackground,
+    onClick: () -> Unit,
+) {
+    androidx.compose.material3.DropdownMenuItem(
+        leadingIcon = { Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp)) },
+        text = { Text(label, color = tint, fontSize = 14.sp) },
+        onClick = onClick,
+    )
 }
 
 /** Barre du bas téléphone : les quatre onglets, à portée de pouce. */

@@ -78,11 +78,8 @@ fun SettingsSectionScreen(
 ) {
     SectionScaffold(
         title = when (sectionKey) {
-            "display" -> "Affichage"
-            "home" -> "Accueil"
-            "playback" -> "Lecture"
-            "quality" -> "Qualité et réseau"
-            "audio" -> "Audio et sous-titres"
+            "display" -> "Affichage et accueil"
+            "playback" -> "Lecture, qualité et audio"
             "addons" -> "Addons Stremio"
             "streaming" -> "Streaming et cache"
             "simkl" -> "Simkl — suivi de visionnage"
@@ -94,11 +91,8 @@ fun SettingsSectionScreen(
         onBack = onBack,
     ) {
         when (sectionKey) {
-            "display" -> DisplaySection()
-            "home" -> HomeSection(client, session)
-            "playback" -> PlaybackSection(client, session)
-            "quality" -> QualitySection()
-            "audio" -> AudioSection(client, session)
+            "display" -> DisplayHomeSection(client, session)
+            "playback" -> PlaybackQualityAudioSection(client, session)
             "addons" -> AddonsSection(client)
             "streaming" -> StreamingSection()
             "simkl" -> SimklSection(client)
@@ -130,6 +124,14 @@ private fun rememberServerConfig(
 }
 
 // --- Sections ---------------------------------------------------------------
+
+/** Affichage + Accueil réunis : deux réglages du même ordre (apparence de l'app). */
+@Composable
+private fun DisplayHomeSection(client: JellyfinClient, session: StoredSession) {
+    DisplaySection()
+    SubHeader("Accueil")
+    HomeSection(client, session)
+}
 
 @Composable
 private fun DisplaySection() {
@@ -303,6 +305,16 @@ private fun HomeSection(client: JellyfinClient, session: StoredSession) {
     }
 }
 
+/** Lecture + Qualité/réseau + Audio/sous-titres réunis : tout ce qui régit LA lecture. */
+@Composable
+private fun PlaybackQualityAudioSection(client: JellyfinClient, session: StoredSession) {
+    PlaybackSection(client, session)
+    SubHeader("Qualité et réseau")
+    QualitySection()
+    SubHeader("Audio et sous-titres")
+    AudioSection(client, session)
+}
+
 @Composable
 private fun PlaybackSection(client: JellyfinClient, session: StoredSession) {
     val (config, saveConfig) = rememberServerConfig(client, session)
@@ -420,14 +432,35 @@ private fun PlaybackSection(client: JellyfinClient, session: StoredSession) {
     }
 }
 
+/**
+ * Résolution approximative pour un débit donné — mêmes paliers que le
+ * sélecteur rapide du lecteur, pour qu'un même débit veuille dire la même
+ * chose aux deux endroits.
+ */
+private fun approxResolutionForBitrate(mbps: Int): String = when {
+    mbps <= 0 -> "Automatique — aucun plafond"
+    mbps >= 16 -> "2160p (4K) et plus"
+    mbps >= 8 -> "1080p"
+    mbps >= 4 -> "720p"
+    mbps >= 2 -> "480p"
+    else -> "360p ou moins"
+}
+
 @Composable
 private fun QualitySection() {
+    val mbps = (AppSettings.defaultMaxBitrate.value / 1_000_000L).toInt()
     NumberRow(
         title = "Plafond de débit",
         suffix = "Mbps (0 = automatique)",
-        value = (AppSettings.defaultMaxBitrate.value / 1_000_000L).toInt(),
+        value = mbps,
         range = 0..1000,
         onValue = { AppSettings.defaultMaxBitrate.set(it * 1_000_000L) },
+    )
+    Text(
+        // Un débit seul ne dit rien à qui ne le connaît pas par cœur — les
+        // mêmes paliers que le sélecteur rapide du lecteur (Direct Play).
+        "≈ ${approxResolutionForBitrate(mbps)}",
+        color = LumenColors.Accent, fontSize = 12.sp, fontWeight = FontWeight.Medium,
     )
     Text(
         "Valeur libre, appliquée au lancement de chaque lecture ; modifiable en " +
@@ -651,6 +684,36 @@ private fun StreamingSection() {
             fontWeight = FontWeight.SemiBold,
         )
     }
+
+    var serverUrl by remember { mutableStateOf(AppSettings.torrentServerUrl.value) }
+    TextFieldRow(
+        title = "Adresse du serveur de streaming (vide = local, automatique)",
+        value = serverUrl,
+        onValue = { serverUrl = it },
+    )
+    Text(
+        "Pour utiliser un TorrServer qui tourne déjà ailleurs (un NAS, par " +
+            "exemple) au lieu du sidecar local — laisser vide sinon.",
+        color = LumenColors.Muted, fontSize = 12.sp,
+    )
+    Text(
+        "Appliquer et reconnecter",
+        color = LumenColors.Accent,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+        ) {
+            AppSettings.torrentServerUrl.set(serverUrl.trim())
+            busy = true
+            scope.launch {
+                app.lumen.player.restartTorrentEngine()
+                refresh()
+                busy = false
+            }
+        }.padding(vertical = 4.dp),
+    )
 
     NumberRow(
         title = "Taille du cache",
