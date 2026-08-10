@@ -61,8 +61,21 @@ actual fun applyUpdate(path: String): Boolean = runCatching {
     launcher.writeText(
         """
         #!/usr/bin/env bash
+        # GNOME Shell lance parfois cette app dans un service systemd qui
+        # n'hérite pas de DISPLAY/WAYLAND_DISPLAY/XAUTHORITY (l'app crashe
+        # aussitôt avec HeadlessException) — le gestionnaire systemd --user,
+        # lui, les a toujours : on les récupère de là si absents.
+        if [ -z "${'$'}DISPLAY" ] && [ -z "${'$'}WAYLAND_DISPLAY" ]; then
+            eval "${'$'}(systemctl --user show-environment 2>/dev/null | grep -E '^(DISPLAY|WAYLAND_DISPLAY|XAUTHORITY)=')"
+            export DISPLAY WAYLAND_DISPLAY XAUTHORITY
+        fi
         J=""
-        for c in "$bundledJava" "${'$'}HOME"/.local/opt/*/bin/java /usr/bin/java; do
+        # JDK 21 (celui utilisé pour compiler ce projet) EN PREMIER, avant même
+        # le java qui a lancé CETTE instance : si l'app tourne déjà sous un
+        # java système plus récent et incompatible avec le rendu natif de
+        # Compose Desktop (Skiko), propager ce même java au prochain lancement
+        # reproduirait le bug plutôt que de le corriger.
+        for c in "${'$'}HOME"/.local/opt/jdk-21*/bin/java "$bundledJava" "${'$'}HOME"/.local/opt/*/bin/java /usr/lib/jvm/*-21*/bin/java /usr/bin/java; do
             [ -x "${'$'}c" ] && J="${'$'}c" && break
         done
         [ -n "${'$'}J" ] || J="${'$'}(command -v java)" || exit 1
