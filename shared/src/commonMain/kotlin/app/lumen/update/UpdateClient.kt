@@ -5,8 +5,10 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.onDownload
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
+import io.ktor.utils.io.readAvailable
 import io.ktor.utils.io.readUTF8Line
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -18,7 +20,7 @@ import kotlinx.serialization.json.Json
 // À BUMPER À CHAQUE PUBLICATION (publish.sh) : c'est la version que l'app
 // compare au manifeste — si elle reste en arrière, l'app se repropose sa
 // propre version en boucle après chaque mise à jour.
-const val LUMEN_VERSION = "1.10.1"
+const val LUMEN_VERSION = "1.10.3"
 
 /** Adresse du serveur de mises à jour (NAS). */
 const val UPDATE_SERVER = "http://192.168.1.170:8500"
@@ -115,31 +117,51 @@ class UpdateClient(
     /**
      * Télécharge l'artefact et renvoie le chemin local, ou null en cas d'échec.
      * [onProgress] est appelé en continu avec le débit et le temps restant.
+     *
+     * Un accroc Wi-Fi sur 28 Mo ne devrait pas coûter les 28 Mo : le serveur
+     * sait déjà reprendre un téléchargement (Range), donc au lieu de tout
+     * relire d'un bloc via `.body()`, on lit par blocs dans un buffer
+     * préalloué, et une coupure reprend là où elle s'est arrêtée plutôt que
+     * de tout recommencer — jusqu'à 3 essais avant d'abandonner pour de bon.
      */
     suspend fun download(
         artifact: ReleaseArtifact,
         onProgress: (DownloadState) -> Unit,
-    ): String? = runCatching {
+    ): String? {
+        val buffer = ByteArray(artifact.size.toInt())
+        var written = 0
         var startedAt = 0L
-        val bytes: ByteArray = http.get("$baseUrl/files/${artifact.file}") {
-            // 100 Mo ne passent pas toujours en 15 s : le délai global du
-            // client aurait interrompu le téléchargement en plein vol.
-            timeout { requestTimeoutMillis = 30 * 60_000 }
-            onDownload { received, contentLength ->
-                val now = nowMillis()
-                if (startedAt == 0L) startedAt = now
-                val elapsed = (now - startedAt).coerceAtLeast(1)
-                onProgress(
-                    DownloadState(
-                        downloaded = received,
-                        total = contentLength ?: artifact.size,
-                        bytesPerSecond = received * 1000 / elapsed,
-                    ),
-                )
-            }
-        }.body()
-        saveUpdateFile(artifact.file, bytes)
-    }.getOrNull()
+        repeat(4) { attempt ->
+            val ok = runCatching {
+                http.prepareGet("$baseUrl/files/${artifact.file}") {
+                    // 100 Mo ne passent pas toujours en 15 s : le délai global
+                    // du client aurait interrompu le téléchargement en vol.
+                    timeout { requestTimeoutMillis = 30 * 60_000 }
+                    if (written > 0) header("Range", "bytes=$written-")
+                }.execute { response ->
+                    if (startedAt == 0L) startedAt = nowMillis()
+                    val channel = response.bodyAsChannel()
+                    while (written < buffer.size) {
+                        val read = channel.readAvailable(buffer, written, buffer.size - written)
+                        if (read <= 0) break
+                        written += read
+                        val elapsed = (nowMillis() - startedAt).coerceAtLeast(1)
+                        onProgress(
+                            DownloadState(
+                                downloaded = written.toLong(),
+                                total = artifact.size,
+                                bytesPerSecond = written * 1000L / elapsed,
+                            ),
+                        )
+                    }
+                }
+            }.isSuccess
+            if (ok && written >= buffer.size) return saveUpdateFile(artifact.file, buffer)
+            // On retente à partir de ce qui a déjà été reçu — pas depuis zéro.
+            if (attempt < 3) kotlinx.coroutines.delay(2_000L * (attempt + 1))
+        }
+        return null
+    }
 }
 
 /** Compare deux versions « x.y.z » — true si [candidate] est plus récente. */

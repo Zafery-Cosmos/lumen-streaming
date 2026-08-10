@@ -189,11 +189,16 @@ fun App() {
         }
 
         // Bandeau de mise a jour : visible partout, meme avant connexion.
-        androidx.compose.foundation.layout.Box(
+        // BoxWithConstraints (pas Box) : sur telephone il doit se tasser et
+        // se decaler au-dessus de la barre d'onglets du bas, sinon il la
+        // recouvre entierement — le Shell, seul a connaitre cette barre,
+        // n'est pas un parent de ce bandeau, donc la largeur disponible est
+        // le seul signal commun aux deux pour s'accorder sur « compact ».
+        androidx.compose.foundation.layout.BoxWithConstraints(
             Modifier.fillMaxSize(),
             contentAlignment = Alignment.BottomCenter,
         ) {
-            app.lumen.ui.update.UpdateBanner(client)
+            app.lumen.ui.update.UpdateBanner(client, compact = maxWidth < 700.dp)
         }
       }
     }

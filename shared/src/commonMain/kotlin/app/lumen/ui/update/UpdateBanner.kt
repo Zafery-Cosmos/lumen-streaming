@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -65,7 +66,7 @@ private enum class Phase { Offered, Downloading, Ready }
  * Les publications arrivent EN DIRECT (SSE) — pas besoin de redémarrer l'app.
  */
 @Composable
-fun UpdateBanner(client: JellyfinClient) {
+fun UpdateBanner(client: JellyfinClient, compact: Boolean = false) {
     val updates = remember { UpdateClient(client.http) }
     val scope = rememberCoroutineScope()
 
@@ -114,15 +115,27 @@ fun UpdateBanner(client: JellyfinClient) {
         exit = fadeOut(tween(250)) + slideOutVertically(tween(300)) { it },
     ) {
         if (current == null || artifact == null) return@AnimatedVisibility
-        Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.BottomCenter) {
+        Box(
+            Modifier.fillMaxWidth()
+                // Sur téléphone, la barre d'onglets vit sous le bandeau : sans
+                // cette marge il la recouvre entièrement (rien n'était réservé
+                // pour elle, alors que ce bandeau se place PAR-DESSUS tout).
+                .then(if (compact) Modifier.navigationBarsPadding() else Modifier)
+                .padding(
+                    horizontal = if (compact) 12.dp else 24.dp,
+                    vertical = if (compact) 12.dp else 24.dp,
+                )
+                .padding(bottom = if (compact) 68.dp else 0.dp),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp),
                 modifier = Modifier
                     .widthIn(max = 560.dp)
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
                     .background(LumenColors.Surface)
-                    .padding(20.dp),
+                    .padding(if (compact) 14.dp else 20.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(

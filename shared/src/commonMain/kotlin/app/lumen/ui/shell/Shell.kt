@@ -235,6 +235,7 @@ fun Shell(
         // Une seule source de vérité pour la marge latérale de TOUS les écrans.
         androidx.compose.runtime.CompositionLocalProvider(
             app.lumen.ui.theme.LocalSidePadding provides if (compact) 16.dp else 48.dp,
+            app.lumen.ui.theme.LocalCompactLayout provides compact,
         ) {
         val showSearch = searchOpen && searchQuery.isNotBlank()
         val target = detailStack.lastOrNull()

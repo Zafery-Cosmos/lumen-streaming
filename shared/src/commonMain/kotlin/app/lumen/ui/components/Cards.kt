@@ -71,6 +71,7 @@ import app.lumen.auth.StoredSession
 import app.lumen.domain.CardActions
 import app.lumen.domain.CardItem
 import app.lumen.platformDownload
+import app.lumen.ui.theme.LocalCompactLayout
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
@@ -247,13 +248,20 @@ fun MediaCard(
                 }
             }
         }
-        Text(
-            card.title,
-            color = LumenColors.Muted,
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        // L'affiche porte déjà le titre : sur téléphone, où chaque ligne coûte
+        // une carte visible en moins à l'écran, la légende est redondante.
+        // Sans affiche (rien à charger, ou pas encore chargée), elle reste le
+        // seul moyen d'identifier la carte : on la garde dans ce cas.
+        val showCaption = card.posterUrl == null || !LocalCompactLayout.current
+        if (showCaption) {
+            Text(
+                card.title,
+                color = LumenColors.Muted,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 
     if (infoOpen && ctx != null) {
