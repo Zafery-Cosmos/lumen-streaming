@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Person
@@ -82,6 +83,7 @@ enum class ShellTab(val label: String) {
     Movies("Films"),
     Series("Séries"),
     Discover("Découvrir"),
+    Addons("Addons"),
     Settings("Paramètres"),
 }
 
@@ -335,6 +337,7 @@ fun Shell(
                         )
                     },
                 )
+                state == ShellTab.Addons.name -> app.lumen.ui.addons.AddonsScreen(client)
                 else -> when (val sub = settingsSub) {
                     null -> SettingsScreen(
                         session,
@@ -484,7 +487,7 @@ private fun TopBar(
             modifier = Modifier.size(38.dp),
         )
         // Onglets de navigation (Paramètres vit à droite, pas ici).
-        listOf(ShellTab.Home, ShellTab.Movies, ShellTab.Series, ShellTab.Discover).forEach { t ->
+        listOf(ShellTab.Home, ShellTab.Movies, ShellTab.Series, ShellTab.Discover, ShellTab.Addons).forEach { t ->
             NavItem(t.label, selected = t == current) { onTab(t) }
         }
         Spacer(Modifier.weight(1f))
@@ -696,6 +699,7 @@ private fun CompactBottomBar(
             Triple(ShellTab.Movies, Icons.Filled.Movie, "Films"),
             Triple(ShellTab.Series, Icons.Filled.Subscriptions, "Séries"),
             Triple(ShellTab.Discover, Icons.Filled.Explore, "Découvrir"),
+            Triple(ShellTab.Addons, Icons.Filled.Extension, "Addons"),
         ).forEach { (t, icon, label) ->
             val selected = t == current
             Column(

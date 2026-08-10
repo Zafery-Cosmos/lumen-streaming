@@ -80,7 +80,6 @@ fun SettingsSectionScreen(
         title = when (sectionKey) {
             "display" -> "Affichage et accueil"
             "playback" -> "Lecture, qualité et audio"
-            "addons" -> "Addons Stremio"
             "streaming" -> "Streaming et cache"
             "simkl" -> "Simkl — suivi de visionnage"
             "advanced" -> "Avancé"
@@ -93,7 +92,6 @@ fun SettingsSectionScreen(
         when (sectionKey) {
             "display" -> DisplayHomeSection(client, session)
             "playback" -> PlaybackQualityAudioSection(client, session)
-            "addons" -> AddonsSection(client)
             "streaming" -> StreamingSection()
             "simkl" -> SimklSection(client)
             "advanced" -> AdvancedSection(client, db, onLibraryChanged)
@@ -542,105 +540,6 @@ private fun AudioSection(client: JellyfinClient, session: StoredSession) {
             value = cfg.subtitleLanguagePreference.orEmpty(),
             onValue = { saveConfig(cfg.copy(subtitleLanguagePreference = it.ifBlank { null })) },
         )
-    }
-}
-
-@Composable
-private fun AddonsSection(client: JellyfinClient) {
-    val scope = rememberCoroutineScope()
-    val stremio = remember { app.lumen.api.StremioClient(client.http) }
-    val store = remember { app.lumen.domain.AddonStore() }
-    var addons by remember { mutableStateOf(store.list()) }
-    var url by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    Text(
-        "Colle l'URL du manifeste d'un addon Stremio (Torrentio, Frenchio…) — " +
-            "les liens « stremio:// » des pages d'installation fonctionnent aussi. " +
-            "Ses sources apparaîtront sur les fiches via le bouton « Sources ».",
-        color = LumenColors.Muted, fontSize = 13.sp,
-    )
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OutlinedTextField(
-            value = url,
-            onValueChange = { url = it; error = null },
-            label = { Text("URL du manifeste", color = LumenColors.Muted) },
-            singleLine = true,
-            colors = fieldColors(),
-            modifier = Modifier.weight(1f),
-        )
-        Button(
-            onClick = {
-                busy = true
-                scope.launch {
-                    val installed = store.install(stremio, url)
-                    busy = false
-                    if (installed != null) {
-                        addons = store.list()
-                        url = ""
-                    } else {
-                        error = "Manifeste invalide ou injoignable"
-                    }
-                }
-            },
-            enabled = url.isNotBlank() && !busy,
-            colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
-            shape = RoundedCornerShape(8.dp),
-        ) {
-            Text(if (busy) "Vérification…" else "Installer", fontWeight = FontWeight.SemiBold)
-        }
-    }
-    error?.let { Text(it, color = LumenColors.Accent, fontSize = 13.sp) }
-
-    addons.forEach { addon ->
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().background(LumenColors.Surface, RoundedCornerShape(10.dp))
-                .padding(horizontal = 18.dp, vertical = 10.dp),
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(addon.name, color = LumenColors.OnBackground, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                Text(
-                    addon.manifestUrl,
-                    color = LumenColors.Muted, fontSize = 11.sp,
-                    maxLines = 1,
-                )
-            }
-            // Ouvre la page /configure de l'addon dans le navigateur.
-            Icon(
-                Icons.AutoMirrored.Filled.OpenInNew,
-                contentDescription = "Configurer dans le navigateur",
-                tint = LumenColors.Muted,
-                modifier = Modifier.size(18.dp).clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) {
-                    app.lumen.platformOpenUrl(
-                        addon.manifestUrl.removeSuffix("/manifest.json") + "/configure",
-                    )
-                },
-            )
-            Spacer(Modifier.width(12.dp))
-            Switch(
-                checked = addon.enabled,
-                onCheckedChange = { store.toggle(addon.manifestUrl); addons = store.list() },
-                colors = SwitchDefaults.colors(checkedTrackColor = LumenColors.Accent),
-            )
-            Spacer(Modifier.width(10.dp))
-            Icon(
-                Icons.Filled.Delete,
-                contentDescription = "Supprimer",
-                tint = LumenColors.Muted,
-                modifier = Modifier.size(18.dp).clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { store.remove(addon.manifestUrl); addons = store.list() },
-            )
-        }
-    }
-    if (addons.isEmpty()) {
-        Text("Aucun addon installé pour l'instant.", color = LumenColors.Muted, fontSize = 13.sp)
     }
 }
 
@@ -1301,7 +1200,7 @@ private fun <T> ChoiceRow(title: String, options: List<Pair<String, T>>, selecte
 }
 
 @Composable
-private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+internal fun fieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = LumenColors.Accent,
     unfocusedBorderColor = LumenColors.SurfaceHigh,
     focusedTextColor = LumenColors.OnBackground,

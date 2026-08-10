@@ -19,7 +19,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
@@ -58,7 +57,6 @@ fun SettingsScreen(
     val groups = listOf(
         SettingsGroup("display", Icons.Filled.Palette, "Affichage et accueil", "Thème, noir OLED, rangées affichées"),
         SettingsGroup("playback", Icons.Filled.PlayCircle, "Lecture, qualité et audio", "Reprise, débit, langues, sous-titres"),
-        SettingsGroup("addons", Icons.Filled.Extension, "Addons Stremio", "Sources externes — Torrentio, Frenchio…"),
         SettingsGroup("streaming", Icons.Filled.Storage, "Streaming et cache", "Moteur torrent, taille et purge"),
         SettingsGroup("simkl", Icons.Filled.Sync, "Simkl", "Historique unifié, addons compris"),
         SettingsGroup("advanced", Icons.Filled.Tune, "Avancé", "Import de dossiers HLS, segmentation"),
