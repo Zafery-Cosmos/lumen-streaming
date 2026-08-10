@@ -411,4 +411,14 @@ internal val EN2: Map<String, String> = mapOf(
     "storageSources.connecteElements" to "✓ connected — {0} item(s) at the root",
     "storageSources.regionDeduite" to "Region inferred from the address: {0}.",
     "uploadTarget.ok" to "✓ {0}",
+    // --- assistant de destination d'envoi ---
+    "uploadTarget.annuler" to "Cancel",
+    "uploadTarget.aucunSousDossierIci" to "No sub-folder here — the current folder will be used.",
+    "uploadTarget.choisisLeDossierSurveille" to "Pick the folder your media server watches — that is where HLS folders will be uploaded.",
+    "uploadTarget.dossierDeDestination" to "Destination folder",
+    "uploadTarget.enregistrer" to "Save",
+    "uploadTarget.lectureImpossible" to "Could not read",
+    "uploadTarget.remonter" to "Go up",
+    "uploadTarget.retour" to "Back",
+    "uploadTarget.suivant" to "NEXT",
 )

@@ -37,6 +37,21 @@ actual class Uploader actual constructor() {
         }
     }
 
+    /** Connexion FTP ouverte le temps du bloc, puis refermée quoi qu'il arrive. */
+    private fun <T> withFtp(target: UploadTarget, block: (FTPClient) -> T): T {
+        val client = FTPClient()
+        try {
+            client.connect(target.host, target.port)
+            check(client.login(target.username, target.password)) { "Authentification refusée" }
+            client.enterLocalPassiveMode()
+            client.setFileType(FTP.BINARY_FILE_TYPE)
+            return block(client)
+        } finally {
+            runCatching { client.logout() }
+            runCatching { client.disconnect() }
+        }
+    }
+
     /** Crée un dossier distant et tous ses parents — JSch n'a pas d'équivalent. */
     private fun ChannelSftp.mkdirs(path: String) {
         var current = ""
@@ -45,6 +60,30 @@ actual class Uploader actual constructor() {
             runCatching { mkdir(current) }
         }
     }
+
+    /**
+     * Sous-dossiers de [path]. « . » et « .. » sont écartés : les proposer
+     * ferait tourner en rond dans le navigateur de dossiers.
+     */
+    actual suspend fun listDirs(target: UploadTarget, path: String): Result<List<String>> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = path.ifBlank { "/" }
+                when (target.kind) {
+                    "ftp" -> withFtp(target) { client ->
+                        client.listFiles(dir).orEmpty()
+                            .filter { it.isDirectory && it.name !in setOf(".", "..") }
+                            .map { it.name }.sorted()
+                    }
+                    else -> withSftp(target) { sf ->
+                        @Suppress("UNCHECKED_CAST")
+                        val entries = sf.ls(dir) as java.util.Vector<ChannelSftp.LsEntry>
+                        entries.filter { it.attrs.isDir && it.filename !in setOf(".", "..") }
+                            .map { it.filename }.sorted()
+                    }
+                }
+            }
+        }
 
     actual suspend fun test(target: UploadTarget): Result<String> = withContext(Dispatchers.IO) {
         runCatching {

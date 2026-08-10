@@ -32,6 +32,12 @@ data class UploadProgress(
  * installation supplémentaire — contrairement à un service maison.
  */
 expect class Uploader() {
+    /**
+     * Les sous-dossiers de [path] sur le serveur, triés — pour choisir la
+     * destination en naviguant plutôt qu'en tapant un chemin de mémoire.
+     */
+    suspend fun listDirs(target: UploadTarget, path: String): Result<List<String>>
+
     /** Vérifie les identifiants et l'accès en écriture au dossier distant. */
     suspend fun test(target: UploadTarget): Result<String>
 

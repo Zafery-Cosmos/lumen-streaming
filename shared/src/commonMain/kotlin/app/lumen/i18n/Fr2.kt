@@ -412,4 +412,14 @@ internal val FR2: Map<String, String> = mapOf(
     "storageSources.connecteElements" to "✓ connecté — {0} élément(s) à la racine",
     "storageSources.regionDeduite" to "Région déduite de l'adresse : {0}.",
     "uploadTarget.ok" to "✓ {0}",
+    // --- assistant de destination d'envoi ---
+    "uploadTarget.annuler" to "Annuler",
+    "uploadTarget.aucunSousDossierIci" to "Aucun sous-dossier ici — le dossier courant sera utilisé.",
+    "uploadTarget.choisisLeDossierSurveille" to "Choisis le dossier que ton serveur de médias surveille — c'est là que les dossiers HLS seront déposés.",
+    "uploadTarget.dossierDeDestination" to "Dossier de destination",
+    "uploadTarget.enregistrer" to "Enregistrer",
+    "uploadTarget.lectureImpossible" to "Lecture impossible",
+    "uploadTarget.remonter" to "Remonter",
+    "uploadTarget.retour" to "Retour",
+    "uploadTarget.suivant" to "SUIVANT",
 )

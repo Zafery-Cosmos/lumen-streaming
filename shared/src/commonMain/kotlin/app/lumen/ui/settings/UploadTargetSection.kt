@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
@@ -102,18 +104,42 @@ fun UploadTargetSection(repo: UploadTargetRepository) {
         var remoteDir by remember { mutableStateOf("") }
         var testing by remember { mutableStateOf(false) }
         var result by remember { mutableStateOf<Result<String>?>(null) }
+        // Étape 2 : on choisit le dossier en NAVIGUANT sur le serveur plutôt
+        // qu'en tapant un chemin de mémoire — la première cause d'envoi raté.
+        var step by remember { mutableStateOf(1) }
+        var browsing by remember { mutableStateOf(false) }
+        var dirs by remember { mutableStateOf<List<String>>(emptyList()) }
+        var browseError by remember { mutableStateOf<String?>(null) }
 
         fun current() = UploadTarget(
             label.ifBlank { host }, kind, host, port.toIntOrNull() ?: 22,
             username, password, remoteDir,
         )
 
+        fun load(path: String) {
+            browsing = true
+            browseError = null
+            remoteDir = path
+            scope.launch {
+                Uploader().listDirs(current(), path).fold(
+                    onSuccess = { dirs = it },
+                    onFailure = { browseError = it.message ?: T["uploadTarget.lectureImpossible"] },
+                )
+                browsing = false
+            }
+        }
+
         AlertDialog(
             onDismissRequest = { showAdd = false },
             containerColor = LumenColors.Surface,
-            title = { Text(T["uploadTarget.destinationDEnvoi"], color = LumenColors.OnBackground) },
+            title = {
+                Text(
+                    if (step == 1) T["uploadTarget.destinationDEnvoi"] else T["uploadTarget.dossierDeDestination"],
+                    color = LumenColors.OnBackground,
+                )
+            },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (step == 1) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("sftp" to 22, "ftp" to 21).forEach { (k, defaultPort) ->
                             Text(
@@ -143,17 +169,11 @@ fun UploadTargetSection(repo: UploadTargetRepository) {
                     DialogField("Port", port) { port = it.filter(Char::isDigit); result = null }
                     DialogField("Utilisateur", username) { username = it; result = null }
                     DialogField(T["uploadTarget.motDePasse"], password, password = true) { password = it; result = null }
-                    DialogField(T["uploadTarget.dossierDistant"], remoteDir) { remoteDir = it; result = null }
-                    Text(
-                        T["uploadTarget.leDossierSurveilleParTonServeur"],
-                        color = LumenColors.Muted, fontSize = 11.sp,
-                    )
-
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.clickable(
-                            enabled = !testing && host.isNotBlank() && remoteDir.isNotBlank(),
+                            enabled = !testing && host.isNotBlank() && username.isNotBlank(),
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                         ) {
@@ -177,32 +197,96 @@ fun UploadTargetSection(repo: UploadTargetRepository) {
                             },
                         )
                     }
+                } else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        T["uploadTarget.choisisLeDossierSurveille"],
+                        color = LumenColors.Muted, fontSize = 12.sp,
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (remoteDir.trim('/').isNotEmpty()) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = T["uploadTarget.remonter"],
+                                tint = LumenColors.Accent,
+                                modifier = Modifier.size(18.dp).clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) { load("/" + remoteDir.trim('/').substringBeforeLast('/', "").trim('/')) },
+                            )
+                        }
+                        Text(
+                            remoteDir.ifBlank { "/" },
+                            color = LumenColors.OnBackground, fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                    if (browsing) {
+                        CircularProgressIndicator(color = LumenColors.Accent, modifier = Modifier.size(18.dp))
+                    }
+                    browseError?.let { Text(it, color = LumenColors.Accent, fontSize = 12.sp) }
+                    dirs.forEach { name ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth().clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { load(remoteDir.trimEnd('/') + "/" + name) }.padding(vertical = 4.dp),
+                        ) {
+                            Icon(
+                                Icons.Filled.Folder,
+                                contentDescription = null,
+                                tint = LumenColors.Muted,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Text(name, color = LumenColors.OnBackground, fontSize = 13.sp)
+                        }
+                    }
+                    if (!browsing && dirs.isEmpty() && browseError == null) {
+                        Text(T["uploadTarget.aucunSousDossierIci"], color = LumenColors.Muted, fontSize = 12.sp)
+                    }
                 }
             },
             confirmButton = {
-                val ok = result?.isSuccess == true
-                Text(
-                    "Enregistrer",
-                    color = if (ok) LumenColors.Accent else LumenColors.Muted,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable(
-                        enabled = ok,
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) {
-                        repo.add(current())
-                        targets = repo.list()
-                        showAdd = false
-                    }.padding(8.dp),
-                )
+                if (step == 1) {
+                    val ok = result?.isSuccess == true
+                    Text(
+                        T["uploadTarget.suivant"],
+                        color = if (ok) LumenColors.Accent else LumenColors.Muted,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable(
+                            enabled = ok,
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { step = 2; load("/") }.padding(8.dp),
+                    )
+                } else {
+                    Text(
+                        T["uploadTarget.enregistrer"],
+                        color = LumenColors.Accent,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) {
+                            repo.add(current())
+                            targets = repo.list()
+                            showAdd = false
+                        }.padding(8.dp),
+                    )
+                }
             },
             dismissButton = {
                 Text(
-                    "Annuler", color = LumenColors.Muted,
+                    if (step == 1) T["uploadTarget.annuler"] else T["uploadTarget.retour"],
+                    color = LumenColors.Muted,
                     modifier = Modifier.clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                    ) { showAdd = false }.padding(8.dp),
+                    ) { if (step == 1) showAdd = false else step = 1 }.padding(8.dp),
                 )
             },
         )
