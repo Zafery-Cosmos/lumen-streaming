@@ -48,7 +48,14 @@ data class PlayRequest(
     val isTrailer: Boolean = false,
 )
 
-/** Une entrée du carrousel hero : visuels précalculés, prêts à afficher. */
+/**
+ * Une entrée du carrousel hero : visuels précalculés, prêts à afficher.
+ *
+ * [tmdbType]/[tmdbId] permettent d'aller chercher le logo du titre chez TMDB
+ * quand le serveur n'en a pas : sans eux, l'affichage retomberait sur du texte
+ * brut pour la plupart des titres, puisque Jellyfin ne télécharge les logos
+ * que si on le lui a explicitement demandé.
+ */
 data class HeroItem(
     val id: String,
     val title: String,
@@ -58,6 +65,8 @@ data class HeroItem(
     val year: Int?,
     val runtimeMinutes: Int?,
     val rating: String?,
+    val tmdbType: String? = null,
+    val tmdbId: Long? = null,
 )
 
 fun BaseItem.toCard(client: JellyfinClient, session: StoredSession, wideThumb: Boolean = false): CardItem {
@@ -113,6 +122,9 @@ fun BaseItem.toHero(client: JellyfinClient, session: StoredSession): HeroItem? {
         year = productionYear,
         runtimeMinutes = runTimeMinutes,
         rating = officialRating,
+        // Repli si le serveur n'a pas de logo : les séries sont « tv » chez TMDB.
+        tmdbType = if (type == "Series") "tv" else "movie",
+        tmdbId = providerIds["Tmdb"]?.toLongOrNull(),
     )
 }
 
@@ -131,5 +143,7 @@ fun TmdbItem.toHero(): HeroItem? {
         year = year,
         runtimeMinutes = null,
         rating = voteAverage?.let { "★ ${(it * 10).toInt() / 10.0}" },
+        tmdbType = mediaType ?: "movie",
+        tmdbId = id,
     )
 }

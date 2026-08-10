@@ -66,7 +66,7 @@ fun HomeScreen(
             )
             else -> {
                 val ctx = remember { app.lumen.ui.components.CardContext(client, session, onPlay) }
-                HomeBody(c, onOpen, onPlay, ctx)
+                HomeBody(c, onOpen, onPlay, ctx, tmdb)
             }
         }
     }
@@ -78,13 +78,14 @@ private fun HomeBody(
     onOpen: (String) -> Unit,
     onPlay: (String) -> Unit,
     ctx: app.lumen.ui.components.CardContext,
+    tmdb: TmdbClient,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
         if (content.heroes.isNotEmpty()) {
-            item(key = "hero") { HeroCarousel(content.heroes, onOpen, onPlay) }
+            item(key = "hero") { HeroCarousel(content.heroes, onOpen, onPlay, tmdb = tmdb) }
         }
         // Pas d'apparition différée ici : les rangées doivent TOUJOURS être là
         // quand on scrolle — aucun trou, aucun arrêt de glisse.

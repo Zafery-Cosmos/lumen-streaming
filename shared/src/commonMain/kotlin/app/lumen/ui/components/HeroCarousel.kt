@@ -65,6 +65,7 @@ fun HeroCarousel(
     onPlay: (String) -> Unit,
     modifier: Modifier = Modifier,
     rounded: Boolean = false,
+    tmdb: app.lumen.api.TmdbClient? = null,
 ) {
     if (heroes.isEmpty()) return
     var index by remember { mutableStateOf(0) }
@@ -92,15 +93,43 @@ fun HeroCarousel(
             targetState = index,
             transitionSpec = { fadeIn(tween(700)).togetherWith(fadeOut(tween(700))) },
         ) { i ->
-            HeroSlide(heroes[i], onOpen, onPlay)
+            HeroSlide(heroes[i], onOpen, onPlay, tmdb)
         }
 
         }
     }
 }
 
+/**
+ * Logos déjà résolus, gardés pour la session.
+ *
+ * Le carrousel repasse en boucle sur les mêmes titres : sans ce cache, chaque
+ * tour relancerait une requête TMDB par slide. La valeur null est mémorisée
+ * elle aussi — un titre sans logo ne doit pas être redemandé indéfiniment.
+ */
+private val heroLogoCache = mutableMapOf<String, String?>()
+
 @Composable
-private fun HeroSlide(hero: HeroItem, onOpen: (String) -> Unit, onPlay: (String) -> Unit) {
+private fun HeroSlide(
+    hero: HeroItem,
+    onOpen: (String) -> Unit,
+    onPlay: (String) -> Unit,
+    tmdb: app.lumen.api.TmdbClient? = null,
+) {
+    // Le logo du serveur d'abord ; sinon celui de TMDB, cherché à l'affichage
+    // du slide seulement — chercher les 40 d'avance ralentirait l'ouverture de
+    // l'accueil pour des titres que l'utilisateur ne verra peut-être jamais.
+    var resolvedLogo by remember(hero.id) { mutableStateOf(hero.logoUrl ?: heroLogoCache[hero.id]) }
+    LaunchedEffect(hero.id) {
+        if (hero.logoUrl != null || tmdb == null) return@LaunchedEffect
+        if (heroLogoCache.containsKey(hero.id)) return@LaunchedEffect
+        val type = hero.tmdbType ?: return@LaunchedEffect
+        val id = hero.tmdbId ?: return@LaunchedEffect
+        val found = runCatching { tmdb.detail(type, id).logoUrl }.getOrNull()
+        heroLogoCache[hero.id] = found
+        resolvedLogo = found
+    }
+
     Box(Modifier.fillMaxSize()) {
         AsyncImage(
             model = hero.backdropUrl,
@@ -130,10 +159,11 @@ private fun HeroSlide(hero: HeroItem, onOpen: (String) -> Unit, onPlay: (String)
             modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = LocalSidePadding.current, vertical = 36.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            if (hero.logoUrl != null) {
+            val logo = resolvedLogo
+            if (logo != null) {
                 AsyncImage(
-                    model = hero.logoUrl,
-                    contentDescription = null,
+                    model = logo,
+                    contentDescription = hero.title,
                     modifier = Modifier.height(90.dp),
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart,

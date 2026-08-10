@@ -117,7 +117,7 @@ fun BrowseScreen(
                     contentPadding = PaddingValues(bottom = 24.dp),
                 ) {
                     if (c.heroes.isNotEmpty()) {
-                        item(key = "hero") { HeroCarousel(c.heroes, onOpen, onPlay) }
+                        item(key = "hero") { HeroCarousel(c.heroes, onOpen, onPlay, tmdb = tmdb) }
                     }
                     items(c.rails.size, key = { c.rails[it].id }) { index ->
                         val rail = c.rails[index]
