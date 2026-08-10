@@ -152,6 +152,8 @@ fun Shell(
     }
     val hlsRepo = remember(db) { app.lumen.domain.HlsLibraryRepository(db) }
     val bucketRepo = remember(db) { app.lumen.domain.BucketLibraryRepository(db) }
+    val plexRepo = remember(db) { app.lumen.domain.PlexLibraryRepository(db) }
+    val plexSourceRepo = remember(db) { app.lumen.domain.PlexSourceRepository(db) }
     val storageRepo = remember(db) { app.lumen.domain.StorageSourceRepository(db) }
     val targetRepo = remember(db) { app.lumen.domain.UploadTargetRepository(db) }
     val shellScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -203,6 +205,19 @@ fun Shell(
                     }
                 }
             }
+        } else if (id.startsWith("plex:")) {
+            // Lecture DIRECTE du fichier servi par Plex : pas de transcodage
+            // demandé, le lecteur de Lumen ouvre le flux comme n'importe quel
+            // autre. Le jeton voyage dans l'URL, seule voie acceptée par Plex.
+            plexRepo.list().firstOrNull { "plex:${it.id}" == id }?.let { entry ->
+                plexSourceRepo.list().firstOrNull { it.id == entry.sourceId }?.let { src ->
+                    val plex = app.lumen.api.PlexClient(client.http, app.lumen.domain.plexClientId())
+                    playing = app.lumen.domain.PlayRequest(
+                        url = plex.streamUrl(src.baseUrl, entry.partKey, src.token),
+                        title = entry.title,
+                    )
+                }
+            }
         } else {
             detailStack = detailStack + id
         }
@@ -217,7 +232,7 @@ fun Shell(
      */
     val playItem: (String) -> Unit = { id ->
         when {
-            id.startsWith("hls:") || id.startsWith("bucket:") -> openDetail(id)
+            id.startsWith("hls:") || id.startsWith("bucket:") || id.startsWith("plex:") -> openDetail(id)
             else -> playing = app.lumen.domain.PlayRequest(itemId = id.removePrefix("jf:"))
         }
     }
@@ -314,7 +329,7 @@ fun Shell(
                     },
                 )
                 state == ShellTab.Home.name -> HomeScreen(
-                    client, tmdb, session, profile, watchRepo, hlsRepo, bucketRepo, refreshKey,
+                    client, tmdb, session, profile, watchRepo, hlsRepo, bucketRepo, plexRepo, refreshKey,
                     onOpen = openDetail,
                     onPlay = playItem,
                 )

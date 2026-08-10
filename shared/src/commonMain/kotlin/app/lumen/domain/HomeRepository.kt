@@ -34,6 +34,7 @@ class HomeRepository(
     private val watchRepo: WatchStateRepository? = null,
     private val hlsRepo: HlsLibraryRepository? = null,
     private val bucketRepo: BucketLibraryRepository? = null,
+    private val plexRepo: PlexLibraryRepository? = null,
 ) {
 
     suspend fun load(profile: LocalProfile? = null): HomeContent = coroutineScope {
@@ -133,6 +134,14 @@ class HomeRepository(
         if (bucketEntries.isNotEmpty()) {
             railsByKey["bucket"] = listOf(
                 Rail("bucket", "Mon stockage perso", bucketEntries.map { it.toCard() }),
+            )
+        }
+        // Les titres indexés depuis Plex : une rangée de plus, au même titre
+        // que les buckets — la source est invisible à l'usage.
+        val plexEntries = plexRepo?.list().orEmpty()
+        if (plexEntries.isNotEmpty()) {
+            railsByKey["plex"] = listOf(
+                Rail("plex", app.lumen.i18n.T["plex.monPlex"], plexEntries.map { it.toCard() }),
             )
         }
         if (AppSettings.showRecent.value) {

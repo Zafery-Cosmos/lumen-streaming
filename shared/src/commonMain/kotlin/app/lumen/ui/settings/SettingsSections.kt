@@ -977,6 +977,16 @@ private fun ServerSection(
     SubHeader("FTP")
     FtpSourcesSection(ftpRepo, onPlay)
 
+    val plexSourceRepo = remember(db) { app.lumen.domain.PlexSourceRepository(db) }
+    val plexLibraryRepo = remember(db) { app.lumen.domain.PlexLibraryRepository(db) }
+    // L'identifiant client est propre à cette installation et STABLE : Plex
+    // s'en sert pour reconnaître l'appareil dans les autorisations du compte.
+    val plexClient = remember(client) {
+        app.lumen.api.PlexClient(client.http, clientId = app.lumen.domain.plexClientId())
+    }
+    SubHeader("Plex")
+    PlexSectionUi(plexSourceRepo, plexLibraryRepo, plexClient, onLibraryChanged)
+
     Spacer(Modifier.size(10.dp))
     Row(
         verticalAlignment = Alignment.CenterVertically,

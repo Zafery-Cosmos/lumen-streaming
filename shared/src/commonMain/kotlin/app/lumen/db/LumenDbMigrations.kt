@@ -38,6 +38,25 @@ fun ensureLumenTables(driver: SqlDriver) {
             remoteDir TEXT NOT NULL,
             importedAt INTEGER NOT NULL
         )""",
+        """CREATE TABLE IF NOT EXISTS plex_source (
+            id TEXT NOT NULL PRIMARY KEY,
+            label TEXT NOT NULL,
+            token TEXT NOT NULL,
+            serverName TEXT NOT NULL,
+            baseUrl TEXT NOT NULL,
+            sections TEXT NOT NULL,
+            importedAt INTEGER NOT NULL
+        )""",
+        """CREATE TABLE IF NOT EXISTS plex_entry (
+            id TEXT NOT NULL PRIMARY KEY,
+            sourceId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            year INTEGER,
+            partKey TEXT NOT NULL,
+            posterUrl TEXT,
+            overview TEXT,
+            indexedAt INTEGER NOT NULL
+        )""",
         """CREATE TABLE IF NOT EXISTS storage_source (
             id TEXT NOT NULL PRIMARY KEY,
             label TEXT NOT NULL,

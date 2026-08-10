@@ -95,6 +95,30 @@ CREATE TABLE ftp_source (
     importedAt INTEGER NOT NULL
 );
 
+-- Compte Plex : un jeton obtenu par le code affiche sur plex.tv/link, et le
+-- serveur retenu. Le jeton passe par le coffre comme tout identifiant.
+CREATE TABLE plex_source (
+    id TEXT NOT NULL PRIMARY KEY,
+    label TEXT NOT NULL,
+    token TEXT NOT NULL,
+    serverName TEXT NOT NULL,
+    baseUrl TEXT NOT NULL,
+    sections TEXT NOT NULL,      -- cles de bibliotheques retenues, separees par des virgules
+    importedAt INTEGER NOT NULL
+);
+
+-- Titres indexes depuis Plex : meme role que bucket_entry.
+CREATE TABLE plex_entry (
+    id TEXT NOT NULL PRIMARY KEY,
+    sourceId TEXT NOT NULL,
+    title TEXT NOT NULL,
+    year INTEGER,
+    partKey TEXT NOT NULL,       -- chemin du fichier chez Plex
+    posterUrl TEXT,
+    overview TEXT,
+    indexedAt INTEGER NOT NULL
+);
+
 CREATE TABLE watch_state (
     profileId TEXT NOT NULL,
     itemId TEXT NOT NULL,
@@ -204,6 +228,26 @@ SELECT * FROM ftp_source ORDER BY importedAt DESC;
 insertFtpSource:
 INSERT OR REPLACE INTO ftp_source(id, label, host, port, username, password, importedAt)
 VALUES (?, ?, ?, ?, ?, ?, ?);
+
+selectPlexSources:
+SELECT * FROM plex_source ORDER BY importedAt DESC;
+
+insertPlexSource:
+INSERT OR REPLACE INTO plex_source(id, label, token, serverName, baseUrl, sections, importedAt)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+deletePlexSource:
+DELETE FROM plex_source WHERE id = ?;
+
+selectPlexEntries:
+SELECT * FROM plex_entry ORDER BY title;
+
+insertPlexEntry:
+INSERT OR REPLACE INTO plex_entry(id, sourceId, title, year, partKey, posterUrl, overview, indexedAt)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deletePlexEntriesForSource:
+DELETE FROM plex_entry WHERE sourceId = ?;
 
 deleteFtpSource:
 DELETE FROM ftp_source WHERE id = ?;

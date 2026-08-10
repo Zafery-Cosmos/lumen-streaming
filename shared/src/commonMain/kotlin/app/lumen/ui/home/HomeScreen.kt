@@ -48,11 +48,12 @@ fun HomeScreen(
     watchRepo: app.lumen.domain.WatchStateRepository,
     hlsRepo: app.lumen.domain.HlsLibraryRepository,
     bucketRepo: app.lumen.domain.BucketLibraryRepository,
+    plexRepo: app.lumen.domain.PlexLibraryRepository,
     refreshKey: Int,
     onOpen: (String) -> Unit,
     onPlay: (String) -> Unit,
 ) {
-    val repo = remember { HomeRepository(client, tmdb, session, watchRepo, hlsRepo, bucketRepo) }
+    val repo = remember { HomeRepository(client, tmdb, session, watchRepo, hlsRepo, bucketRepo, plexRepo) }
     val content by produceState<HomeContent?>(initialValue = null, refreshKey, profile) {
         value = null
         value = repo.load(profile)
