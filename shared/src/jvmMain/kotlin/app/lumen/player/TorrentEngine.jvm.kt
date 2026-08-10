@@ -42,10 +42,18 @@ private fun cacheBytesIn(dir: File): Long = runCatching {
     dir.walkTopDown().filter { it.isFile && it.name !in NON_CACHE_FILES }.sumOf { it.length() }
 }.getOrDefault(0L)
 
+/**
+ * INCIDENT réel : quand le dossier par défaut était ~/.local/share/lumen tout
+ * court, purgeTorrentCache() a supprimé app/ (le lanceur ET le jar de l'app
+ * installée) parce que ce n'était pas dans NON_CACHE_FILES — le dossier était
+ * PARTAGÉ avec les propres fichiers de l'app. Un sous-dossier DÉDIÉ rend une
+ * suppression accidentelle de fichiers étrangers au moteur impossible, quelle
+ * que soit la liste blanche présente ou future.
+ */
 private fun engineDir(): File {
     val custom = app.lumen.domain.AppSettings.torrentCacheDir.value
     val dir = if (custom.isNotBlank()) File(custom) else {
-        File(System.getProperty("user.home"), ".local/share/lumen")
+        File(System.getProperty("user.home"), ".local/share/lumen/torrent-engine")
     }
     return dir.apply { mkdirs() }
 }
