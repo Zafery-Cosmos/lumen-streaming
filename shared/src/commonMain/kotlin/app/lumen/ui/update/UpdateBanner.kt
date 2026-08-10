@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumen.api.JellyfinClient
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import app.lumen.update.DownloadState
 import app.lumen.update.LUMEN_VERSION
@@ -147,13 +148,13 @@ fun UpdateBanner(client: JellyfinClient, compact: Boolean = false) {
                     Spacer(Modifier.width(12.dp))
                     Column {
                         Text(
-                            "Mise à jour disponible — Lumen ${current.version}",
+                            T.format("update.available", current.version),
                             color = LumenColors.OnBackground,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            "Version installée : $LUMEN_VERSION",
+                            T.format("update.installed", LUMEN_VERSION),
                             color = LumenColors.Muted,
                             fontSize = 12.sp,
                         )
@@ -186,7 +187,7 @@ fun UpdateBanner(client: JellyfinClient, compact: Boolean = false) {
                                             downloadedPath = path
                                             phase = Phase.Ready
                                         } else {
-                                            error = "Téléchargement échoué — réessaie plus tard"
+                                            error = T["update.downloadFailed"]
                                             phase = Phase.Offered
                                         }
                                     }
@@ -197,10 +198,10 @@ fun UpdateBanner(client: JellyfinClient, compact: Boolean = false) {
                                 Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
                                 // Le POIDS est annoncé AVANT de lancer.
-                                Text("Mettre à jour (${formatSize(artifact.size)})", fontWeight = FontWeight.SemiBold)
+                                Text(T.format("update.update", formatSize(artifact.size)), fontWeight = FontWeight.SemiBold)
                             }
                             Text(
-                                "Ignorer",
+                                T["update.ignore"],
                                 color = LumenColors.Muted,
                                 fontSize = 14.sp,
                                 modifier = Modifier
@@ -239,7 +240,7 @@ fun UpdateBanner(client: JellyfinClient, compact: Boolean = false) {
                                     p?.bytesPerSecond?.takeIf { it > 0 }?.let {
                                         append("${formatSize(it)}/s")
                                     }
-                                    p?.etaSeconds?.let { append(" · ${formatEta(it)} restantes") }
+                                    p?.etaSeconds?.let { append(" · " + T.format("update.remaining", formatEta(it))) }
                                 },
                                 color = LumenColors.Muted,
                                 fontSize = 12.sp,
@@ -255,17 +256,17 @@ fun UpdateBanner(client: JellyfinClient, compact: Boolean = false) {
                                     // Si tout va bien, applyUpdate FERME l'app :
                                     // on ne repasse ici qu'en cas d'échec.
                                     val ok = downloadedPath?.let { applyUpdate(it) } ?: false
-                                    if (!ok) error = "Installation échouée — retélécharge la mise à jour"
+                                    if (!ok) error = T["update.installFailed"]
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
                                 shape = RoundedCornerShape(8.dp),
                             ) {
                                 Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Installer et redémarrer", fontWeight = FontWeight.SemiBold)
+                                Text(T["update.installRestart"], fontWeight = FontWeight.SemiBold)
                             }
                             Text(
-                                "Plus tard",
+                                T["update.later"],
                                 color = LumenColors.Muted,
                                 fontSize = 14.sp,
                                 modifier = Modifier

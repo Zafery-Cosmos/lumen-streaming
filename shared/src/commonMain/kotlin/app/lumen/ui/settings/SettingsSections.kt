@@ -133,6 +133,15 @@ private fun DisplayHomeSection(client: JellyfinClient, session: StoredSession) {
 
 @Composable
 private fun DisplaySection() {
+    ChoiceRow(
+        title = app.lumen.i18n.T["lang.title"],
+        options = listOf(app.lumen.i18n.T["lang.auto"] to "auto") +
+            app.lumen.i18n.Lang.entries.map { it.label to it.code },
+        selected = AppSettings.language.value,
+        onSelect = { AppSettings.language.set(it) },
+    )
+    Text(app.lumen.i18n.T["lang.note"], color = LumenColors.Muted, fontSize = 12.sp)
+
     SwitchRow(
         title = "Noir pur (OLED)",
         description = "Fond entièrement noir — appliqué immédiatement.",

@@ -72,6 +72,7 @@ import app.lumen.domain.CardActions
 import app.lumen.domain.CardItem
 import app.lumen.platformDownload
 import app.lumen.ui.theme.LocalCompactLayout
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
@@ -170,7 +171,7 @@ fun MediaCard(
                         .background(LumenColors.Accent, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Filled.Check, contentDescription = "Vu", tint = Color.White, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Filled.Check, contentDescription = T["card.watched"], tint = Color.White, modifier = Modifier.size(14.dp))
                 }
             }
             val progress = card.progressPercent
@@ -196,7 +197,7 @@ fun MediaCard(
                         ) { if (card.inLibrary) ctx?.onPlay?.invoke(rawId) else onClick() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = "Lire", tint = Color.White, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Filled.PlayArrow, contentDescription = T["card.play"], tint = Color.White, modifier = Modifier.size(24.dp))
                 }
             }
             // Rangée d'actions : reste MONTÉE tant que le menu est ouvert —
@@ -209,7 +210,7 @@ fun MediaCard(
                     ) {
                         SmallAction(
                             Icons.Filled.Check,
-                            if (played) "Marquer non vu" else "Marquer vu",
+                            if (played) T["card.markUnwatched"] else T["card.markWatched"],
                             active = played,
                         ) {
                             played = !played
@@ -217,14 +218,14 @@ fun MediaCard(
                         }
                         SmallAction(
                             if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            "Favori",
+                            T["card.favorite"],
                             active = favorite,
                         ) {
                             favorite = !favorite
                             scope.launch { ctx.actions.setFavorite(card.id, favorite) }
                         }
                         Box {
-                            SmallAction(Icons.Filled.MoreVert, "Options") { menuOpen = true }
+                            SmallAction(Icons.Filled.MoreVert, T["card.options"]) { menuOpen = true }
                             CardMenu(
                                 ctx = ctx,
                                 card = card,
@@ -316,30 +317,30 @@ private fun CardMenu(
     ) {
         when (page) {
             "main" -> {
-                MenuItem(Icons.Filled.PlayArrow, "Lire") { onDismiss(); ctx.onPlay(rawId) }
-                MenuItem(Icons.Filled.PlaylistPlay, "Tout lire à partir d'ici") {
+                MenuItem(Icons.Filled.PlayArrow, T["card.play"]) { onDismiss(); ctx.onPlay(rawId) }
+                MenuItem(Icons.Filled.PlaylistPlay, T["card.playFromHere"]) {
                     // La file d'attente arrive au L12 — en attendant, lance l'item.
                     onDismiss(); ctx.onPlay(rawId)
                 }
-                MenuItem(Icons.Filled.Check, if (played) "Marquer non vu" else "Marquer vu") {
+                MenuItem(Icons.Filled.Check, if (played) T["card.markUnwatched"] else T["card.markWatched"]) {
                     onPlayedChange(!played); onDismiss()
                 }
                 MenuItem(
                     if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    if (favorite) "Retirer des favoris" else "Ajouter aux favoris",
+                    if (favorite) T["card.removeFavorite"] else T["card.addFavorite"],
                 ) { onFavoriteChange(!favorite); onDismiss() }
-                MenuItem(Icons.AutoMirrored.Filled.PlaylistAdd, "Ajouter à la liste de lecture") {
+                MenuItem(Icons.AutoMirrored.Filled.PlaylistAdd, T["card.addToPlaylist"]) {
                     page = "playlist"
                     scope.launch { playlists = ctx.actions.playlists() }
                 }
-                MenuItem(Icons.Filled.Download, "Télécharger") {
+                MenuItem(Icons.Filled.Download, T["card.download"]) {
                     val ok = platformDownload(
                         ctx.client.downloadUrl(ctx.session.baseUrl, rawId),
                         "${card.title.replace(Regex("""[\\/:*?"<>|]"""), "_")}.mkv",
                     )
-                    feedback = if (ok) "Téléchargement lancé" else "Indisponible sur cette plateforme"
+                    feedback = if (ok) T["card.downloadStarted"] else T["card.downloadUnavailable"]
                 }
-                MenuItem(Icons.Filled.ContentCopy, "Copier l'URL du flux") {
+                MenuItem(Icons.Filled.ContentCopy, T["card.copyStreamUrl"]) {
                     scope.launch {
                         val upstream = "${ctx.session.baseUrl.trimEnd('/')}/Videos/$rawId/stream" +
                             "?static=true&api_key=${ctx.client.accessToken}"
@@ -349,39 +350,39 @@ private fun CardMenu(
                             app.lumen.player.StreamProxy.register(upstream)
                         } else upstream
                         clipboard.setText(AnnotatedString(link))
-                        feedback = "URL copiée (locale, sans jeton)"
+                        feedback = T["card.urlCopied"]
                     }
                 }
-                MenuItem(Icons.Filled.Info, "Informations du média") { onDismiss(); onInfo() }
+                MenuItem(Icons.Filled.Info, T["card.mediaInfo"]) { onDismiss(); onInfo() }
                 feedback?.let {
                     Text(it, color = LumenColors.Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                 }
             }
             "playlist" -> {
-                MenuItem(Icons.Filled.WatchLater, "Regarder plus tard") {
+                MenuItem(Icons.Filled.WatchLater, T["card.watchLater"]) {
                     scope.launch {
                         val ok = ctx.actions.addToWatchLater(card.id)
-                        feedback = if (ok) "Ajouté à « Regarder plus tard »" else "Échec"
+                        feedback = if (ok) T["card.addedToWatchLater"] else T["card.failed"]
                         page = "main"
                     }
                 }
                 when (val list = playlists) {
-                    null -> Text("Chargement…", color = LumenColors.Muted, fontSize = 13.sp, modifier = Modifier.padding(16.dp))
+                    null -> Text(T["card.loading"], color = LumenColors.Muted, fontSize = 13.sp, modifier = Modifier.padding(16.dp))
                     else -> list.filterNot { it.name.equals(CardActions.WATCH_LATER, true) }.forEach { pl ->
                         MenuItem(Icons.Filled.PlaylistPlay, pl.name) {
                             scope.launch {
                                 val ok = ctx.actions.addToPlaylist(pl.id, card.id)
-                                feedback = if (ok) "Ajouté à « ${pl.name} »" else "Échec"
+                                feedback = if (ok) T.format("card.addedTo", pl.name) else T["card.failed"]
                                 page = "main"
                             }
                         }
                     }
                 }
-                MenuItem(Icons.AutoMirrored.Filled.PlaylistAdd, "Créer une playlist") { page = "create" }
+                MenuItem(Icons.AutoMirrored.Filled.PlaylistAdd, T["card.createPlaylist"]) { page = "create" }
             }
             "create" -> {
                 Text(
-                    "Nom de la playlist",
+                    T["card.playlistName"],
                     color = LumenColors.Muted,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -397,11 +398,11 @@ private fun CardMenu(
                         .background(LumenColors.SurfaceHigh, RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                 )
-                MenuItem(Icons.Filled.Check, "Créer et ajouter") {
+                MenuItem(Icons.Filled.Check, T["card.createAndAdd"]) {
                     if (newName.isNotBlank()) {
                         scope.launch {
                             val ok = ctx.actions.createPlaylist(newName.trim(), card.id)
-                            feedback = if (ok) "Playlist « ${newName.trim()} » créée" else "Échec"
+                            feedback = if (ok) T.format("card.playlistCreated", newName.trim()) else T["card.failed"]
                             page = "main"
                         }
                     }
@@ -432,7 +433,7 @@ private fun MediaInfoDialog(ctx: CardContext, rawId: String, onDismiss: () -> Un
         containerColor = LumenColors.Surface,
         confirmButton = {
             Text(
-                "Fermer",
+                T["card.close"],
                 color = LumenColors.Accent,
                 modifier = Modifier.clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -441,22 +442,22 @@ private fun MediaInfoDialog(ctx: CardContext, rawId: String, onDismiss: () -> Un
                 ).padding(8.dp),
             )
         },
-        title = { Text(item?.name ?: "Informations", color = LumenColors.OnBackground) },
+        title = { Text(item?.name ?: T["card.info"], color = LumenColors.OnBackground) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 when (val i = item) {
-                    null -> Text("Chargement…", color = LumenColors.Muted)
+                    null -> Text(T["card.loading"], color = LumenColors.Muted)
                     else -> {
-                        InfoLine("Type", i.type)
-                        i.productionYear?.let { InfoLine("Année", it.toString()) }
-                        i.runTimeMinutes?.let { InfoLine("Durée", "$it min") }
-                        i.officialRating?.let { InfoLine("Classification", it) }
-                        i.communityRating?.let { InfoLine("Note", "★ ${(it * 10).toInt() / 10.0}") }
-                        if (i.genres.isNotEmpty()) InfoLine("Genres", i.genres.joinToString(", "))
+                        InfoLine(T["info.type"], i.type)
+                        i.productionYear?.let { InfoLine(T["info.year"], it.toString()) }
+                        i.runTimeMinutes?.let { InfoLine(T["info.duration"], T.format("info.minutes", it)) }
+                        i.officialRating?.let { InfoLine(T["info.rating"], it) }
+                        i.communityRating?.let { InfoLine(T["info.score"], "★ ${(it * 10).toInt() / 10.0}") }
+                        if (i.genres.isNotEmpty()) InfoLine(T["info.genres"], i.genres.joinToString(", "))
                         i.providerIds["Imdb"]?.let { InfoLine("IMDb", it) }
                         i.providerIds["Tmdb"]?.let { InfoLine("TMDB", it) }
-                        i.path?.let { InfoLine("Fichier", it.substringAfterLast('/')) }
-                        InfoLine("Identifiant", i.id)
+                        i.path?.let { InfoLine(T["info.file"], it.substringAfterLast('/')) }
+                        InfoLine(T["info.id"], i.id)
                     }
                 }
             }

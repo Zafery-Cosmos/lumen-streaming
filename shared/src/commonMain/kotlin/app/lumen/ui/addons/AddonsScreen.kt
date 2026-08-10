@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumen.api.JellyfinClient
 import app.lumen.ui.theme.LocalSidePadding
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import kotlinx.coroutines.launch
 
@@ -64,16 +65,14 @@ fun AddonsScreen(client: JellyfinClient) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            "Addons",
+            T["addons.title"],
             color = LumenColors.OnBackground,
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 10.dp).fillMaxWidth(),
         )
         Text(
-            "Colle l'URL du manifeste d'un addon Stremio (Torrentio, Frenchio…) — " +
-                "les liens « stremio:// » des pages d'installation fonctionnent aussi. " +
-                "Ses sources apparaîtront sur les fiches via le bouton « Sources ».",
+            T["addons.intro"],
             color = LumenColors.Muted, fontSize = 13.sp,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -85,7 +84,7 @@ fun AddonsScreen(client: JellyfinClient) {
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it; error = null },
-                label = { Text("URL du manifeste", color = LumenColors.Muted) },
+                label = { Text(T["addons.manifestUrl"], color = LumenColors.Muted) },
                 singleLine = true,
                 colors = app.lumen.ui.settings.fieldColors(),
                 modifier = Modifier.weight(1f),
@@ -100,7 +99,7 @@ fun AddonsScreen(client: JellyfinClient) {
                             addons = store.list()
                             url = ""
                         } else {
-                            error = "Manifeste invalide ou injoignable"
+                            error = T["addons.invalid"]
                         }
                     }
                 },
@@ -108,7 +107,7 @@ fun AddonsScreen(client: JellyfinClient) {
                 colors = ButtonDefaults.buttonColors(containerColor = LumenColors.Accent),
                 shape = RoundedCornerShape(8.dp),
             ) {
-                Text(if (busy) "Vérification…" else "Installer", fontWeight = FontWeight.SemiBold)
+                Text(if (busy) T["addons.checking"] else T["addons.install"], fontWeight = FontWeight.SemiBold)
             }
         }
         error?.let { Text(it, color = LumenColors.Accent, fontSize = 13.sp) }
@@ -130,7 +129,7 @@ fun AddonsScreen(client: JellyfinClient) {
                 // Ouvre la page /configure de l'addon dans le navigateur.
                 Icon(
                     Icons.AutoMirrored.Filled.OpenInNew,
-                    contentDescription = "Configurer dans le navigateur",
+                    contentDescription = T["addons.configure"],
                     tint = LumenColors.Muted,
                     modifier = Modifier.size(18.dp).clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -150,7 +149,7 @@ fun AddonsScreen(client: JellyfinClient) {
                 Spacer(Modifier.width(10.dp))
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = "Supprimer",
+                    contentDescription = T["addons.remove"],
                     tint = LumenColors.Muted,
                     modifier = Modifier.size(18.dp).clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -160,7 +159,7 @@ fun AddonsScreen(client: JellyfinClient) {
             }
         }
         if (addons.isEmpty()) {
-            Text("Aucun addon installé pour l'instant.", color = LumenColors.Muted, fontSize = 13.sp)
+            Text(T["addons.empty"], color = LumenColors.Muted, fontSize = 13.sp)
         }
     }
 }

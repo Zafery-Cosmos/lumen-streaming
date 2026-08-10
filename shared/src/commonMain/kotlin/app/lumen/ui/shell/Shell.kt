@@ -74,17 +74,22 @@ import app.lumen.ui.detail.DetailScreen
 import app.lumen.ui.home.HomeScreen
 import app.lumen.ui.search.SearchScreen
 import app.lumen.ui.settings.SettingsScreen
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 import org.jetbrains.compose.resources.painterResource
 
 /** Les onglets de la barre du haut. */
-enum class ShellTab(val label: String) {
-    Home("Accueil"),
-    Movies("Films"),
-    Series("Séries"),
-    Discover("Découvrir"),
-    Addons("Addons"),
-    Settings("Paramètres"),
+enum class ShellTab(private val key: String) {
+    Home("nav.home"),
+    Movies("nav.movies"),
+    Series("nav.series"),
+    Discover("nav.discover"),
+    Addons("nav.addons"),
+    Settings("nav.settings"),
+    ;
+
+    /** Traduit à la lecture : changer de langue renomme les onglets en direct. */
+    val label: String get() = app.lumen.i18n.T[key]
 }
 
 /**
@@ -314,11 +319,11 @@ fun Shell(
                     onPlay = playItem,
                 )
                 state == ShellTab.Movies.name -> BrowseScreen(
-                    client, tmdb, session, profile, includeTypes = "Movie", title = "Films",
+                    client, tmdb, session, profile, includeTypes = "Movie", title = T["nav.movies"],
                     onOpen = openDetail, onPlay = playItem,
                 )
                 state == ShellTab.Series.name -> BrowseScreen(
-                    client, tmdb, session, profile, includeTypes = "Series", title = "Séries",
+                    client, tmdb, session, profile, includeTypes = "Series", title = T["nav.series"],
                     onOpen = openDetail, onPlay = playItem,
                 )
                 state == ShellTab.Discover.name -> app.lumen.ui.discover.DiscoverScreen(
@@ -499,7 +504,7 @@ private fun TopBar(
         )
         Icon(
             Icons.Filled.Sync,
-            contentDescription = "Synchroniser",
+            contentDescription = T["nav.sync"],
             tint = LumenColors.Muted,
             modifier = Modifier.size(22.dp)
                 .graphicsLayer { rotationZ = syncTurns }
@@ -580,7 +585,7 @@ private fun CompactTopBar(
         )
         Icon(
             Icons.Filled.Sync,
-            contentDescription = "Synchroniser",
+            contentDescription = T["nav.sync"],
             tint = LumenColors.Muted,
             modifier = Modifier.size(22.dp)
                 .graphicsLayer { rotationZ = syncTurns }
@@ -636,7 +641,7 @@ private fun ProfileMenuButton(
             )
             Icon(
                 Icons.Filled.ArrowDropDown,
-                contentDescription = "Menu du profil",
+                contentDescription = T["profile.menu"],
                 tint = if (selected) LumenColors.OnBackground else LumenColors.Muted,
                 modifier = Modifier.size(20.dp),
             )
@@ -646,11 +651,11 @@ private fun ProfileMenuButton(
             onDismissRequest = { open = false },
             modifier = Modifier.background(LumenColors.Surface),
         ) {
-            ProfileMenuItem(Icons.Filled.Person, "Profil") { open = false; onProfile() }
-            ProfileMenuItem(Icons.Filled.Settings, "Paramètres") { open = false; onSettings() }
-            ProfileMenuItem(Icons.Filled.SwapHoriz, "Changer de profil") { open = false; onSwitchProfile() }
+            ProfileMenuItem(Icons.Filled.Person, T["profile.profile"]) { open = false; onProfile() }
+            ProfileMenuItem(Icons.Filled.Settings, T["nav.settings"]) { open = false; onSettings() }
+            ProfileMenuItem(Icons.Filled.SwapHoriz, T["profile.switch"]) { open = false; onSwitchProfile() }
             androidx.compose.material3.HorizontalDivider(color = LumenColors.SurfaceHigh)
-            ProfileMenuItem(Icons.AutoMirrored.Filled.Logout, "Déconnecter", tint = LumenColors.Accent) {
+            ProfileMenuItem(Icons.AutoMirrored.Filled.Logout, T["profile.logout"], tint = LumenColors.Accent) {
                 open = false; onLogout()
             }
         }
@@ -695,12 +700,13 @@ private fun CompactBottomBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         listOf(
-            Triple(ShellTab.Home, Icons.Filled.Home, "Accueil"),
-            Triple(ShellTab.Movies, Icons.Filled.Movie, "Films"),
-            Triple(ShellTab.Series, Icons.Filled.Subscriptions, "Séries"),
-            Triple(ShellTab.Discover, Icons.Filled.Explore, "Découvrir"),
-            Triple(ShellTab.Addons, Icons.Filled.Extension, "Addons"),
-        ).forEach { (t, icon, label) ->
+            ShellTab.Home to Icons.Filled.Home,
+            ShellTab.Movies to Icons.Filled.Movie,
+            ShellTab.Series to Icons.Filled.Subscriptions,
+            ShellTab.Discover to Icons.Filled.Explore,
+            ShellTab.Addons to Icons.Filled.Extension,
+        ).forEach { (t, icon) ->
+            val label = t.label
             val selected = t == current
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -751,7 +757,7 @@ private fun SearchField(
     ) {
         Icon(
             Icons.Filled.Search,
-            contentDescription = "Rechercher",
+            contentDescription = T["nav.search"],
             tint = LumenColors.Muted,
             modifier = Modifier.size(20.dp).clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -769,7 +775,7 @@ private fun SearchField(
                 decorationBox = { inner ->
                     Box {
                         if (query.isEmpty()) {
-                            Text("Titres, films, séries…", color = LumenColors.Muted, fontSize = 14.sp)
+                            Text(T["nav.searchPlaceholder"], color = LumenColors.Muted, fontSize = 14.sp)
                         }
                         inner()
                     }
@@ -778,7 +784,7 @@ private fun SearchField(
             )
             Icon(
                 Icons.Filled.Close,
-                contentDescription = "Fermer la recherche",
+                contentDescription = T["nav.searchClose"],
                 tint = LumenColors.Muted,
                 modifier = Modifier.size(18.dp).clickable(
                     interactionSource = remember { MutableInteractionSource() },

@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumen.auth.StoredSession
 import app.lumen.ui.theme.LocalSidePadding
+import app.lumen.i18n.T
 import app.lumen.ui.theme.LumenColors
 
 /** Un groupe de paramètres, ouvert en sous-écran. */
@@ -55,13 +56,13 @@ fun SettingsScreen(
     onSwitchProfile: () -> Unit,
 ) {
     val groups = listOf(
-        SettingsGroup("display", Icons.Filled.Palette, "Affichage et accueil", "Thème, noir OLED, rangées affichées"),
-        SettingsGroup("playback", Icons.Filled.PlayCircle, "Lecture, qualité et audio", "Reprise, débit, langues, sous-titres"),
-        SettingsGroup("streaming", Icons.Filled.Storage, "Streaming et cache", "Moteur torrent, taille et purge"),
-        SettingsGroup("simkl", Icons.Filled.Sync, "Simkl", "Historique unifié, addons compris"),
-        SettingsGroup("advanced", Icons.Filled.Tune, "Avancé", "Import de dossiers HLS, segmentation"),
-        SettingsGroup("quickconnect", Icons.Filled.Key, "Connexion rapide", "Autoriser un autre appareil"),
-        SettingsGroup("server", Icons.Filled.Dns, "Service", session.serverName.ifEmpty { session.baseUrl }),
+        SettingsGroup("display", Icons.Filled.Palette, T["settings.display"], T["settings.displaySub"]),
+        SettingsGroup("playback", Icons.Filled.PlayCircle, T["settings.playback"], T["settings.playbackSub"]),
+        SettingsGroup("streaming", Icons.Filled.Storage, T["settings.streaming"], T["settings.streamingSub"]),
+        SettingsGroup("simkl", Icons.Filled.Sync, T["settings.simkl"], T["settings.simklSub"]),
+        SettingsGroup("advanced", Icons.Filled.Tune, T["settings.advanced"], T["settings.advancedSub"]),
+        SettingsGroup("quickconnect", Icons.Filled.Key, T["settings.quickconnect"], T["settings.quickconnectSub"]),
+        SettingsGroup("server", Icons.Filled.Dns, T["settings.service"], session.serverName.ifEmpty { session.baseUrl }),
     )
 
     Column(
@@ -73,7 +74,7 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            "Paramètres",
+            T["settings.title"],
             color = LumenColors.OnBackground,
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
@@ -122,7 +123,7 @@ fun SettingsScreen(
                     ),
             ) {
                 Icon(Icons.Filled.SwapHoriz, contentDescription = null, tint = LumenColors.Accent, modifier = Modifier.size(20.dp))
-                Text("Changer de profil", color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(T["profile.switch"], color = LumenColors.Accent, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

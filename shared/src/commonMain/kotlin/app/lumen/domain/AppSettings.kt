@@ -47,6 +47,14 @@ object AppSettings {
         }
     }
 
+    // --- Langue ------------------------------------------------------------
+    /**
+     * Langue de l'interface : « fr », « en », ou « auto » (langue du système).
+     * Lue par [app.lumen.i18n.T] dans des getters, donc changer ce réglage
+     * retraduit l'app en direct, sans redémarrage.
+     */
+    val language = StringPref("app.language", "auto")
+
     // --- Affichage ---------------------------------------------------------
     /** Noir pur OLED au lieu du noir bleuté — appliqué par LumenTheme. */
     val oledBlack = BoolPref("display.oled", false)
